@@ -1,3 +1,4 @@
+message('Starting process')
 library(googledrive)
 library(gsheet)
 library(dplyr)
@@ -13,7 +14,7 @@ first_time <- FALSE
 overwrite_form_definition <- FALSE
 
 # Configure ruODK and file paths
-credentials_file <- '../credentials/credentials.yaml'
+credentials_file <- '../../credentials/credentials.yaml'
 creds <- yaml::yaml.load_file(credentials_file)
 ruODK::ru_setup(
   svc = 'https://databrew.org/v1/projects/17/forms/testing.svc',
@@ -23,6 +24,9 @@ ruODK::ru_setup(
 fid <- ruODK::get_default_fid()
 csv_fname <- '/tmp/people_data.csv'
 csv_households_fname <- '/tmp/households_data.csv'
+td <- '/tmp/'
+fid <- 'testing'
+sheet_url <- 'https://docs.google.com/spreadsheets/d/1bHZMWc3SgrdfTRPlY6oKR__f9ZWhbuhVP0hbzdnFgPw/edit#gid=0'
 
 # Check to see if the form exists or not
 # fl <- ruODK::form_list()
@@ -112,60 +116,67 @@ if(first_time){
   # Get the outs
   outs <- 
     repeat_members_gone %>%
-    dplyr::select(person = member_gone, submission_date, household_id) %>%
-    mutate(remove = TRUE) %>%
-    dplyr::distinct(household_id, person, .keep_all = TRUE)
+    dplyr::select(person = member_gone, submission_date, household_id) 
   # Get the ins
   ins <- repeat_new_people %>%
     mutate(person = paste0(first_name, '.', last_name)) %>%
     dplyr::select(person, submission_date, household_id) %>%
     # keep most recent observation only
-    arrange(desc(submission_date)) %>%
-    dplyr::distinct(household_id, person, .keep_all = TRUE)
-  # Combine the ins and the outs, keeping
-  # only the most recent observation for each household_id, person
+    arrange(desc(submission_date)) 
+  # Combine the ins and the outs
   io <- outs %>%
     mutate(type = 'out') %>%
     bind_rows(
       ins %>%
         mutate(type = 'in')
     ) %>%
-    arrange(desc(submission_date)) %>%
-    dplyr::distinct(household_id, person, .keep_all = TRUE)
-  # Apply the outs first
-  people <- people %>%
-    left_join(outs) %>%
-    mutate(remove = ifelse(is.na(remove), FALSE, remove)) %>%
-    filter(!remove) %>% dplyr::select(-remove)
-  # reformat ins to format of people and then apply
-  ins <- ins %>%
-    dplyr::mutate(id = sample(999:9999, nrow(ins))) %>%
-    mutate(first_name = unlist(lapply(strsplit(person, split = '.', fixed = TRUE), function(x){x[1]})),
-           last_name = unlist(lapply(strsplit(person, split = '.', fixed = TRUE), function(x){x[2]}))) %>%
-    mutate(name = person) %>%
-    dplyr::select(id, household_id,
-                  first_name, last_name,
-                  name)
+    arrange(submission_date) %>%
+    mutate(person = gsub(' ', '.', person, fixed = TRUE))
+  # Now apply the ins and outs
+  for(i in 1:nrow(io)){
+    this_event <- io[i,]
+    type <- this_event$type
+    if(type == 'out'){
+      # for outs, remove
+      message('---Removing ', this_event$person, ' from ', this_event$household_id)
+      people <- people %>%
+        filter(!(name == this_event$person & household_id == this_event$household_id))
+    } else {
+      # for ins, add 
+      message('---Adding ', this_event$person, ' to ', this_event$household_id)
+      
+      this_in <- this_event %>%
+      dplyr::mutate(id = sample(999:9999, 1)) %>%
+        mutate(first_name = unlist(lapply(strsplit(person, split = '.', fixed = TRUE), function(x){x[1]})),
+               last_name = unlist(lapply(strsplit(person, split = '.', fixed = TRUE), function(x){x[2]}))) %>%
+        mutate(name = person) %>%
+        dplyr::select(id, household_id,
+                      first_name, last_name,
+                      name)
+      people <- bind_rows(people, this_in)
+    }
+  }
+  # Reorder
   people <- people %>% 
-    bind_rows(ins) %>%
-    arrange(household_id, id)
-  # Update the households file
+    arrange(household_id, id) %>%
+    dplyr::distinct(household_id, id, .keep_all = TRUE)
+  # Update the households file (making sure not to lose empty ones)
+  left <- tibble(household_id = sort(unique(households$household_id)))
   households <- people %>%
     group_by(household_id) %>%
     summarise(n_members = n())
+  households <- left_join(left,
+                          households) %>%
+    mutate(n_members = ifelse(is.na(n_members), 0, n_members))
   # Overwrite the metadata files
   write_csv(households, csv_households_fname)  
   write_csv(people, csv_fname)
+  message('Finished updating metadata')
 }
 
 
-
 if(overwrite_form_definition){
-  # Define some parameters
-  td <- '/tmp/'
-  fid <- 'testing'
-  sheet_url <- 'https://docs.google.com/spreadsheets/d/1bHZMWc3SgrdfTRPlY6oKR__f9ZWhbuhVP0hbzdnFgPw/edit#gid=0'
-  
+  message('Overwriting form definition')
   # Retrieve the most recent form definition
   sheet_id <- as_id(sheet_url)
   xlsx_name <- paste0(fid, '.xlsx')
@@ -188,6 +199,7 @@ if(overwrite_form_definition){
 
 # Create a draft form
 # (the below fails if not already created on the server)
+message('Making new draft')
 res <- httr::RETRY("POST",
                    paste0(ruODK::get_default_url(),
                           "/v1/projects/",
@@ -201,10 +213,9 @@ res <- httr::RETRY("POST",
                      ruODK::get_default_pw())) %>%
   httr::content(.)
 
-# If first time, give user permission
-
 # Upload metadata
 # people_data.csv
+message('Uploading people_data.csv')
 res <- httr::RETRY("POST",
                    paste0(ruODK::get_default_url(), 
                           "/v1/projects/", 
@@ -216,6 +227,7 @@ res <- httr::RETRY("POST",
                      ruODK::get_default_pw()))
 
 # households_data.csv
+message('Uploading households_data.csv')
 res <- httr::RETRY("POST",
                    paste0(ruODK::get_default_url(), 
                           "/v1/projects/", 
@@ -230,6 +242,7 @@ res <- httr::RETRY("POST",
 # current_version <- 1
 # new_version <- as.character(current_version + 0.000001)
 new_version <- round(as.numeric(Sys.time()))
+message('Publishing new version with updated data as version ', new_version)
 res <- httr::RETRY("POST",
                    paste0(ruODK::get_default_url(), "/v1/projects/", 
                           ruODK::get_default_pid(), 
@@ -239,3 +252,6 @@ res <- httr::RETRY("POST",
                    httr::authenticate(ruODK::get_default_un(), 
                                       ruODK::get_default_pw())) %>% 
   httr::content(.)
+
+# If the first time, need to go to Projects > Form Access and give the user permission to test
+message('Finished process.')
