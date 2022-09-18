@@ -9,10 +9,10 @@ This sub-directory contains code and documentation for testing the feasibility o
 ## Pre-requisites
 
 - Deploy an ODK Central server
-- Modify, if applicable, this [google sheet form definition](https://docs.google.com/spreadsheets/d/1bHZMWc3SgrdfTRPlY6oKR__f9ZWhbuhVP0hbzdnFgPw/edit#gid=954023890)
-- Run the first few lines of `01_update.R` so as to create a `.xml` version of the `testing` form from the google sheet
-- Manually deploy the `.xml` to your ODK Central server (this step might be automated in the future, but for now, a manual first deploy is required)
-- In the ODK Central web application, under `projects` / <your project> / `testing` / `Form Access` ensure that the appropriate user has access to the form
+- Modify, if applicable, this [household google sheet form definition](https://docs.google.com/spreadsheets/d/1bHZMWc3SgrdfTRPlY6oKR__f9ZWhbuhVP0hbzdnFgPw/edit#gid=954023890) or [individual google sheet form definition](https://docs.google.com/spreadsheets/d/1zIp_gmJL0NnjCZ45CRN_cVHOWt2UokjqtiTPuFEv3Lo/edit#gid=0)
+- Run the first few lines of `01_update.R` so as to create a `.xml` version of the `household` and `individual` forms from their respective google sheets
+- Manually deploy the `.xml`s to your ODK Central server (this step might be automated in the future, but for now, a manual first deploy is required)
+- In the ODK Central web application, under `projects` / <your project> / `household` / `Form Access` ensure that the appropriate user has access to the form. Do the same for the `individual` form.
 
 ## Instructions
 
