@@ -17,7 +17,7 @@ overwrite_form_definition <- FALSE
 credentials_file <- '../../credentials/credentials.yaml'
 creds <- yaml::yaml.load_file(credentials_file)
 ruODK::ru_setup(
-  svc = 'https://databrew.org/v1/projects/17/forms/testing.svc',
+  svc = 'https://databrew.org/v1/projects/17/forms/household.svc',
   un = creds$un,
   pw = creds$pw
 )
@@ -25,7 +25,7 @@ fid <- ruODK::get_default_fid()
 csv_fname <- '/tmp/people_data.csv'
 csv_households_fname <- '/tmp/households_data.csv'
 td <- '/tmp/'
-fid <- 'testing'
+fid <- 'household'
 sheet_url <- 'https://docs.google.com/spreadsheets/d/1bHZMWc3SgrdfTRPlY6oKR__f9ZWhbuhVP0hbzdnFgPw/edit#gid=0'
 
 # Check to see if the form exists or not
@@ -252,6 +252,98 @@ res <- httr::RETRY("POST",
                    httr::authenticate(ruODK::get_default_un(), 
                                       ruODK::get_default_pw())) %>% 
   httr::content(.)
+
+
+# Now update the individual form
+creds <- yaml::yaml.load_file(credentials_file)
+# Change the ODK set up
+ruODK::ru_setup(
+  svc = 'https://databrew.org/v1/projects/17/forms/individual.svc',
+  un = creds$un,
+  pw = creds$pw
+)
+fid <- ruODK::get_default_fid()
+fid <- 'individual'
+sheet_url <- 'https://docs.google.com/spreadsheets/d/1zIp_gmJL0NnjCZ45CRN_cVHOWt2UokjqtiTPuFEv3Lo/edit?usp=sharing'
+
+if(overwrite_form_definition){
+  message('Overwriting form definition')
+  # Retrieve the most recent form definition
+  sheet_id <- as_id(sheet_url)
+  xlsx_name <- paste0(fid, '.xlsx')
+  xml_name <- paste0(fid, '.xml')
+  temp_path <- file.path(td, xlsx_name)
+  # Download
+  drive_download(file = sheet_id, 
+                 path = temp_path,
+                 type = "xlsx", overwrite = TRUE)
+  # Convert to xml
+  owd <- getwd()
+  setwd(td)
+  system(paste0('xls2xform ', xlsx_name, ' ', xml_name))
+  Sys.sleep(1)
+  setwd(owd)
+  the_body <- httr::upload_file(paste0(td, xml_name))
+} else {
+  the_body <- NULL
+}
+
+# Create a draft form
+# (the below fails if not already created on the server)
+message('Making new draft')
+res <- httr::RETRY("POST",
+                   paste0(ruODK::get_default_url(),
+                          "/v1/projects/",
+                          ruODK::get_default_pid(),
+                          "/forms/",
+                          fid,
+                          "/draft"),
+                   body = the_body,
+                   httr::authenticate(
+                     ruODK::get_default_un(),
+                     ruODK::get_default_pw())) %>%
+  httr::content(.)
+
+# Upload metadata
+# people_data.csv
+message('Uploading people_data.csv')
+res <- httr::RETRY("POST",
+                   paste0(ruODK::get_default_url(), 
+                          "/v1/projects/", 
+                          ruODK::get_default_pid(), "/forms/", 
+                          fid, "/draft/attachments/people_data.csv"),
+                   body = httr::upload_file(csv_fname),
+                   httr::authenticate(
+                     ruODK::get_default_un(), 
+                     ruODK::get_default_pw()))
+
+# households_data.csv
+message('Uploading households_data.csv')
+res <- httr::RETRY("POST",
+                   paste0(ruODK::get_default_url(), 
+                          "/v1/projects/", 
+                          ruODK::get_default_pid(), "/forms/", 
+                          fid, "/draft/attachments/households_data.csv"),
+                   body = httr::upload_file(csv_households_fname),
+                   httr::authenticate(
+                     ruODK::get_default_un(), 
+                     ruODK::get_default_pw()))
+
+#Publish a draft form
+# current_version <- 1
+# new_version <- as.character(current_version + 0.000001)
+new_version <- round(as.numeric(Sys.time()))
+message('Publishing new version with updated data as version ', new_version)
+res <- httr::RETRY("POST",
+                   paste0(ruODK::get_default_url(), "/v1/projects/", 
+                          ruODK::get_default_pid(), 
+                          "/forms/", 
+                          fid, 
+                          "/draft/publish?version=",new_version),
+                   httr::authenticate(ruODK::get_default_un(), 
+                                      ruODK::get_default_pw())) %>% 
+  httr::content(.)
+
 
 # If the first time, need to go to Projects > Form Access and give the user permission to test
 message('Finished process.')
