@@ -20,4 +20,4 @@ This sub-directory contains code and documentation for testing the feasibility o
 - Automate the run of the `01_update.R` script via either (a) a loop which `source`s the script or (b) a cronjob. 
 - Fill out the form.
 - Wait a couple of minutes.
-- Check out the form again; the demographic metadata should have been modified.
+- Check out the form again; the demographic metadata should have been modified in both the `household` and `individual` forms.
