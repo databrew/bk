@@ -8,6 +8,10 @@ library(readr)
 # Read in the index of Bohemia Kenya forms
 index <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/10fsAAnARFzLqn5OVHgVhxIfPkmplrgir7n7BOGLyhfI/edit#gid=456395473')
 
+# # Remove those which are deprecated
+# index <- index %>%
+#   filter(status != 'deprecated')
+
 # For each sheet, donwload, convert to xml, and dump into the "forms" directory"
 td <- paste0('/tmp/sheets')
 if(dir.exists(td)){
