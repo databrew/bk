@@ -5,11 +5,13 @@ The Bohemia project uses "ODK" (Open Data Kit), a suite of open-source software 
 
 ## Installation instructions
 
-To carry out the below installation instructions, you'll need an android device and an internet connection.
-
-- Open the Google Play store
-- Search for "ODK Collect"
+- Get an android device and an internet connection.
+- Scan the below QR code
+![](img/collectqr.png)
+- Alternatively, click [here](https://play.google.com/store/apps/details?id=org.odk.collect.android) or open the Google Play store and search for "ODK Collect"
 - Install "ODK Collect"
+
+Alternativel
 
 ## Configuration
 
