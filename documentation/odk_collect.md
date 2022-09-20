@@ -23,5 +23,14 @@ As an example, the below is a QR code for testing the "recon" forms (_NOT TO BE 
 
 ![](img/recontesting.png)
 
+- After scanning the QR code, you are ready to begin collecting data
+
+## Data collection
+
+- On the main menu, click "Fill Blank Form"
+- Select the form you'd like to complete
+- Complete the form
+- The form will be submitted as soon as you have an internet connection
+
 
 For more details (complete, official documentation), see [here](https://docs.getodk.org/collect-install/)
