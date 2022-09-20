@@ -20,14 +20,8 @@ Now you need to associate your device with the project's server. In order to do 
 - Open "ODK Collect"
 - Click "Configure with QR code"
 - Scan the QR code provided to you by the project
-
-As an example, the below is a QR code for testing the "recon" forms (_NOT TO BE USED FOR REAL DATA COLLECTION_).
-
-<img src="img/recontesting.png" alt="Recon testing QR code" width="100"/>
-
-
-
 - After scanning the QR code, you are ready to begin collecting data
+- As an example, click [here](img/recontesting.png) for a QR code which will allow you to test the "recon" forms.
 
 ## Data collection
 
