@@ -7,7 +7,8 @@ The Bohemia project uses "ODK" (Open Data Kit), a suite of open-source software 
 
 - Get an android device and an internet connection.
 - Scan the below QR code
-![](img/collectqr.png)
+<img src="img/collectqr.png" alt="ODK Collect QR code" width="200"/>
+
 - Alternatively, click [here](https://play.google.com/store/apps/details?id=org.odk.collect.android) or open the Google Play store and search for "ODK Collect"
 - Install "ODK Collect"
 
@@ -23,7 +24,9 @@ Now you need to associate your device with the project's server. In order to do 
 
 As an example, the below is a QR code for testing the "recon" forms (_NOT TO BE USED FOR REAL DATA COLLECTION_).
 
-![](img/recontesting.png)
+<img src="img/recontesting.png" alt="Recon testing QR code" width="200"/>
+
+
 
 - After scanning the QR code, you are ready to begin collecting data
 
