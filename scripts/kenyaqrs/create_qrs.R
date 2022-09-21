@@ -41,7 +41,7 @@ library(cowplot)
  
 # Generate pdf
 
-dir.create('pdfs')
+dir.create('pdfs_with_back')
 for(i in 1:length(numbers)){
   message(i, ' of ', length(numbers))
 # for(i in 1:2){
@@ -83,7 +83,7 @@ for(i in 1:length(numbers)){
 # setwd('..')
 
 # Combine to 12 per page
-setwd('pdfs')
+setwd('pdfs_with_back')
 dir.create('to_print')
 n <- length(numbers)
 ends <- (1:n)[1:n %% 12 == 0]
@@ -103,8 +103,18 @@ for(i in 1:length(starts)){
                            out_file)
   system(command_string)
 }
+# Put all in one doc
 setwd('to_print')
+# Copy the back many times
+files <- dir()
+for(i in 1:length(files)){
+  this_file <- files[i]
+  file.copy('../../back.pdf',
+            to = paste0(gsub('.pdf', 'b.pdf', this_file)))
+}
+
 system('pdftk *.pdf cat output all.pdf')
+# Put all 
 setwd('..')
 setwd('..')
 # 
