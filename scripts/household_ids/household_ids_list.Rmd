@@ -1,0 +1,63 @@
+---
+output: 
+  pdf_document:
+    latex_engine: xelatex
+header-includes:
+- \usepackage{booktabs}
+- \usepackage{longtable}
+- \usepackage{array}
+- \usepackage{multirow}
+- \usepackage{wrapfig}
+- \usepackage{float}
+- \usepackage{colortbl}
+- \usepackage{pdflscape}
+- \usepackage{tabu}
+- \usepackage{threeparttable}
+- \usepackage[normalem]{ulem}
+- \pagenumbering{gobble}
+params:
+  data: data.frame(id = 1:200)
+geometry: margin=1.5cm
+---
+
+
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = NA, 
+               echo = FALSE, 
+               warning = FALSE, 
+               message = FALSE, 
+               error = TRUE, 
+               cache = FALSE,
+  fig.path = "figures/",
+  out.width = "100%"
+)
+options(knitr.kable.NA = '')
+```
+
+```{r}
+library(dplyr)
+library(knitr)
+library(kableExtra)
+df <- params$data
+first_one <- df$id[1]
+last_one <- df$id[nrow(df)]
+pd <- data.frame(a = df$id[1:50],
+                 b = df$id[51:100],
+                 y = df$id[101:150],
+                 z = df$id[151:200])
+# the_title <- paste0(first_one, ' - ', last_one)
+```
+
+
+
+```{r, results = 'asis'}
+k <- knitr::kable(pd, format = 'latex', booktabs = T, longtable = T,
+                  col.names = NULL) %>%
+  kable_styling(latex_options = c("striped", "repeat_header"),
+                font_size = 10) %>%
+  column_spec(1:ncol(df), width = "3cm")
+k
+```

@@ -1,0 +1,5 @@
+household_lists/*
+*.pdf
+*.aux
+*.log
+
