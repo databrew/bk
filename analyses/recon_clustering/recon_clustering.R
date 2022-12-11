@@ -58,6 +58,7 @@ add_zero <- function (x, n) {
 
 # Convert household locations to spatial
 households_spatial <- households %>%
+  filter(!is.na(Longitude)) %>%
   mutate(x = Longitude, y = Latitude)
 coordinates(households_spatial) <- ~x+y
 proj4string(households_spatial) <- proj4string(ken3)
@@ -76,26 +77,28 @@ points(households_spatial_projected)
 # Remove households which are < 400 meters from the border (since we don't know about their contamination status)
 # We don't want to remove coastline though
 # Do this by getting distance to nearest non pongwe kikoneni area
-not_pongwe_kikoneni <- ken3[ken3@data$NAME_3 != 'Pongwe/Kikoneni',]
-not_pongwe_kikoneni_projected <- spTransform(not_pongwe_kikoneni, crs)
-not_pongwe_kikoneni_projected <- gUnaryUnion(not_pongwe_kikoneni_projected, id = not_pongwe_kikoneni_projected@data$NAME_0)
-
-distances <- gDistance(not_pongwe_kikoneni_projected, households_spatial_projected, byid = TRUE)
-distances <- apply(distances, 1, min)
-# Removals
-removal_indices <- which(distances < 400)
-households_spatial_projected$remove <- FALSE
-households_spatial_projected$remove[removal_indices] <- TRUE
-
-# Plot the removals
-plot(gBuffer(pongwe_kikoneni_projected, width = -400), col = adjustcolor('black', alpha.f = 0.1))
-plot(pongwe_kikoneni_projected, add = TRUE)
-points(households_spatial_projected, pch = '.', cex = 3)
-points(households_spatial_projected[households_spatial_projected$remove,], col = 'red', pch = '.', cex = 3)
-# Carry out the removals
-nr <- nrow(households_spatial_projected)
-households_spatial_projected <- households_spatial_projected[!households_spatial_projected$remove,]
-message(nrow(households_spatial_projected) - nr, ' households removed due to proximity with neighboring ward.')
+if(FALSE){
+  not_pongwe_kikoneni <- ken3[ken3@data$NAME_3 != 'Pongwe/Kikoneni',]
+  not_pongwe_kikoneni_projected <- spTransform(not_pongwe_kikoneni, crs)
+  not_pongwe_kikoneni_projected <- gUnaryUnion(not_pongwe_kikoneni_projected, id = not_pongwe_kikoneni_projected@data$NAME_0)
+  
+  distances <- gDistance(not_pongwe_kikoneni_projected, households_spatial_projected, byid = TRUE)
+  distances <- apply(distances, 1, min)
+  # Removals
+  removal_indices <- which(distances < 400)
+  households_spatial_projected$remove <- FALSE
+  households_spatial_projected$remove[removal_indices] <- TRUE
+  
+  # Plot the removals
+  plot(gBuffer(pongwe_kikoneni_projected, width = -400), col = adjustcolor('black', alpha.f = 0.1))
+  plot(pongwe_kikoneni_projected, add = TRUE)
+  points(households_spatial_projected, pch = '.', cex = 3)
+  points(households_spatial_projected[households_spatial_projected$remove,], col = 'red', pch = '.', cex = 3)
+  # Carry out the removals
+  nr <- nrow(households_spatial_projected)
+  households_spatial_projected <- households_spatial_projected[!households_spatial_projected$remove,]
+  message(nrow(households_spatial_projected) - nr, ' households removed due to proximity with neighboring ward.')
+}
 
 # Sanity check on total number of kids
 n_needed <- 96 * 35
@@ -106,9 +109,88 @@ n_actual <- sum(households_spatial_projected@data$num_hh_members_bt_5_15)
 #######################################
 # Adhere to these rules: https://docs.google.com/document/d/1tFFpx3ho7lqVuGWNlW5yL6PqdFnEdeic_7Mlphkj3QQ/edit
 hh <- households_spatial_projected
+hh$id <- 1:nrow(hh)
 
-# Create one polygon for each household
-out_list <- poly_list <- list()
+# get the distances between all houses
+hh_distances <- gDistance(hh, byid = TRUE)
+
+# ARBITRARY SHAPE METHOD
+# Create one arbitrarily shaped polygon for each household, containing
+# the minimum number of children
+arbi_poly_list <- list()
+arbi_out_list <- list()
+for(i in 1:nrow(hh@data)){
+  message('Household ', i, ' of ', nrow(hh@data))
+  these_hh <- hh[i,]
+  n_kids <- sum(these_hh$num_hh_members_bt_5_15)
+  # calculate the ordered nearest households
+  neighbors_by_order <- hh@data %>%
+    mutate(distance_from_starter = as.numeric(hh_distances[i,])) %>%
+    arrange(distance_from_starter)
+  expansion_counter <- 1
+  while(n_kids < 35){
+    # message('---Expanding to ', expansion_counter, ' households')
+    expansion_counter <- expansion_counter + 1
+    these_hh <- neighbors_by_order[1:expansion_counter,]
+    n_kids <- sum(these_hh$num_hh_members_bt_5_15)
+  }
+  # Now that we've got enough kids, save a polygon
+  these_hh <- hh[hh@data$id %in% these_hh$id,]
+  this_poly <- gConvexHull(these_hh, byid = FALSE)
+  # Buffer by 5 meters to account for error in measurement, people on the line
+  this_poly <- gBuffer(this_poly, width = 5)
+  this_buffer <- gBuffer(this_poly, width = 400)
+  # Calcualte the households in core / buffer
+  hhs_in_core <- hh[!is.na(over(hh, this_poly)),]
+  hhs_in_buffer <- hh[!is.na(sp::over(hh, polygons(this_buffer))),]
+  out <- tibble(
+    i = i,
+    hh_id = hh@data$hh_id[i],
+    n_hhs_core = nrow(hhs_in_core),
+    n_hhs_buffer = nrow(hhs_in_buffer),
+    num_hh_members_core = sum(hhs_in_core$num_hh_members),
+    num_hh_members_lt_5_core = sum(hhs_in_core$num_hh_members_lt_5),
+    num_hh_members_bt_5_15_core = sum(hhs_in_core$num_hh_members_bt_5_15),
+    num_hh_members_gt_15_core = sum(hhs_in_core$num_hh_members_gt_15),
+    num_hh_members_buffer = sum(hhs_in_buffer$num_hh_members),
+    num_hh_members_lt_5_buffer = sum(hhs_in_buffer$num_hh_members_lt_5),
+    num_hh_members_bt_5_15_buffer = sum(hhs_in_buffer$num_hh_members_bt_5_15),
+    num_hh_members_gt_15_buffer = sum(hhs_in_buffer$num_hh_members_gt_15)
+  )
+  arbi_out_list[[i]] <- out
+  arbi_poly_list[[i]] <- this_poly
+}
+arbi_out <- bind_rows(arbi_out_list)
+# Add buffers to arbi_poly_list
+arbi_buffer_list <- arbi_poly_list
+for(i in 1:length(arbi_buffer_list)){
+  x <- gBuffer(arbi_buffer_list[[i]], width = 400)
+  xdf <- SpatialPolygonsDataFrame(Sr = x, data = arbi_out[i,], match.ID = FALSE)
+  arbi_buffer_list[[i]] <- xdf
+}
+arbi_buffer_df <- do.call('rbind', arbi_buffer_list)
+# plot(arbi_buffer_df, border = adjustcolor('black', alpha.f = 0.1))
+# Arrange arbi_buffer_df by area so as to select small ones first
+arbi_buffer_df$area <- gArea(arbi_buffer_df, byid = TRUE)
+order_vec <- order(arbi_buffer_df$area)
+arbi_buffer_df <- arbi_buffer_df[order_vec,]
+
+# Turn the arbi_poly list into a dataframe too
+for(i in 1:length(arbi_poly_list)){
+  x <- arbi_poly_list[[i]]
+  xdf <- SpatialPolygonsDataFrame(Sr = x, data = arbi_out[i,], match.ID = FALSE)
+  arbi_poly_list[[i]] <- xdf
+}
+arbi_poly_df <- do.call('rbind', arbi_poly_list)
+# plot(arbi_poly_df, border = adjustcolor('black', alpha.f = 0.1))
+# order identically to arbi_buffer_df
+arbi_poly_df <- arbi_poly_df[order_vec,]
+
+
+
+# RADIAL METHOD
+# Create one circular polygon for each household
+out_list <- poly_list  <- list()
 for(i in 1:nrow(hh@data)){
   message('Household ', i, ' of ', nrow(hh@data))
   this_hh <- these_hh <- hh[i,]
@@ -119,18 +201,32 @@ for(i in 1:nrow(hh@data)){
     this_poly <- gBuffer(this_hh, width = r)
     these_hh <- hh[!is.na(over(hh, this_poly)),]
     n_kids <- sum(these_hh$num_hh_members_bt_5_15)
-    r <- r + 10
+    r <- r + 5
   }
+  
+  # Buffer by 5 meters to account for error in measurement, people on the line
+  this_poly <- gBuffer(this_poly, width = 5)
+  this_buffer <- gBuffer(this_poly, width = 400)
+  # Calcualte the households in core / buffer
+  hhs_in_core <- hh[!is.na(over(hh, this_poly)),]
+  hhs_in_buffer <- hh[!is.na(sp::over(hh, polygons(this_buffer))),]
   out <- tibble(
     i = i,
     hh_id = hh@data$hh_id[i],
-    r = r,
-    n_hhs = nrow(these_hh)
+    n_hhs_core = nrow(hhs_in_core),
+    n_hhs_buffer = nrow(hhs_in_buffer),
+    num_hh_members_core = sum(hhs_in_core$num_hh_members),
+    num_hh_members_lt_5_core = sum(hhs_in_core$num_hh_members_lt_5),
+    num_hh_members_bt_5_15_core = sum(hhs_in_core$num_hh_members_bt_5_15),
+    num_hh_members_gt_15_core = sum(hhs_in_core$num_hh_members_gt_15),
+    num_hh_members_buffer = sum(hhs_in_buffer$num_hh_members),
+    num_hh_members_lt_5_buffer = sum(hhs_in_buffer$num_hh_members_lt_5),
+    num_hh_members_bt_5_15_buffer = sum(hhs_in_buffer$num_hh_members_bt_5_15),
+    num_hh_members_gt_15_buffer = sum(hhs_in_buffer$num_hh_members_gt_15)
   )
   out_list[[i]] <- out
   poly_list[[i]] <- this_poly
 }
-save.image('image.RData')
 
 out <- bind_rows(out_list)
 
@@ -151,19 +247,116 @@ buffer_df <- do.call('rbind', buffer_list)
 plot(buffer_df, border = adjustcolor('black', alpha.f = 0.1))
 # Arrange buffer_df by area so as to select small ones first
 buffer_df$area <- gArea(buffer_df, byid = TRUE)
-buffer_df <- buffer_df[order(buffer_df$area),]
+order_vec <- order(buffer_df$area)
+buffer_df <- buffer_df[order_vec,]
 
 # Turn the poly list into a dataframe too
 for(i in 1:length(poly_list)){
-  x <- gBuffer(poly_list[[i]], width = 400)
+  x <- poly_list[[i]]
   xdf <- SpatialPolygonsDataFrame(Sr = x, data = out[i,], match.ID = FALSE)
   poly_list[[i]] <- xdf
 }
 poly_df <- do.call('rbind', poly_list)
 plot(poly_df, border = adjustcolor('black', alpha.f = 0.1))
 # order identically to buffer_df
-poly_df <- poly_df[order(buffer_df$area),]
+poly_df <- poly_df[order_vec,]
 
+save.image('image.RData')
+
+# ARBITRARY SHAPE APPROACH
+# RADIAL APPROACH
+# Now randomly pick some without overlapping
+if(!dir.exists('arbi_plots')){
+  dir.create('arbi_plots')
+}
+arbi_buffer_df$eligible <- TRUE
+arbi_buffer_df$cluster_number <- arbi_poly_df$cluster_number <- 0
+arbi_buffer_df$rn <- 1:nrow(arbi_buffer_df)
+done <- FALSE
+counter <- 0
+while(!done){
+  counter <- counter + 1
+  message('Counter ', counter)
+  # Define which buffers are still eligible (ie, not already overlapping)
+  eligible_indices <- which(arbi_buffer_df$eligible)
+  # Next cluster selection -------------------------
+  ## Random method
+  # this_i <- sample(eligible_indices, 1)
+  ## First method
+  this_i <- eligible_indices[1]
+  # # Nearest method
+  # current_shape <- arbi_buffer_df[arbi_buffer_df$cluster_number > 0,]
+  # # if nothing yet, just pick the smallest one
+  # if(nrow(current_shape) == 0){
+  #   # northernmost point
+  #   this_i <- which.max(coordinates(arbi_buffer_df)[,2]) # eligible_indices[1]
+  # } else {
+  #   # # pick the one which is nearest to the current_shape
+  #   current_shape$id <- 1
+  #   current_shape <- gUnaryUnion(current_shape, id = current_shape$id)
+  #   # ## Nearest to last method
+  #   # current_shape <- last_buffer
+  #   distance_df <- arbi_buffer_df[arbi_buffer_df$eligible,]
+  #   gd <- gDistance(current_shape, distance_df, byid = TRUE)
+  #   # # nearest
+  #   # nearest <- distance_df$rn[which.min(gd)[1]]
+  #   # this_i <- which(arbi_buffer_df$rn == nearest)
+  #   # # furthest
+  #   # furthest <- distance_df$rn[which.max(gd)[1]]
+  #   # this_i <- which(arbi_buffer_df$rn == furthest)
+  #   # # northernmost
+  #   northernmost <- distance_df$rn[which.min(coordinates(distance_df)[,2])[1]]
+  #   this_i <- which(arbi_buffer_df$rn == northernmost)
+  # }
+  # ------------------------------------------------
+  # Make the selection and mark it as selected
+  this_buffer <- arbi_buffer_df[this_i,]
+  this_core <- arbi_poly_df[this_i,]
+  arbi_buffer_df$eligible[this_i] <- FALSE
+  arbi_buffer_df$cluster_number[this_i] <- counter
+  arbi_poly_df$cluster_number[this_i] <- counter
+  # Identify all the overlaps
+  go <- as.logical(gIntersects(this_buffer, arbi_buffer_df, byid = T))
+  # The overlappers are all now ineligible, mark them as such
+  arbi_buffer_df$eligible[go] <- FALSE
+  # Make a plot of progress
+  clusters <- arbi_buffer_df[arbi_buffer_df$cluster_number > 0,]
+  cores <- arbi_poly_df[arbi_poly_df$cluster_number > 0,]
+  png(filename = paste0('arbi_plots/', add_zero(counter, n = 3), '.png'),
+      height = 720,
+      width = 600)
+  plot(pongwe_kikoneni_projected, col = 'beige')
+  points(hh, pch = '.')
+  plot(clusters, add = T, col = adjustcolor('yellow', alpha.f = 0.6))
+  plot(cores, add = T, col = adjustcolor('darkorange', alpha.f = 0.8))
+  plot(this_buffer, col = 'grey', add = TRUE)
+  plot(this_core, col = 'red', add = TRUE)
+  title(main = paste0('Clusters created: ', nrow(clusters)), sub = paste0('Remaining households eligible: ', length(which(arbi_buffer_df$eligible))))
+  dev.off()
+  message('Clusters selected so far: ', nrow(clusters))
+  message('Remaining eligible: ', length(which(arbi_buffer_df$eligible)))
+  # Identify the overlaps and mark as eligible
+  # Sys.sleep(3)
+  last_buffer <- this_buffer
+}
+owd <- getwd()
+setwd('arbi_plots')
+system("convert -delay 50 -loop 0 *.png clustering_northernmost.gif")
+setwd(owd)
+
+
+done <- arbi_buffer_df@data %>% filter(cluster_number > 0)
+plot(arbi_buffer_df[arbi_buffer_df@data$cluster_number > 0,])
+plot(arbi_poly_df[arbi_poly_df@data$cluster_number > 0,], add = T, col = 'red')
+plot(pongwe_kikoneni_projected, add = T)
+
+nrow(done)
+sum(done$n_hhs_buffer)
+sum(done$n_hhs_core)
+sum(done$num_hh_members_bt_5_15_core)
+sum(done$num_hh_members_bt_5_15_buffer) + sum(done$num_hh_members_gt_15_buffer)
+
+# RADIAL APPROACH
 # Now randomly pick some without overlapping
 if(!dir.exists('plots')){
   dir.create('plots')
@@ -182,31 +375,31 @@ while(!done){
   ## Random method
   # this_i <- sample(eligible_indices, 1)
   ## First method
-  # this_i <- eligible_indices[1]
+  this_i <- eligible_indices[1]
   # Nearest method
   current_shape <- buffer_df[buffer_df$cluster_number > 0,]
   # if nothing yet, just pick the smallest one
-  if(nrow(current_shape) == 0){
-    # northernmost point
-    this_i <- which.max(coordinates(buffer_df)[,2]) # eligible_indices[1]
-  } else {
-    # # pick the one which is nearest to the current_shape
-    current_shape$id <- 1
-    current_shape <- gUnaryUnion(current_shape, id = current_shape$id)
-    # ## Nearest to last method
-    # current_shape <- last_buffer
-    distance_df <- buffer_df[buffer_df$eligible,]
-    gd <- gDistance(current_shape, distance_df, byid = TRUE)
-    # # nearest
-    # nearest <- distance_df$rn[which.min(gd)[1]]
-    # this_i <- which(buffer_df$rn == nearest)
-    # # furthest
-    # furthest <- distance_df$rn[which.max(gd)[1]]
-    # this_i <- which(buffer_df$rn == furthest)
-    # northernmost
-    northernmost <- distance_df$rn[which.max(coordinates(distance_df)[,2])[1]]
-    this_i <- which(buffer_df$rn == northernmost)
-  }
+  # if(nrow(current_shape) == 0){
+  #   # northernmost point
+  #   this_i <- which.max(coordinates(buffer_df)[,2]) # eligible_indices[1]
+  # } else {
+  #   # # pick the one which is nearest to the current_shape
+  #   current_shape$id <- 1
+  #   current_shape <- gUnaryUnion(current_shape, id = current_shape$id)
+  #   # ## Nearest to last method
+  #   # current_shape <- last_buffer
+  #   distance_df <- buffer_df[buffer_df$eligible,]
+  #   gd <- gDistance(current_shape, distance_df, byid = TRUE)
+  #   # # nearest
+  #   # nearest <- distance_df$rn[which.min(gd)[1]]
+  #   # this_i <- which(buffer_df$rn == nearest)
+  #   # # furthest
+  #   # furthest <- distance_df$rn[which.max(gd)[1]]
+  #   # this_i <- which(buffer_df$rn == furthest)
+  #   # northernmost
+  #   northernmost <- distance_df$rn[which.max(coordinates(distance_df)[,2])[1]]
+  #   this_i <- which(buffer_df$rn == northernmost)
+  # }
   # ------------------------------------------------
   # Make the selection and mark it as selected
   this_buffer <- buffer_df[this_i,]
@@ -243,5 +436,14 @@ setwd('plots')
 system("convert -delay 50 -loop 0 *.png clustering_northernmost.gif")
 setwd(owd)
 
+done <- buffer_df@data %>% filter(cluster_number > 0)
+plot(buffer_df[buffer_df@data$cluster_number > 0,])
+plot(poly_df[poly_df@data$cluster_number > 0,], add = T, col = 'red')
+plot(pongwe_kikoneni_projected, add = T)
 
+nrow(done)
+sum(done$n_hhs_buffer)
+sum(done$n_hhs_core)
+sum(done$num_hh_members_bt_5_15_core)
+sum(done$num_hh_members_bt_5_15_buffer) + sum(done$num_hh_members_gt_15_buffer)
 
