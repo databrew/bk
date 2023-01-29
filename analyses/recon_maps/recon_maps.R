@@ -10,7 +10,11 @@ ken3_fortified <- fortify(ken3, regions = ken3@data$NAME_3)
 kwale <- ken3[ken3@data$NAME_1 == 'Kwale',]
 kwale_fortified <- fortify(kwale, regions = ken3@data$NAME_3)
 pongwe_kikoneni <- ken3[ken3@data$NAME_3 == 'Pongwe/Kikoneni',]
-pongwe_kikoneni_fortified <- fortify(pongwe_kikoneni, regions = ken3@data$NAME_3)
+pongwe_kikoneni_fortified <- fortify(pongwe_kikoneni, regions = pongwe_kikoneni@data$NAME_3)
+
+pongwe_kikoneni_ramisi <- ken3[ken3@data$NAME_3 %in% c('Pongwe/Kikoneni', 'Ramisi'),]
+pongwe_kikoneni_ramisi_fortified <- fortify(pongwe_kikoneni_ramisi, regions = pongwe_kikoneni_ramisi@data$NAME_3)
+
 Sys.setenv('AWS_PROFILE' = 'dbrew-prod')
 # aws sso login --profile dbrew-prod
 s3obj <- paws::s3()
@@ -27,8 +31,38 @@ households <- get_household_forms()
 households <- households %>%
   mutate(date = as.Date(substr(SubmissionDate, 1, 10)))
 
+pd <- households %>%
+  group_by(ward, date) %>%
+  tally %>%
+  ungroup
+left <- expand.grid(
+  date = seq(min(households$date),
+             max(households$date),
+             by = 1),
+  ward = unique(households$ward)
+)
+pd <- left_join(left, pd) %>%
+  mutate(n = ifelse(is.na(n), 0, n))  %>%
+  group_by(ward) %>%
+  mutate(cs = cumsum(n)) %>%
+  ungroup %>%
+  filter(!is.na(ward)) %>%
+  filter(ward != 'N/A')
+ggplot(data = pd,
+       aes(x = date,
+           y = cs,
+           color = ward)) +
+  geom_line() +
+  geom_point() +
+  theme_bw() +
+  labs(x = 'Date',
+       y = 'Cumulative submissions',
+       title = 'Total cumulative household submissions by ward') +
+  theme(legend.position = 'bottom') +
+  scale_color_manual(name = '', values = c('red', 'blue'))
+
 ggplot() +
-  geom_polygon(data = pongwe_kikoneni_fortified,
+  geom_polygon(data = pongwe_kikoneni_ramisi_fortified,
                aes(x = long,
                    y = lat,
                    group = group),
@@ -44,6 +78,8 @@ ggplot() +
   ggthemes::theme_map() +
   coord_map() +
   facet_wrap(~date)
+
+
 
 # Satellite map
 library(leaflet)
