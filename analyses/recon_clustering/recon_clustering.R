@@ -66,6 +66,7 @@ nguzo_a <- readOGR('from_zinde/Nguzo_a/', 'Nguzo_a')
 nguzo_a@data$src <- 'Nguzo_a'
 inclusion <- rbind(mkonga, mwabandari)
 inclusion <- rbind(inclusion, nguzo_a)
+inclusion_projected <- spTransform(inclusion, crs)
 # Get centroids
 coords <- coordinates(inclusion)
 coords_df <- data.frame(coords)
@@ -138,8 +139,14 @@ study_area_projected <- gUnaryUnion(pongwe_kikoneni_ramisi_projected, id = NULL)
 
 # Sanity test plot
 plot(pongwe_kikoneni_ramisi_projected)
-points(households_spatial_projected)
+points(households_spatial_projected, pch = '.', cex = 0.2)
 
+# Remove those households which are outside of study area
+o <- sp::over(households_spatial_projected, polygons(pongwe_kikoneni_ramisi_projected))
+remove <- is.na(o)
+households <- households[!remove,]
+households_spatial <- households_spatial[!remove,]
+households_spatial_projected <- households_spatial_projected[!remove,]
 
 # EXCLUDE MINING VILLAGES
 # mining_villages <-sort(unique((exclusion$village)))
@@ -447,6 +454,7 @@ if(TRUE){
 
 
 # Now randomly pick some without overlapping
+unlink('arbi_plots/', recursive = TRUE)
 if(!dir.exists('arbi_plots')){
   dir.create('arbi_plots')
 }
@@ -461,10 +469,13 @@ while(!done){
   # Define which buffers are still eligible (ie, not already overlapping)
   eligible_indices <- which(arbi_buffer_df$eligible)
   # Next cluster selection -------------------------
+  
   ## Random method
   # this_i <- sample(eligible_indices, 1)
+  
   ## First method
   this_i <- eligible_indices[1]
+  
   # # Nearest method
   # current_shape <- arbi_buffer_df[arbi_buffer_df$cluster_number > 0,]
   # # if nothing yet, just pick the smallest one
@@ -477,7 +488,7 @@ while(!done){
   #   current_shape <- gUnaryUnion(current_shape, id = current_shape$id)
   #   # ## Nearest to last method
   #   # current_shape <- last_buffer
-  #   distance_df <- arbi_buffer_df[arbi_buffer_df$eligible,]
+    distance_df <- arbi_buffer_df[arbi_buffer_df$eligible,]
   #   gd <- gDistance(current_shape, distance_df, byid = TRUE)
   #   # # nearest
   #   # nearest <- distance_df$rn[which.min(gd)[1]]
@@ -485,9 +496,9 @@ while(!done){
   #   # # furthest
   #   # furthest <- distance_df$rn[which.max(gd)[1]]
   #   # this_i <- which(arbi_buffer_df$rn == furthest)
-  #   # # northernmost
-  #   northernmost <- distance_df$rn[which.min(coordinates(distance_df)[,2])[1]]
-  #   this_i <- which(arbi_buffer_df$rn == northernmost)
+    # # westernmost
+  westernmost <- distance_df$rn[which.min(coordinates(distance_df)[,1])[1]]
+    this_i <- which(arbi_buffer_df$rn == westernmost)
   # }
   # ------------------------------------------------
   # Make the selection and mark it as selected
@@ -522,7 +533,7 @@ while(!done){
 }
 owd <- getwd()
 setwd('arbi_plots')
-system("convert -delay 50 -loop 0 *.png clustering_northernmost.gif")
+system("convert -delay 50 -loop 0 *.png clustering_west_polygons.gif")
 setwd(owd)
 
 
@@ -530,6 +541,8 @@ done <- arbi_buffer_df@data %>% filter(cluster_number > 0)
 plot(arbi_buffer_df[arbi_buffer_df@data$cluster_number > 0,])
 plot(arbi_poly_df[arbi_poly_df@data$cluster_number > 0,], add = T, col = 'red')
 plot(pongwe_kikoneni_ramisi_projected, add = T)
+# Add the social science villages
+points(inclusion_projected, col = adjustcolor('green', alpha.f = 0.5), pch = '.', cex = 2)
 
 nrow(done)
 sum(done$n_hhs_buffer)
@@ -539,6 +552,7 @@ sum(done$num_hh_members_bt_5_15_buffer) + sum(done$num_hh_members_gt_15_buffer)
 
 # RADIAL APPROACH
 # Now randomly pick some without overlapping
+unlink('plots', recursive = TRUE)
 if(!dir.exists('plots')){
   dir.create('plots')
 }
@@ -556,7 +570,7 @@ while(!done){
   ## Random method
   # this_i <- sample(eligible_indices, 1)
   ## First method
-  this_i <- eligible_indices[1]
+  # this_i <- eligible_indices[1]
   # Nearest method
   current_shape <- buffer_df[buffer_df$cluster_number > 0,]
   # if nothing yet, just pick the smallest one
@@ -569,7 +583,7 @@ while(!done){
   #   current_shape <- gUnaryUnion(current_shape, id = current_shape$id)
   #   # ## Nearest to last method
   #   # current_shape <- last_buffer
-  #   distance_df <- buffer_df[buffer_df$eligible,]
+    distance_df <- buffer_df[buffer_df$eligible,]
   #   gd <- gDistance(current_shape, distance_df, byid = TRUE)
   #   # # nearest
   #   # nearest <- distance_df$rn[which.min(gd)[1]]
@@ -577,9 +591,9 @@ while(!done){
   #   # # furthest
   #   # furthest <- distance_df$rn[which.max(gd)[1]]
   #   # this_i <- which(buffer_df$rn == furthest)
-  #   # northernmost
-  #   northernmost <- distance_df$rn[which.max(coordinates(distance_df)[,2])[1]]
-  #   this_i <- which(buffer_df$rn == northernmost)
+  #   # westernmost
+    northernmost <- distance_df$rn[which.min(coordinates(distance_df)[,1])[1]]
+    this_i <- which(buffer_df$rn == northernmost)
   # }
   # ------------------------------------------------
   # Make the selection and mark it as selected
@@ -614,13 +628,15 @@ while(!done){
 }
 owd <- getwd()
 setwd('plots')
-system("convert -delay 50 -loop 0 *.png clustering_northernmost.gif")
+system("convert -delay 50 -loop 0 *.png clustering_dense.gif")
 setwd(owd)
 
 done <- buffer_df@data %>% filter(cluster_number > 0)
 plot(buffer_df[buffer_df@data$cluster_number > 0,])
 plot(poly_df[poly_df@data$cluster_number > 0,], add = T, col = 'red')
 plot(pongwe_kikoneni_ramisi_projected, add = T)
+# Add the social science villages
+points(inclusion_projected, col = adjustcolor('green', alpha.f = 0.5), pch = '.', cex = 2)
 
 nrow(done)
 sum(done$n_hhs_buffer)
