@@ -10,6 +10,7 @@ library(rgeos)
 library(maptools)
 Sys.setenv('AWS_PROFILE' = 'dbrew-prod')
 
+radial_too <- FALSE
 fresh_data <- FALSE
 
 if(fresh_data){
@@ -47,6 +48,10 @@ if(fresh_data){
   load('data.RData')
 }
 load('wards/kenya_wards.RData')
+
+# Convert objects to projected UTM reference system
+p4s <- "+proj=utm +zone=37 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+crs <- CRS(p4s)
 
 # Read in geographic data sent from Zinde for zones of explicit 
 # exclusion and inclusion
@@ -92,7 +97,7 @@ ggplot() +
   theme(legend.position = 'bottom') +
   scale_color_manual(name = '', values = c('red', 'orange', 'black'))
 
-  
+
 
 
 # Define function for adding zeros prefix to strings
@@ -128,9 +133,7 @@ households_spatial <- households
 coordinates(households_spatial) <- ~x+y
 proj4string(households_spatial) <- proj4string(ken3)
 
-# Convert objects to projected UTM reference system
-p4s <- "+proj=utm +zone=37 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
-crs <- CRS(p4s)
+
 
 households_spatial_projected <- spTransform(households_spatial, crs)
 pongwe_kikoneni_projected <- spTransform(pongwe_kikoneni, crs)
@@ -244,154 +247,182 @@ hh$id <- 1:nrow(hh)
 # get the distances between all houses
 hh_distances <- gDistance(hh, byid = TRUE)
 
+# Define the different distances we want to try
+buffer_sizes <- c(400, 425, 450, 475, 500, 525, 550, 575, 600)
+final_list_arbi <- final_list_arbi_buffer <- list()
+
 # ARBITRARY SHAPE METHOD
 # Create one arbitrarily shaped polygon for each household, containing
 # the minimum number of children
 arbi_poly_list <- list()
 arbi_out_list <- list()
-for(i in 1:nrow(hh@data)){
-  message('Household ', i, ' of ', nrow(hh@data))
-  these_hh <- hh[i,]
-  the_id <- these_hh$hh_id
-  n_kids <- sum(these_hh$num_hh_members_bt_5_15)
-  # calculate the ordered nearest households
-  neighbors_by_order <- hh@data %>%
-    mutate(distance_from_starter = as.numeric(hh_distances[i,])) %>%
-    arrange(distance_from_starter)
-  expansion_counter <- 1
-  while(n_kids < 35){
-    # message('---Expanding to ', expansion_counter, ' households')
-    expansion_counter <- expansion_counter + 1
-    these_hh <- neighbors_by_order[1:expansion_counter,]
+for(b in 1:length(buffer_sizes)){
+  this_buffer_size <- buffer_sizes[b]
+  
+  for(i in 1:nrow(hh@data)){
+    # for (i in 1:10){
+    message('ARBITRARY. Buffer size ', this_buffer_size, '. Household ', i, ' of ', nrow(hh@data))
+    these_hh <- hh[i,]
+    the_id <- these_hh$hh_id
     n_kids <- sum(these_hh$num_hh_members_bt_5_15)
+    # calculate the ordered nearest households
+    neighbors_by_order <- hh@data %>%
+      mutate(distance_from_starter = as.numeric(hh_distances[i,])) %>%
+      arrange(distance_from_starter)
+    expansion_counter <- 1
+    while(n_kids < 35){
+      # message('---Expanding to ', expansion_counter, ' households')
+      expansion_counter <- expansion_counter + 1
+      these_hh <- neighbors_by_order[1:expansion_counter,]
+      n_kids <- sum(these_hh$num_hh_members_bt_5_15)
+    }
+    # Now that we've got enough kids, save a polygon
+    these_hh <- hh[hh@data$id %in% these_hh$id,]
+    this_poly <- gConvexHull(these_hh, byid = FALSE)
+    # Buffer by 5 meters to account for error in measurement, people on the line
+    this_poly <- gBuffer(this_poly, width = 5)
+    this_buffer <- gBuffer(this_poly, width = this_buffer_size)
+    # Calcualte the households in core / buffer
+    hhs_in_core <- hh[!is.na(over(hh, this_poly)),]
+    hhs_in_buffer <- hh[!is.na(sp::over(hh, polygons(this_buffer))),]
+    out <- tibble(
+      i = i,
+      hh_id = the_id,
+      n_hhs_core = nrow(hhs_in_core),
+      n_hhs_buffer = nrow(hhs_in_buffer),
+      num_hh_members_core = sum(hhs_in_core$num_hh_members),
+      num_hh_members_lt_5_core = sum(hhs_in_core$num_hh_members_lt_5),
+      num_hh_members_bt_5_15_core = sum(hhs_in_core$num_hh_members_bt_5_15),
+      num_hh_members_gt_15_core = sum(hhs_in_core$num_hh_members_gt_15),
+      num_hh_members_buffer = sum(hhs_in_buffer$num_hh_members),
+      num_hh_members_lt_5_buffer = sum(hhs_in_buffer$num_hh_members_lt_5),
+      num_hh_members_bt_5_15_buffer = sum(hhs_in_buffer$num_hh_members_bt_5_15),
+      num_hh_members_gt_15_buffer = sum(hhs_in_buffer$num_hh_members_gt_15),
+      buffer_size = this_buffer_size
+    )
+    arbi_out_list[[i]] <- out
+    arbi_poly_list[[i]] <- this_poly
   }
-  # Now that we've got enough kids, save a polygon
-  these_hh <- hh[hh@data$id %in% these_hh$id,]
-  this_poly <- gConvexHull(these_hh, byid = FALSE)
-  # Buffer by 5 meters to account for error in measurement, people on the line
-  this_poly <- gBuffer(this_poly, width = 5)
-  this_buffer <- gBuffer(this_poly, width = 400)
-  # Calcualte the households in core / buffer
-  hhs_in_core <- hh[!is.na(over(hh, this_poly)),]
-  hhs_in_buffer <- hh[!is.na(sp::over(hh, polygons(this_buffer))),]
-  out <- tibble(
-    i = i,
-    hh_id = the_id,
-    n_hhs_core = nrow(hhs_in_core),
-    n_hhs_buffer = nrow(hhs_in_buffer),
-    num_hh_members_core = sum(hhs_in_core$num_hh_members),
-    num_hh_members_lt_5_core = sum(hhs_in_core$num_hh_members_lt_5),
-    num_hh_members_bt_5_15_core = sum(hhs_in_core$num_hh_members_bt_5_15),
-    num_hh_members_gt_15_core = sum(hhs_in_core$num_hh_members_gt_15),
-    num_hh_members_buffer = sum(hhs_in_buffer$num_hh_members),
-    num_hh_members_lt_5_buffer = sum(hhs_in_buffer$num_hh_members_lt_5),
-    num_hh_members_bt_5_15_buffer = sum(hhs_in_buffer$num_hh_members_bt_5_15),
-    num_hh_members_gt_15_buffer = sum(hhs_in_buffer$num_hh_members_gt_15)
-  )
-  arbi_out_list[[i]] <- out
-  arbi_poly_list[[i]] <- this_poly
+  arbi_out <- bind_rows(arbi_out_list)
+  
+  # Add buffers to arbi_poly_list
+  arbi_buffer_list <- arbi_poly_list
+  for(i in 1:length(arbi_buffer_list)){
+    x <- gBuffer(arbi_buffer_list[[i]], width = this_buffer_size)
+    xdf <- SpatialPolygonsDataFrame(Sr = x, data = arbi_out[i,], match.ID = FALSE)
+    arbi_buffer_list[[i]] <- xdf
+  }
+  arbi_buffer_df <- do.call('rbind', arbi_buffer_list)
+  # plot(arbi_buffer_df, border = adjustcolor('black', alpha.f = 0.1))
+  # Arrange arbi_buffer_df by area so as to select small ones first
+  arbi_buffer_df$area <- gArea(arbi_buffer_df, byid = TRUE)
+  order_vec <- order(arbi_buffer_df$area)
+  arbi_buffer_df <- arbi_buffer_df[order_vec,]
+  
+  # Turn the arbi_poly list into a dataframe too
+  for(i in 1:length(arbi_poly_list)){
+    x <- arbi_poly_list[[i]]
+    xdf <- SpatialPolygonsDataFrame(Sr = x, data = arbi_out[i,], match.ID = FALSE)
+    arbi_poly_list[[i]] <- xdf
+  }
+  arbi_poly_df <- do.call('rbind', arbi_poly_list)
+  # plot(arbi_poly_df, border = adjustcolor('black', alpha.f = 0.1))
+  # order identically to arbi_buffer_df
+  arbi_poly_df <- arbi_poly_df[order_vec,]
+  arbi_poly_df@data$buffer_size <- this_buffer_size
+  final_list_arbi[[b]] <- arbi_poly_df
+  final_list_arbi_buffer[[b]] <- arbi_buffer_df
+  
 }
-arbi_out <- bind_rows(arbi_out_list)
-# Add buffers to arbi_poly_list
-arbi_buffer_list <- arbi_poly_list
-for(i in 1:length(arbi_buffer_list)){
-  x <- gBuffer(arbi_buffer_list[[i]], width = 400)
-  xdf <- SpatialPolygonsDataFrame(Sr = x, data = arbi_out[i,], match.ID = FALSE)
-  arbi_buffer_list[[i]] <- xdf
-}
-arbi_buffer_df <- do.call('rbind', arbi_buffer_list)
-# plot(arbi_buffer_df, border = adjustcolor('black', alpha.f = 0.1))
-# Arrange arbi_buffer_df by area so as to select small ones first
-arbi_buffer_df$area <- gArea(arbi_buffer_df, byid = TRUE)
-order_vec <- order(arbi_buffer_df$area)
-arbi_buffer_df <- arbi_buffer_df[order_vec,]
-
-# Turn the arbi_poly list into a dataframe too
-for(i in 1:length(arbi_poly_list)){
-  x <- arbi_poly_list[[i]]
-  xdf <- SpatialPolygonsDataFrame(Sr = x, data = arbi_out[i,], match.ID = FALSE)
-  arbi_poly_list[[i]] <- xdf
-}
-arbi_poly_df <- do.call('rbind', arbi_poly_list)
-# plot(arbi_poly_df, border = adjustcolor('black', alpha.f = 0.1))
-# order identically to arbi_buffer_df
-arbi_poly_df <- arbi_poly_df[order_vec,]
-
+names(final_list_arbi) <- buffer_sizes
+names(final_list_arbi_buffer) <- buffer_sizes
 
 
 # RADIAL METHOD
-# Create one circular polygon for each household
-out_list <- poly_list  <- list()
-for(i in 1:nrow(hh@data)){
-  message('Household ', i, ' of ', nrow(hh@data))
-  this_hh <- these_hh <- hh[i,]
-  the_id <- this_hh$hh_id
-  n_kids <- sum(this_hh$num_hh_members_bt_5_15)
-  r <- 10
-  this_poly <- gBuffer(this_hh, width = r)
-  while(n_kids < 35){
-    this_poly <- gBuffer(this_hh, width = r)
-    these_hh <- hh[!is.na(over(hh, this_poly)),]
-    n_kids <- sum(these_hh$num_hh_members_bt_5_15)
-    r <- r + 5
-  }
+if(radial_too){
+  # Create one circular polygon for each household
+  out_list <- poly_list  <- final_list <- final_list_buffer <- list()
   
-  # Buffer by 5 meters to account for error in measurement, people on the line
-  this_poly <- gBuffer(this_poly, width = 5)
-  this_buffer <- gBuffer(this_poly, width = 400)
-  # Calcualte the households in core / buffer
-  hhs_in_core <- hh[!is.na(over(hh, this_poly)),]
-  hhs_in_buffer <- hh[!is.na(sp::over(hh, polygons(this_buffer))),]
-  out <- tibble(
-    i = i,
-    hh_id = the_id,
-    n_hhs_core = nrow(hhs_in_core),
-    n_hhs_buffer = nrow(hhs_in_buffer),
-    num_hh_members_core = sum(hhs_in_core$num_hh_members),
-    num_hh_members_lt_5_core = sum(hhs_in_core$num_hh_members_lt_5),
-    num_hh_members_bt_5_15_core = sum(hhs_in_core$num_hh_members_bt_5_15),
-    num_hh_members_gt_15_core = sum(hhs_in_core$num_hh_members_gt_15),
-    num_hh_members_buffer = sum(hhs_in_buffer$num_hh_members),
-    num_hh_members_lt_5_buffer = sum(hhs_in_buffer$num_hh_members_lt_5),
-    num_hh_members_bt_5_15_buffer = sum(hhs_in_buffer$num_hh_members_bt_5_15),
-    num_hh_members_gt_15_buffer = sum(hhs_in_buffer$num_hh_members_gt_15)
-  )
-  out_list[[i]] <- out
-  poly_list[[i]] <- this_poly
+  for(b in 1:length(buffer_sizes)){
+    this_buffer_size <- buffer_sizes[b]
+    
+    for(i in 1:nrow(hh@data)){
+      message('RADIAL. Buffer size ', this_buffer_size, '. Household ', i, ' of ', nrow(hh@data))
+      this_hh <- these_hh <- hh[i,]
+      the_id <- this_hh$hh_id
+      n_kids <- sum(this_hh$num_hh_members_bt_5_15)
+      r <- 10
+      this_poly <- gBuffer(this_hh, width = r)
+      while(n_kids < 35){
+        this_poly <- gBuffer(this_hh, width = r)
+        these_hh <- hh[!is.na(over(hh, this_poly)),]
+        n_kids <- sum(these_hh$num_hh_members_bt_5_15)
+        r <- r + 5
+      }
+      
+      # Buffer by 5 meters to account for error in measurement, people on the line
+      this_poly <- gBuffer(this_poly, width = 5)
+      this_buffer <- gBuffer(this_poly, width = this_buffer_size)
+      # Calcualte the households in core / buffer
+      hhs_in_core <- hh[!is.na(over(hh, this_poly)),]
+      hhs_in_buffer <- hh[!is.na(sp::over(hh, polygons(this_buffer))),]
+      out <- tibble(
+        i = i,
+        hh_id = the_id,
+        n_hhs_core = nrow(hhs_in_core),
+        n_hhs_buffer = nrow(hhs_in_buffer),
+        num_hh_members_core = sum(hhs_in_core$num_hh_members),
+        num_hh_members_lt_5_core = sum(hhs_in_core$num_hh_members_lt_5),
+        num_hh_members_bt_5_15_core = sum(hhs_in_core$num_hh_members_bt_5_15),
+        num_hh_members_gt_15_core = sum(hhs_in_core$num_hh_members_gt_15),
+        num_hh_members_buffer = sum(hhs_in_buffer$num_hh_members),
+        num_hh_members_lt_5_buffer = sum(hhs_in_buffer$num_hh_members_lt_5),
+        num_hh_members_bt_5_15_buffer = sum(hhs_in_buffer$num_hh_members_bt_5_15),
+        num_hh_members_gt_15_buffer = sum(hhs_in_buffer$num_hh_members_gt_15),
+        buffer_size = this_buffer_size
+      )
+      out_list[[i]] <- out
+      poly_list[[i]] <- this_poly
+    }
+    
+    out <- bind_rows(out_list)
+    # # Sanity test
+    # plot(hh, pch = '.')
+    # for(i in 1:length(poly_list)){
+    #   plot(poly_list[[i]], add = T, border = adjustcolor('black', alpha.f = 0.2))
+    # }
+    
+    # Add buffers to poly_list
+    buffer_list <- poly_list
+    for(i in 1:length(buffer_list)){
+      x <- gBuffer(buffer_list[[i]], width = this_buffer_size)
+      xdf <- SpatialPolygonsDataFrame(Sr = x, data = out[i,], match.ID = FALSE)
+      buffer_list[[i]] <- xdf
+    }
+    buffer_df <- do.call('rbind', buffer_list)
+    # plot(buffer_df, border = adjustcolor('black', alpha.f = 0.1))
+    # Arrange buffer_df by area so as to select small ones first
+    buffer_df$area <- gArea(buffer_df, byid = TRUE)
+    order_vec <- order(buffer_df$area)
+    buffer_df <- buffer_df[order_vec,]
+    
+    # Turn the poly list into a dataframe too
+    for(i in 1:length(poly_list)){
+      x <- poly_list[[i]]
+      xdf <- SpatialPolygonsDataFrame(Sr = x, data = out[i,], match.ID = FALSE)
+      poly_list[[i]] <- xdf
+    }
+    poly_df <- do.call('rbind', poly_list)
+    plot(poly_df, border = adjustcolor('black', alpha.f = 0.1))
+    # order identically to buffer_df
+    poly_df <- poly_df[order_vec,]
+    poly_df@data$buffer_size <- this_buffer_size
+    final_list[[b]] <- poly_df
+    final_list_buffer[[b]] <- buffer_df
+  }
+  names(final_list) <- names(final_list_buffer) <- buffer_sizes
+  
 }
-
-out <- bind_rows(out_list)
-
-# Sanity test
-plot(hh, pch = '.')
-for(i in 1:length(poly_list)){
-  plot(poly_list[[i]], add = T, border = adjustcolor('black', alpha.f = 0.2))
-}
-
-# Add buffers to poly_list
-buffer_list <- poly_list
-for(i in 1:length(buffer_list)){
-  x <- gBuffer(buffer_list[[i]], width = 400)
-  xdf <- SpatialPolygonsDataFrame(Sr = x, data = out[i,], match.ID = FALSE)
-  buffer_list[[i]] <- xdf
-}
-buffer_df <- do.call('rbind', buffer_list)
-plot(buffer_df, border = adjustcolor('black', alpha.f = 0.1))
-# Arrange buffer_df by area so as to select small ones first
-buffer_df$area <- gArea(buffer_df, byid = TRUE)
-order_vec <- order(buffer_df$area)
-buffer_df <- buffer_df[order_vec,]
-
-# Turn the poly list into a dataframe too
-for(i in 1:length(poly_list)){
-  x <- poly_list[[i]]
-  xdf <- SpatialPolygonsDataFrame(Sr = x, data = out[i,], match.ID = FALSE)
-  poly_list[[i]] <- xdf
-}
-poly_df <- do.call('rbind', poly_list)
-plot(poly_df, border = adjustcolor('black', alpha.f = 0.1))
-# order identically to buffer_df
-poly_df <- poly_df[order_vec,]
 
 save.image('image.RData')
 
@@ -403,244 +434,313 @@ if(TRUE){
   not_pongwe_kikoneni_ramisi_projected <- spTransform(not_pongwe_kikoneni_ramisi, crs)
   not_pongwe_kikoneni_ramisi_projected <- gUnaryUnion(not_pongwe_kikoneni_ramisi_projected, id = not_pongwe_kikoneni_ramisi_projected@data$NAME_0)
   
-  # Remove the arbitrarily shaped polygons which overlap borders
-  overlapping <- over(arbi_buffer_df, polygons(not_pongwe_kikoneni_ramisi_projected))
-  plot(arbi_buffer_df[!is.na(overlapping),])
-  plot(pongwe_kikoneni_ramisi_projected, add = T, border = 'blue')
-  arbi_buffer_df <- arbi_buffer_df[is.na(overlapping),]
-  arbi_poly_df <- arbi_poly_df[is.na(overlapping),]
-  
-  # Remove the arbitrarily shaped polygons which overlap urban areas
-  overlapping <- over(arbi_buffer_df, polygons(urbansp_projected))
-  plot(urbansp_projected, border = 'blue')
-  plot(arbi_buffer_df[!is.na(overlapping),], add = T)
-  arbi_buffer_df <- arbi_buffer_df[is.na(overlapping),]
-  arbi_poly_df <- arbi_poly_df[is.na(overlapping),]
-  
-  # Remove the cirular polygons which overlap borders
-  overlapping <- over(buffer_df, polygons(not_pongwe_kikoneni_ramisi_projected))
-  plot(buffer_df[!is.na(overlapping),])
-  plot(pongwe_kikoneni_ramisi_projected, add = T, border = 'blue')
-  buffer_df <- buffer_df[is.na(overlapping),]
-  poly_df <- poly_df[is.na(overlapping),]
-  
-  # Remove the arbitrarily shaped polygons which overlap urban areas
-  overlapping <- over(buffer_df, polygons(urbansp_projected))
-  plot(urbansp_projected, border = 'blue')
-  plot(buffer_df[!is.na(overlapping),], add = T)
-  buffer_df <- buffer_df[is.na(overlapping),]
-  poly_df <- poly_df[is.na(overlapping),]
-  
-  # # OLD, DEPRECATED WAY OF DOING THIS
-  # distances <- gDistance(not_pongwe_kikoneni_ramisi_projected, households_spatial_projected, byid = TRUE)
-  # distances <- apply(distances, 1, min)
-  # # Removals
-  # removal_indices <- which(distances < 400)
-  # households_spatial_projected$remove <- FALSE
-  # households_spatial_projected$remove[removal_indices] <- TRUE
-  # 
-  # # Plot the removals
-  # plot(gBuffer(study_area_projected, width = -400), col = adjustcolor('black', alpha.f = 0.1))
-  # plot(study_area_projected, add = TRUE)
-  # points(households_spatial_projected, pch = '.', cex = 3)
-  # points(households_spatial_projected[households_spatial_projected$remove,], col = 'red', pch = '.', cex = 3)
-  # # Carry out the removals
-  # nr <- nrow(households_spatial_projected)
-  # households_spatial_projected <- households_spatial_projected[!households_spatial_projected$remove,]
-  # message(nrow(households_spatial_projected) - nr, ' households removed due to proximity with neighboring ward.')
+  for(i in 1:length(buffer_sizes)){
+    this_buffer_size <- buffer_sizes[i]
+    message('Removing urban/mining clusters for buffer size ', this_buffer_size)
+    
+    arbi_poly_df <- final_list_arbi[[i]]
+    arbi_buffer_df <- final_list_arbi_buffer[[i]]
+    
+    # Remove the arbitrarily shaped polygons which overlap borders
+    overlapping <- over(arbi_buffer_df, polygons(not_pongwe_kikoneni_ramisi_projected))
+    plot(arbi_buffer_df[!is.na(overlapping),])
+    plot(pongwe_kikoneni_ramisi_projected, add = T, border = 'blue')
+    arbi_buffer_df <- arbi_buffer_df[as.logical(is.na(overlapping)),]
+    arbi_poly_df <- arbi_poly_df[as.logical(is.na(overlapping)),]
+    
+    # Remove the arbitrarily shaped polygons which overlap urban areas
+    overlapping <- over(arbi_buffer_df, polygons(urbansp_projected))
+    plot(urbansp_projected, border = 'blue')
+    plot(arbi_buffer_df[!is.na(overlapping),], add = T)
+    arbi_buffer_df <- arbi_buffer_df[is.na(overlapping),]
+    arbi_poly_df <- arbi_poly_df[is.na(overlapping),]
+    
+    # Reassign after the srinking
+    final_list_arbi[[i]] <- arbi_poly_df
+    final_list_arbi_buffer[[i]] <- arbi_buffer_df
+    
+    
+    if(radial_too){
+      # THIS SECTION IS NOT YET REFACTORED TO HANDLE VARIABLE DISTANCES
+      # Remove the cirular polygons which overlap borders
+      overlapping <- over(buffer_df, polygons(not_pongwe_kikoneni_ramisi_projected))
+      plot(buffer_df[!is.na(overlapping),])
+      plot(pongwe_kikoneni_ramisi_projected, add = T, border = 'blue')
+      buffer_df <- buffer_df[is.na(overlapping),]
+      poly_df <- poly_df[is.na(overlapping),]
+      
+      # Remove the arbitrarily shaped polygons which overlap urban areas
+      overlapping <- over(buffer_df, polygons(urbansp_projected))
+      plot(urbansp_projected, border = 'blue')
+      plot(buffer_df[!is.na(overlapping),], add = T)
+      buffer_df <- buffer_df[is.na(overlapping),]
+      poly_df <- poly_df[is.na(overlapping),]
+    }
+  }
 }
 
-# Remove clusters which overlap with the urban areas or the borders
-
-
-# Now randomly pick some without overlapping
-unlink('arbi_plots/', recursive = TRUE)
-if(!dir.exists('arbi_plots')){
-  dir.create('arbi_plots')
-}
-arbi_buffer_df$eligible <- TRUE
-arbi_buffer_df$cluster_number <- arbi_poly_df$cluster_number <- 0
-arbi_buffer_df$rn <- 1:nrow(arbi_buffer_df)
-done <- FALSE
-counter <- 0
-while(!done){
-  counter <- counter + 1
-  message('Counter ', counter)
-  # Define which buffers are still eligible (ie, not already overlapping)
-  eligible_indices <- which(arbi_buffer_df$eligible)
-  # Next cluster selection -------------------------
+stats_list <- finished_cores_list <- finished_buffers_list <- list()
+for(b in 1:length(buffer_sizes)){
+  this_buffer_size <- buffer_sizes[b]
+  this_directory <- paste0('arbi_plots_', this_buffer_size, '/')
   
-  ## Random method
-  # this_i <- sample(eligible_indices, 1)
+  # Now randomly pick some without overlapping
+  unlink(this_directory, recursive = TRUE)
+  if(!dir.exists(this_directory)){
+    dir.create(this_directory)
+  }
+  arbi_buffer_df <- final_list_arbi_buffer[[b]]
+  arbi_poly_df <- final_list_arbi[[b]]
+  arbi_buffer_df$eligible <- TRUE
+  arbi_buffer_df$cluster_number <- arbi_poly_df$cluster_number <- 0
+  arbi_buffer_df$rn <- 1:nrow(arbi_buffer_df)
+  done <- FALSE
+  counter <- 0
+  while(!done & counter < 150){
+    try({
+      counter <- counter + 1
+      message('Counter ', counter)
+      # Define which buffers are still eligible (ie, not already overlapping)
+      eligible_indices <- which(arbi_buffer_df$eligible)
+      # Next cluster selection -------------------------
+      
+      ## Random method
+      # this_i <- sample(eligible_indices, 1)
+      
+      ## First method
+      this_i <- eligible_indices[1]
+      
+      # # Nearest method
+      # current_shape <- arbi_buffer_df[arbi_buffer_df$cluster_number > 0,]
+      # # if nothing yet, just pick the smallest one
+      # if(nrow(current_shape) == 0){
+      #   # northernmost point
+      #   this_i <- which.max(coordinates(arbi_buffer_df)[,2]) # eligible_indices[1]
+      # } else {
+      #   # # pick the one which is nearest to the current_shape
+      #   current_shape$id <- 1
+      #   current_shape <- gUnaryUnion(current_shape, id = current_shape$id)
+      #   # ## Nearest to last method
+      #   # current_shape <- last_buffer
+      # distance_df <- arbi_buffer_df[arbi_buffer_df$eligible,]
+      #   gd <- gDistance(current_shape, distance_df, byid = TRUE)
+      #   # # nearest
+      #   # nearest <- distance_df$rn[which.min(gd)[1]]
+      #   # this_i <- which(arbi_buffer_df$rn == nearest)
+      #   # # furthest
+      #   # furthest <- distance_df$rn[which.max(gd)[1]]
+      #   # this_i <- which(arbi_buffer_df$rn == furthest)
+      # # # westernmost
+      # westernmost <- distance_df$rn[which.min(coordinates(distance_df)[,1])[1]]
+      # this_i <- which(arbi_buffer_df$rn == westernmost)
+      # }
+      # ------------------------------------------------
+      # Make the selection and mark it as selected
+      this_buffer <- arbi_buffer_df[this_i,]
+      this_core <- arbi_poly_df[this_i,]
+      arbi_buffer_df$eligible[this_i] <- FALSE
+      arbi_buffer_df$cluster_number[this_i] <- counter
+      arbi_poly_df$cluster_number[this_i] <- counter
+      # Identify all the overlaps
+      go <- as.logical(gIntersects(this_buffer, arbi_buffer_df, byid = T))
+      # The overlappers are all now ineligible, mark them as such
+      arbi_buffer_df$eligible[go] <- FALSE
+      # Make a plot of progress
+      clusters <- arbi_buffer_df[arbi_buffer_df$cluster_number > 0,]
+      cores <- arbi_poly_df[arbi_poly_df$cluster_number > 0,]
+      png(filename = paste0(this_directory, add_zero(counter, n = 3), '.png'),
+          height = 720,
+          width = 600)
+      plot(pongwe_kikoneni_ramisi_projected, col = 'beige')
+      points(hh, pch = '.')
+      plot(clusters, add = T, col = adjustcolor('yellow', alpha.f = 0.6))
+      plot(cores, add = T, col = adjustcolor('darkorange', alpha.f = 0.8))
+      plot(this_buffer, col = 'grey', add = TRUE)
+      plot(this_core, col = 'red', add = TRUE)
+      title(main = paste0('Clusters created: ', nrow(clusters)), sub = paste0('Remaining households eligible: ', length(which(arbi_buffer_df$eligible))))
+      dev.off()
+      message('Clusters selected so far: ', nrow(clusters))
+      message('Remaining eligible: ', length(which(arbi_buffer_df$eligible)))
+      # Identify the overlaps and mark as eligible
+      # Sys.sleep(3)
+      last_buffer <- this_buffer
+    })
+    }
+    
+  # Make GIF
+  if(FALSE){
+    owd <- getwd()
+    setwd(this_directory)
+    system(paste0("convert -delay 50 -loop 0 *.png ", this_directory, 'animation.gif'))
+    setwd(owd)  
+  }
   
-  ## First method
-  this_i <- eligible_indices[1]
   
-  # # Nearest method
-  # current_shape <- arbi_buffer_df[arbi_buffer_df$cluster_number > 0,]
-  # # if nothing yet, just pick the smallest one
-  # if(nrow(current_shape) == 0){
-  #   # northernmost point
-  #   this_i <- which.max(coordinates(arbi_buffer_df)[,2]) # eligible_indices[1]
-  # } else {
-  #   # # pick the one which is nearest to the current_shape
-  #   current_shape$id <- 1
-  #   current_shape <- gUnaryUnion(current_shape, id = current_shape$id)
-  #   # ## Nearest to last method
-  #   # current_shape <- last_buffer
-    distance_df <- arbi_buffer_df[arbi_buffer_df$eligible,]
-  #   gd <- gDistance(current_shape, distance_df, byid = TRUE)
-  #   # # nearest
-  #   # nearest <- distance_df$rn[which.min(gd)[1]]
-  #   # this_i <- which(arbi_buffer_df$rn == nearest)
-  #   # # furthest
-  #   # furthest <- distance_df$rn[which.max(gd)[1]]
-  #   # this_i <- which(arbi_buffer_df$rn == furthest)
-    # # westernmost
-  westernmost <- distance_df$rn[which.min(coordinates(distance_df)[,1])[1]]
-    this_i <- which(arbi_buffer_df$rn == westernmost)
-  # }
-  # ------------------------------------------------
-  # Make the selection and mark it as selected
-  this_buffer <- arbi_buffer_df[this_i,]
-  this_core <- arbi_poly_df[this_i,]
-  arbi_buffer_df$eligible[this_i] <- FALSE
-  arbi_buffer_df$cluster_number[this_i] <- counter
-  arbi_poly_df$cluster_number[this_i] <- counter
-  # Identify all the overlaps
-  go <- as.logical(gIntersects(this_buffer, arbi_buffer_df, byid = T))
-  # The overlappers are all now ineligible, mark them as such
-  arbi_buffer_df$eligible[go] <- FALSE
-  # Make a plot of progress
-  clusters <- arbi_buffer_df[arbi_buffer_df$cluster_number > 0,]
-  cores <- arbi_poly_df[arbi_poly_df$cluster_number > 0,]
-  png(filename = paste0('arbi_plots/', add_zero(counter, n = 3), '.png'),
-      height = 720,
-      width = 600)
-  plot(pongwe_kikoneni_ramisi_projected, col = 'beige')
-  points(hh, pch = '.')
-  plot(clusters, add = T, col = adjustcolor('yellow', alpha.f = 0.6))
-  plot(cores, add = T, col = adjustcolor('darkorange', alpha.f = 0.8))
-  plot(this_buffer, col = 'grey', add = TRUE)
-  plot(this_core, col = 'red', add = TRUE)
-  title(main = paste0('Clusters created: ', nrow(clusters)), sub = paste0('Remaining households eligible: ', length(which(arbi_buffer_df$eligible))))
+  # Save results
+  done <- arbi_buffer_df@data %>% filter(cluster_number > 0)
+  png(filename = paste0('buffer_', this_buffer_size, '.png'))
+  plot(arbi_buffer_df[arbi_buffer_df@data$cluster_number > 0,])
+  plot(arbi_poly_df[arbi_poly_df@data$cluster_number > 0,], add = T, col = 'red')
+  plot(pongwe_kikoneni_ramisi_projected, add = T)
+  # Add the social science villages
+  points(inclusion_projected, col = adjustcolor('green', alpha.f = 0.5), pch = '.', cex = 2)
   dev.off()
-  message('Clusters selected so far: ', nrow(clusters))
-  message('Remaining eligible: ', length(which(arbi_buffer_df$eligible)))
-  # Identify the overlaps and mark as eligible
-  # Sys.sleep(3)
-  last_buffer <- this_buffer
+  
+  finished_buffers_list[[b]] <- arbi_buffer_df[arbi_buffer_df@data$cluster_number > 0,]
+  finished_cores_list[[b]] <- arbi_poly_df[arbi_poly_df@data$cluster_number > 0,]
+  
+  # Save final statistics
+  # out <- tibble(
+  #   buffer_size = this_buffer_size,
+  #   n_clusters = nrow(done),
+  #   n_hhs_buffer = sum(done$n_hhs_buffer),
+  #   n_hhs_core = sum(done$n_hhs_core),
+  #   num_hh_members_bt_5_15_core = sum(done$num_hh_members_bt_5_15_core),
+  #   num_hh_members_gt_15_buffer = sum(done$num_hh_members_gt_15_buffer)
+  # )
+  out <- done %>%
+    mutate(buffer_size = this_buffer_size)
+  stats_list[[b]] <- out
 }
-owd <- getwd()
-setwd('arbi_plots')
-system("convert -delay 50 -loop 0 *.png clustering_west_polygons.gif")
-setwd(owd)
+stats_df <- bind_rows(stats_list)
+save(stats_df, finished_buffers_list, finished_cores_list, file = 'finished.RData')
 
 
-done <- arbi_buffer_df@data %>% filter(cluster_number > 0)
-plot(arbi_buffer_df[arbi_buffer_df@data$cluster_number > 0,])
-plot(arbi_poly_df[arbi_poly_df@data$cluster_number > 0,], add = T, col = 'red')
-plot(pongwe_kikoneni_ramisi_projected, add = T)
-# Add the social science villages
-points(inclusion_projected, col = adjustcolor('green', alpha.f = 0.5), pch = '.', cex = 2)
 
-nrow(done)
-sum(done$n_hhs_buffer)
-sum(done$n_hhs_core)
-sum(done$num_hh_members_bt_5_15_core)
-sum(done$num_hh_members_bt_5_15_buffer) + sum(done$num_hh_members_gt_15_buffer)
+agg <- stats_df %>%
+  arrange(n_hhs_buffer) %>%
+  mutate(dummy = 1) %>%
+  group_by(buffer_size) %>%
+  mutate(cs = cumsum(dummy)) %>%
+  ungroup %>%
+  mutate(eligible = cs <= 96) %>%
+  group_by(buffer_size, eligible) %>%
+  summarise(n_clusters = n(),
+            n_hhs_core = sum(n_hhs_core),
+            n_hhs_buffer = sum(n_hhs_buffer),
+            num_hh_members_core = sum(num_hh_members_core),
+            num_hh_members_lt_5_core = sum(num_hh_members_lt_5_core),
+            num_hh_members_bt_5_15_core = sum(num_hh_members_bt_5_15_core),
+            num_hh_members_gt_15_core = sum(num_hh_members_gt_15_core),
+            num_hh_members_buffer = sum(num_hh_members_buffer),
+            num_hh_members_lt_5_buffer = sum(num_hh_members_lt_5_buffer),
+            num_hh_members_bt_5_15_buffer = sum(num_hh_members_bt_5_15_buffer),
+            num_hh_members_gt_15_buffer = sum(num_hh_members_gt_15_buffer),
+            area = sum(area)) %>%
+  ungroup %>%
+  mutate(n_5_or_older = num_hh_members_bt_5_15_buffer + num_hh_members_gt_15_buffer) %>%
+  group_by(buffer_size) %>%
+  mutate(extra_clusters = dplyr::first(n_clusters[!eligible])) %>%
+  ungroup %>%
+  filter(eligible) %>%
+  dplyr::select(-eligible)
+
+agg %>% dplyr::select(buffer_size, n_clusters,
+                      extra_clusters, 
+                      n_hhs_core,
+                      n_hhs_total = n_hhs_buffer, 
+                      num_hh_members_core, 
+                      n_people_total = num_hh_members_buffer,
+                      n_5_or_older,
+                      n_5_to_15_year_olds_core = num_hh_members_bt_5_15_core) 
+
+
+
 
 # RADIAL APPROACH
-# Now randomly pick some without overlapping
-unlink('plots', recursive = TRUE)
-if(!dir.exists('plots')){
-  dir.create('plots')
-}
-buffer_df$eligible <- TRUE
-buffer_df$cluster_number <- poly_df$cluster_number <- 0
-buffer_df$rn <- 1:nrow(buffer_df)
-done <- FALSE
-counter <- 0
-while(!done){
-  counter <- counter + 1
-  message('Counter ', counter)
-  # Define which buffers are still eligible (ie, not already overlapping)
-  eligible_indices <- which(buffer_df$eligible)
-  # Next cluster selection -------------------------
-  ## Random method
-  # this_i <- sample(eligible_indices, 1)
-  ## First method
-  # this_i <- eligible_indices[1]
-  # Nearest method
-  current_shape <- buffer_df[buffer_df$cluster_number > 0,]
-  # if nothing yet, just pick the smallest one
-  # if(nrow(current_shape) == 0){
-  #   # northernmost point
-  #   this_i <- which.max(coordinates(buffer_df)[,2]) # eligible_indices[1]
-  # } else {
-  #   # # pick the one which is nearest to the current_shape
-  #   current_shape$id <- 1
-  #   current_shape <- gUnaryUnion(current_shape, id = current_shape$id)
-  #   # ## Nearest to last method
-  #   # current_shape <- last_buffer
+if(radial_too){
+  # Now randomly pick some without overlapping
+  unlink('plots', recursive = TRUE)
+  if(!dir.exists('plots')){
+    dir.create('plots')
+  }
+  buffer_df$eligible <- TRUE
+  buffer_df$cluster_number <- poly_df$cluster_number <- 0
+  buffer_df$rn <- 1:nrow(buffer_df)
+  done <- FALSE
+  counter <- 0
+  while(!done){
+    counter <- counter + 1
+    message('Counter ', counter)
+    # Define which buffers are still eligible (ie, not already overlapping)
+    eligible_indices <- which(buffer_df$eligible)
+    # Next cluster selection -------------------------
+    ## Random method
+    # this_i <- sample(eligible_indices, 1)
+    ## First method
+    # this_i <- eligible_indices[1]
+    # Nearest method
+    current_shape <- buffer_df[buffer_df$cluster_number > 0,]
+    # if nothing yet, just pick the smallest one
+    # if(nrow(current_shape) == 0){
+    #   # northernmost point
+    #   this_i <- which.max(coordinates(buffer_df)[,2]) # eligible_indices[1]
+    # } else {
+    #   # # pick the one which is nearest to the current_shape
+    #   current_shape$id <- 1
+    #   current_shape <- gUnaryUnion(current_shape, id = current_shape$id)
+    #   # ## Nearest to last method
+    #   # current_shape <- last_buffer
     distance_df <- buffer_df[buffer_df$eligible,]
-  #   gd <- gDistance(current_shape, distance_df, byid = TRUE)
-  #   # # nearest
-  #   # nearest <- distance_df$rn[which.min(gd)[1]]
-  #   # this_i <- which(buffer_df$rn == nearest)
-  #   # # furthest
-  #   # furthest <- distance_df$rn[which.max(gd)[1]]
-  #   # this_i <- which(buffer_df$rn == furthest)
-  #   # westernmost
+    #   gd <- gDistance(current_shape, distance_df, byid = TRUE)
+    #   # # nearest
+    #   # nearest <- distance_df$rn[which.min(gd)[1]]
+    #   # this_i <- which(buffer_df$rn == nearest)
+    #   # # furthest
+    #   # furthest <- distance_df$rn[which.max(gd)[1]]
+    #   # this_i <- which(buffer_df$rn == furthest)
+    #   # westernmost
     northernmost <- distance_df$rn[which.min(coordinates(distance_df)[,1])[1]]
     this_i <- which(buffer_df$rn == northernmost)
-  # }
-  # ------------------------------------------------
-  # Make the selection and mark it as selected
-  this_buffer <- buffer_df[this_i,]
-  this_core <- poly_df[this_i,]
-  buffer_df$eligible[this_i] <- FALSE
-  buffer_df$cluster_number[this_i] <- counter
-  poly_df$cluster_number[this_i] <- counter
-  # Identify all the overlaps
-  go <- as.logical(gIntersects(this_buffer, buffer_df, byid = T))
-  # The overlappers are all now ineligible, mark them as such
-  buffer_df$eligible[go] <- FALSE
-  # Make a plot of progress
-  clusters <- buffer_df[buffer_df$cluster_number > 0,]
-  cores <- poly_df[poly_df$cluster_number > 0,]
-  png(filename = paste0('plots/', add_zero(counter, n = 3), '.png'),
-      height = 720,
-      width = 600)
-  plot(pongwe_kikoneni_ramisi_projected, col = 'beige')
-  points(hh, pch = '.')
-  plot(clusters, add = T, col = adjustcolor('yellow', alpha.f = 0.6))
-  plot(cores, add = T, col = adjustcolor('darkorange', alpha.f = 0.8))
-  plot(this_buffer, col = 'grey', add = TRUE)
-  plot(this_core, col = 'red', add = TRUE)
-  title(main = paste0('Clusters created: ', nrow(clusters)), sub = paste0('Remaining households eligible: ', length(which(buffer_df$eligible))))
-  dev.off()
-  message('Clusters selected so far: ', nrow(clusters))
-  message('Remaining eligible: ', length(which(buffer_df$eligible)))
-  # Identify the overlaps and mark as eligible
-  # Sys.sleep(3)
-  last_buffer <- this_buffer
+    # }
+    # ------------------------------------------------
+    # Make the selection and mark it as selected
+    this_buffer <- buffer_df[this_i,]
+    this_core <- poly_df[this_i,]
+    buffer_df$eligible[this_i] <- FALSE
+    buffer_df$cluster_number[this_i] <- counter
+    poly_df$cluster_number[this_i] <- counter
+    # Identify all the overlaps
+    go <- as.logical(gIntersects(this_buffer, buffer_df, byid = T))
+    # The overlappers are all now ineligible, mark them as such
+    buffer_df$eligible[go] <- FALSE
+    # Make a plot of progress
+    clusters <- buffer_df[buffer_df$cluster_number > 0,]
+    cores <- poly_df[poly_df$cluster_number > 0,]
+    png(filename = paste0('plots/', add_zero(counter, n = 3), '.png'),
+        height = 720,
+        width = 600)
+    plot(pongwe_kikoneni_ramisi_projected, col = 'beige')
+    points(hh, pch = '.')
+    plot(clusters, add = T, col = adjustcolor('yellow', alpha.f = 0.6))
+    plot(cores, add = T, col = adjustcolor('darkorange', alpha.f = 0.8))
+    plot(this_buffer, col = 'grey', add = TRUE)
+    plot(this_core, col = 'red', add = TRUE)
+    title(main = paste0('Clusters created: ', nrow(clusters)), sub = paste0('Remaining households eligible: ', length(which(buffer_df$eligible))))
+    dev.off()
+    message('Clusters selected so far: ', nrow(clusters))
+    message('Remaining eligible: ', length(which(buffer_df$eligible)))
+    # Identify the overlaps and mark as eligible
+    # Sys.sleep(3)
+    last_buffer <- this_buffer
+  }
+  owd <- getwd()
+  setwd('plots')
+  system("convert -delay 50 -loop 0 *.png clustering_west.gif")
+  setwd(owd)
+  
+  done <- buffer_df@data %>% filter(cluster_number > 0)
+  plot(buffer_df[buffer_df@data$cluster_number > 0,])
+  plot(poly_df[poly_df@data$cluster_number > 0,], add = T, col = 'red')
+  plot(pongwe_kikoneni_ramisi_projected, add = T)
+  # Add the social science villages
+  points(inclusion_projected, col = adjustcolor('green', alpha.f = 0.5), pch = '.', cex = 2)
+  
+  nrow(done)
+  sum(done$n_hhs_buffer)
+  sum(done$n_hhs_core)
+  sum(done$num_hh_members_bt_5_15_core)
+  sum(done$num_hh_members_bt_5_15_buffer) + sum(done$num_hh_members_gt_15_buffer)
+  
+  
 }
-owd <- getwd()
-setwd('plots')
-system("convert -delay 50 -loop 0 *.png clustering_dense.gif")
-setwd(owd)
-
-done <- buffer_df@data %>% filter(cluster_number > 0)
-plot(buffer_df[buffer_df@data$cluster_number > 0,])
-plot(poly_df[poly_df@data$cluster_number > 0,], add = T, col = 'red')
-plot(pongwe_kikoneni_ramisi_projected, add = T)
-# Add the social science villages
-points(inclusion_projected, col = adjustcolor('green', alpha.f = 0.5), pch = '.', cex = 2)
-
-nrow(done)
-sum(done$n_hhs_buffer)
-sum(done$n_hhs_core)
-sum(done$num_hh_members_bt_5_15_core)
-sum(done$num_hh_members_bt_5_15_buffer) + sum(done$num_hh_members_gt_15_buffer)
-
