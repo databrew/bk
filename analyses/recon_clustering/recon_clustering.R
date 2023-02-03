@@ -606,6 +606,9 @@ stats_df <- bind_rows(stats_list)
 save(stats_df, finished_buffers_list, finished_cores_list, file = 'finished.RData')
 
 
+# load('image.RData')
+# load('finished.RData')
+
 
 agg <- stats_df %>%
   arrange(n_hhs_buffer) %>%
@@ -644,7 +647,108 @@ agg %>% dplyr::select(buffer_size, n_clusters,
                       n_5_or_older,
                       n_5_to_15_year_olds_core = num_hh_members_bt_5_15_core) 
 
+# Keep only the 400 meter approach
+cores <- finished_cores_list[[1]]
+buffers <- finished_buffers_list[[1]]
+plot(buffers)
+plot(cores, add = T)
 
+# Get malaria info from bohemia/kenya/wards_map.Rmd
+if(!file.exists('study_area_malaria.RData')){
+  file.copy('../../../bohemia/analyses/kenya/study_area_malaria.RData',
+            'study_area_malaria.RData')
+}
+if(!file.exists('hfj.RData')){
+  file.copy('../../../bohemia/analyses/kenya/hfj.RData',
+            'hfj.RData')
+}
+load('hfj.RData')
+o <- sp::over(hfj, polygons(pongwe_kikoneni_ramisi))
+hfj <- hfj[!as.logical(is.na(o)),]
+
+# Reproject to lat long
+cores_ll <- spTransform(cores, proj4string(wds_shp))
+buffers_ll <- spTransform(buffers, proj4string(wds_shp))
+
+# Create labels and popups
+cores_ll@data <- cores_ll@data %>%
+  mutate(label = paste0('Core of cluster ', cluster_number)) %>%
+  mutate(popup = paste0('Cluster ', cluster_number, '<br>Households in core: ', n_hhs_core, '. Households total: ', n_hhs_buffer))
+buffers_ll@data <- buffers_ll@data %>%
+  mutate(label = paste0('Buffer of cluster ', cluster_number)) %>%
+  mutate(popup = paste0('Cluster ', cluster_number, '<br>Households in core: ', n_hhs_core, '. Households total: ', n_hhs_buffer))
+
+
+# Plot into leaflet map
+library(leaflet)
+library(leaflet.extras)
+library(raster)
+pal <- colorNumeric(c("blue", "white", "red"), values(study_area),
+                    na.color = "transparent")
+xpal <- colorNumeric("Spectral", hfj@data$cases)
+
+map <- leaflet() %>%
+  addProviderTiles(providers$Stamen.Toner, group = "Basic") %>%
+  addProviderTiles(providers$OpenStreetMap, group = "OSM") %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "Satellite")
+map <- map %>%
+  addRasterImage(study_area, colors = pal, opacity = 0.8,
+                 group = 'PAPfPR') %>%
+  addLegend(pal = pal, values = values(study_area),
+            title = "PAPfPR", group = 'PAPfPR')
+map <- map %>%
+  addCircleMarkers(data = hfj, color = xpal(hfj@data$cases),
+                   label = paste0(hfj@data$Facility_Name,
+                                  ": ", hfj@data$cases),
+                   fillOpacity = 1,
+                   group = 'Health facilities',
+                   radius = 10) %>%
+  addLegend("bottomleft", pal = xpal, values = hfj@data$cases,
+            title = "2021 malaria cases", opacity = 1,
+            group = 'Health facilities')
+map <- map %>%
+  addCircleMarkers(data = households_spatial,
+                   opacity = 1,
+                   color = 'black',
+                   radius = 1,
+                   fillOpacity = 1, 
+                   weight = 1,
+                   group = 'Households',
+                   popup = households_spatial@data$hh_id,
+                   label = paste0(households_spatial@data$hh_id, '<br>', households_spatial@data$num_hh_members, ' members'))
+mydrawPolylineOptions <- function (allowIntersection = TRUE, 
+                                   drawError = list(color = "#b00b00", timeout = 2500), 
+                                   guidelineDistance = 20, metric = TRUE, feet = FALSE, zIndexOffset = 2000, 
+                                   shapeOptions = drawShapeOptions(fill = FALSE), repeatMode = FALSE) {
+  leaflet::filterNULL(list(allowIntersection = allowIntersection, 
+                           drawError = drawError, guidelineDistance = guidelineDistance, 
+                           metric = metric, feet = feet, zIndexOffset = zIndexOffset,
+                           shapeOptions = shapeOptions,  repeatMode = repeatMode)) }
+
+map <- map %>%
+  addLayersControl(
+    baseGroups = c("Basic", "OSM", "Satellite"),
+    overlayGroups = c(#"Hamlet centroids", 
+      'PAPfPR',
+      'Health facilities',
+      'Households'),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>% addFullscreenControl() %>% 
+  addDrawToolbar(
+    polylineOptions = mydrawPolylineOptions(metric=TRUE, feet=FALSE),
+    editOptions=editToolbarOptions(selectedPathOptions=selectedPathOptions())
+  ) 
+
+map <- map %>%
+  addPolygons(data = buffers_ll, weight = 1, fillOpacity = 0.3, popup = buffers_ll@data$popup, label = buffers_ll@data$label) %>%
+  addPolygons(data = cores_ll, fillColor = 'red', weight = 1, fillOpacity = 0.3, popup = cores_ll@data$popup, label = cores_ll@data$label)
+
+map
+
+# htmltools::save_html(map, file = 'map.html')
+htmlwidgets::saveWidget(widget = map,
+                        file = 'map.html',
+                        selfcontained = TRUE)
 
 
 # RADIAL APPROACH
