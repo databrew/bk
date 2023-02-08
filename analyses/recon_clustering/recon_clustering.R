@@ -658,6 +658,7 @@ if(!file.exists('study_area_malaria.RData')){
   file.copy('../../../bohemia/analyses/kenya/study_area_malaria.RData',
             'study_area_malaria.RData')
 }
+load('study_area_malaria.RData')
 if(!file.exists('hfj.RData')){
   file.copy('../../../bohemia/analyses/kenya/hfj.RData',
             'hfj.RData')
@@ -691,6 +692,10 @@ map <- leaflet() %>%
   addProviderTiles(providers$Stamen.Toner, group = "Basic") %>%
   addProviderTiles(providers$OpenStreetMap, group = "OSM") %>%
   addProviderTiles(providers$Esri.WorldImagery, group = "Satellite")
+
+# Add social science households
+ss <- inclusion
+
 map <- map %>%
   addRasterImage(study_area, colors = pal, opacity = 0.8,
                  group = 'PAPfPR') %>%
@@ -706,6 +711,7 @@ map <- map %>%
   addLegend("bottomleft", pal = xpal, values = hfj@data$cases,
             title = "2021 malaria cases", opacity = 1,
             group = 'Health facilities')
+
 map <- map %>%
   addCircleMarkers(data = households_spatial,
                    opacity = 1,
@@ -716,6 +722,14 @@ map <- map %>%
                    group = 'Households',
                    popup = households_spatial@data$hh_id,
                    label = paste0(households_spatial@data$hh_id, '<br>', households_spatial@data$num_hh_members, ' members'))
+map <- map %>%
+  addCircleMarkers(data = ss, color = 'orange',
+                   label = paste0('Social science household ',
+                                  ": ", ss@data$hh_id),
+                   group = 'Social science households',
+                   radius = 1.5,
+                   fillOpacity = 1, 
+                   weight = 1) 
 mydrawPolylineOptions <- function (allowIntersection = TRUE, 
                                    drawError = list(color = "#b00b00", timeout = 2500), 
                                    guidelineDistance = 20, metric = TRUE, feet = FALSE, zIndexOffset = 2000, 
@@ -731,7 +745,8 @@ map <- map %>%
     overlayGroups = c(#"Hamlet centroids", 
       'PAPfPR',
       'Health facilities',
-      'Households'),
+      'Households',
+      'Social science households'),
     options = layersControlOptions(collapsed = FALSE)
   ) %>% addFullscreenControl() %>% 
   addDrawToolbar(
@@ -750,7 +765,63 @@ htmlwidgets::saveWidget(widget = map,
                         file = 'map.html',
                         selfcontained = TRUE)
 
+# Remove clusters as per project instruction
+# https://trello.com/c/yFGlLOBt/1718-cluster-removals
+study <- list()
+remove_clusters <- c(70, 68, 81, 114, 78, 55, 22, 94, 66, 61, 96, 95, 2, 104, 80, 112, 76, 52, 89, 102, 20)
 
+remove_buffers <- buffers_ll[buffers_ll@data$cluster_number %in% remove_clusters,]
+plot(buffers_ll)
+plot(remove_buffers, add = T, col = 'red')
+
+study$buffers_ll <- buffers_ll[!buffers_ll@data$cluster_number %in% remove_clusters,]
+study$cores_ll <- cores_ll[!cores_ll@data$cluster_number %in% remove_clusters,]
+
+########################################################################
+# Examine accuracy in gps data
+rr = read_csv('~/Desktop/reconbhousehold.csv') # downloaded from site
+ggplot(data = rr %>% filter(`location_geocode-Accuracy` >= 50),
+       aes(x = `location_geocode-Longitude`,
+           y = `location_geocode-Latitude`,
+           color = `location_geocode-Accuracy`)) +
+  geom_point() +
+  scale_color_gradient2(name = '',
+                     low = 'white',
+                     high = 'red') +
+  labs(title = 'GPS accuracy')
+suspect <- rr %>% filter(`location_geocode-Accuracy` >= 50)
+plot(study$buffers_ll)
+points(suspect$`location_geocode-Longitude`, suspect$`location_geocode-Latitude`, col = 'red')
+suspect_sp <- suspect %>% mutate(lng = `location_geocode-Longitude`,
+                                 lat = `location_geocode-Latitude`)
+coordinates(suspect_sp) <- ~lng+lat
+proj4string(suspect_sp) <- proj4string(study$buffers_ll)
+o <- over(suspect_sp, polygons(study$buffers_ll))
+table(is.na(o))
+table(o)
+
+# Get the cluster of each household
+hh <- households_spatial
+hh@data$joiner <- paste0(hh@data$hh_id,
+                         hh@data$Longitude,
+                         hh@data$Latitude)
+hh@data <- left_join(hh@data, ss)
+o <- sp::over(households_spatial, polygons(study$buffers_ll))
+hh@data$cluster <- o
+hh@data %>% 
+  group_by(cluster, suspect) %>%
+  summarise(n = n(),
+            five_to_fifteens = sum(num_hh_members_bt_5_15)) %>%
+  filter(!is.na(suspect))
+
+# Provokes problems with cluster 6 (12 five to 15 year olds) and maybe 89 (6)
+
+# Define suspect households
+rr$joiner <- paste0(rr$hh_id, rr$`location_geocode-Longitude`, rr$`location_geocode-Latitude`)
+ss <- tibble(joiner = rr$joiner[rr$`location_geocode-Accuracy` >= 100],
+             suspect = TRUE)
+
+########################################################################
 # RADIAL APPROACH
 if(radial_too){
   # Now randomly pick some without overlapping
