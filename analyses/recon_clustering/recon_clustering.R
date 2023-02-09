@@ -34,6 +34,7 @@ if(fresh_data){
     source(paste0(recon_functions_dir, '/', recon_functions[i]))
   }
   households <- get_household_forms()  
+  save(households, file = 'households.RData')
   save(households,
        pongwe_kikoneni_fortified,
        pongwe_kikoneni,
@@ -610,6 +611,7 @@ save(stats_df, finished_buffers_list, finished_cores_list, file = 'finished.RDat
 # load('finished.RData')
 
 
+
 agg <- stats_df %>%
   arrange(n_hhs_buffer) %>%
   mutate(dummy = 1) %>%
@@ -686,7 +688,7 @@ library(leaflet.extras)
 library(raster)
 pal <- colorNumeric(c("blue", "white", "red"), values(study_area),
                     na.color = "transparent")
-xpal <- colorNumeric("Spectral", hfj@data$cases)
+xpal <- colorNumeric("Spectral", hfj@data$cases, reverse = TRUE)
 
 map <- leaflet() %>%
   addProviderTiles(providers$Stamen.Toner, group = "Basic") %>%
@@ -773,12 +775,78 @@ remove_clusters <- c(70, 68, 81, 114, 78, 55, 22, 94, 66, 61, 96, 95, 2, 104, 80
 remove_buffers <- buffers_ll[buffers_ll@data$cluster_number %in% remove_clusters,]
 plot(buffers_ll)
 plot(remove_buffers, add = T, col = 'red')
+plot(buffers_ll[buffers_ll@data$cluster_number == 108,], add = TRUE, col = 'green')
 
 study$buffers_ll <- buffers_ll[!buffers_ll@data$cluster_number %in% remove_clusters,]
 study$cores_ll <- cores_ll[!cores_ll@data$cluster_number %in% remove_clusters,]
 
+study$buffers_ll@data <- study$buffers_ll@data %>% dplyr::select(cluster_number)
+study$cores_ll@data <- study$cores_ll@data %>% dplyr::select(cluster_number)
+
+# Save
+if(!dir.exists('final')){
+  dir.create('final')
+}
+if(!dir.exists('final/buffers')){
+  dir.create('final/buffers')
+}
+if(!dir.exists('final/cores')){
+  dir.create('final/cores')
+}
+if(!dir.exists('final/clusters')){
+  dir.create('final/clusters')
+}
+
+# Remove the core from the buffers
+buffers <- study$buffers_ll
+cores <- study$cores_ll
+clusters <- buffers
+buffers <- buffers - cores
+
+setwd('final/buffers')
+writeOGR(buffers, dsn = '.', layer = 'buffers', driver = "ESRI Shapefile")
+setwd('..')
+
+setwd('cores')
+writeOGR(cores, dsn = '.', layer = 'cores', driver = "ESRI Shapefile")
+setwd('..')
+
+setwd('clusters')
+writeOGR(cores, dsn = '.', layer = 'clusters', driver = "ESRI Shapefile")
+setwd('../..')
+
+
+save(clusters, file = 'final/clusters.RData')
+save(buffers, file = 'final/buffers.RData')
+save(cores, file = 'final/cores.RData')
+
+
+
 ########################################################################
 # Examine accuracy in gps data
+# Update with "flagged" households
+load('households.RData')
+households$suspect <- households$Accuracy >= 20
+households_spatial <- households %>% filter(!is.na(Longitude))
+coordinates(households_spatial) <- ~Longitude+Latitude
+proj4string(households_spatial) <- proj4string(wds_shp)
+# See which cluster each household is in
+o <- sp::over(households_spatial, polygons(study$buffers_ll))
+households_spatial@data$buffer_number <- study$buffers_ll$cluster_number[o]
+o <- sp::over(households_spatial, polygons(study$cores_ll))
+households_spatial@data$core_number <- study$cores_ll$cluster_number[o]
+
+# See which "suspect" houses are in each area
+sus <- households_spatial@data %>%
+  filter(suspect) %>%
+  group_by(core_number) %>%
+  tally
+sus
+sus <- households_spatial@data %>%
+  filter(suspect) %>%
+  filter(!is.na(core_number)) %>%
+  dplyr::select(hh_id, core_number, num_hh_members_bt_5_15)
+sus
 rr = read_csv('~/Desktop/reconbhousehold.csv') # downloaded from site
 ggplot(data = rr %>% filter(`location_geocode-Accuracy` >= 50),
        aes(x = `location_geocode-Longitude`,
