@@ -1,0 +1,465 @@
+---
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    code_folding: "hide"
+---
+
+
+```{r setup, include=FALSE, echo = FALSE}
+# Basic knitr options
+library(knitr)
+opts_chunk$set(comment = NA, 
+               echo = TRUE,
+               warning = FALSE, 
+               message = FALSE, 
+               error = TRUE, 
+               cache = FALSE,
+               fig.width = 9.64,
+               fig.height = 5.9,
+               fig.path = 'figures/')
+
+## Load libraries
+library(ggplot2)
+library(lubridate)
+library(dplyr)
+library(ggplot2)
+library(sp)
+library(raster)
+library(viridis)
+library(ggthemes)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(RColorBrewer)
+library(readr)
+library(zoo)
+library(tidyr)
+options(scipen = '999')
+library(bohemia)
+library(leaflet)
+library(geosphere)
+library(leafpop)
+
+# Define function for pretty tables
+prettify <- function(the_table,
+                     remove_underscores_columns = TRUE,
+                     cap_columns = TRUE,
+                     cap_characters = TRUE,
+                     comma_numbers = TRUE,
+                     date_format = '%B %d, %Y',
+                     round_digits = 2,
+                     remove_row_names = TRUE,
+                     remove_line_breaks = TRUE,
+                     data_table = TRUE,
+                     nrows = 5,
+                     download_options = FALSE,
+                     scroll_x = TRUE){
+  
+  column_names <- names(the_table)
+  the_table <- data.frame(the_table)
+  names(the_table) <- column_names
+  classes <- lapply(the_table, function(x){unlist(class(x))[1]})
+  
+  if(cap_columns){
+    names(the_table) <- Hmisc::capitalize(names(the_table))
+  }
+  
+  if(remove_underscores_columns){
+    names(the_table) <- gsub('_', ' ', names(the_table))
+  }
+  
+  for (j in 1:ncol(the_table)){
+    the_column <- the_table[,j]
+    the_class <- classes[j][1]
+    if(the_class %in% c('character', 'factor')){
+      if(cap_characters){
+        the_column <- as.character(the_column)
+        the_column <- Hmisc::capitalize(the_column)
+      }
+      if(remove_line_breaks){
+        the_column <- gsub('\n', ' ', the_column)
+      }
+    } else if(the_class %in% c('POSIXct', 'Date')){
+      the_column <- format(the_column, format = date_format)
+    } else if(the_class %in% c('numeric', 'integer')){
+      the_column <- round(the_column, digits = round_digits)
+      # if(comma_numbers){
+      #   left <- scales::comma(the_column)
+      # }
+    }
+    the_table[,j] <- the_column
+  }
+  if(remove_row_names){
+    row.names(the_table) <- NULL
+  }
+  if(data_table){
+    if(download_options){
+      the_table <- DT::datatable(the_table,
+                                 options = list(pageLength = nrows,
+                                                # buttons = c('copy',
+                                                #             'csv',
+                                                #             'excel',
+                                                #             'pdf'),
+                                                dom = 'Bfrtip',
+                                                scrollX = scroll_x,
+                                                buttons = 
+                                                  list('copy', 'print', list(
+                                                    extend = 'collection',
+                                                    buttons = 'csv',# c('csv', 'excel', 'pdf'),
+                                                    text = 'Download'
+                                                  ))),
+                                 rownames = FALSE,
+                                 extensions = 'Buttons')
+    } else {
+      the_table <- DT::datatable(the_table,
+                                 options = list(pageLength = nrows,
+                                                scrollX = scroll_x,
+                                                columnDefs = list(list(className = 'dt-right', 
+                                                                       targets = 0:(ncol(the_table) - 1)))),
+                                 rownames = FALSE)
+    }
+    
+  }
+  return(the_table)
+}
+
+# Define function for calculating distance
+calculate_distance <- function(shp, lat, lng){
+  p <- c(lng, lat)
+  # ll <- length(shp@polygons[[1]]@Polygons)
+  ll <- nrow(coordinates(shp))
+  out_list <- list()
+  for(i in 1:ll){
+    temp_points <- coordinates(shp)[i,]#shp@polygons[[1]]@Polygons[[ll]]@coords
+    out_list[[i]] <- temp_points
+  }
+  the_points <- do.call('rbind', out_list)
+  the_line <- SpatialPointsDataFrame(coords = the_points,
+                                     data = data.frame(id = 1:nrow(the_points)))
+  proj4string(the_line) <- proj4string(shp)
+  i = 1
+  out <- rep(NA, nrow(the_points))
+  for(i in 1:nrow(the_points)){
+    out[i] <- distm(c(the_points[i,]), c(lng, lat), fun = distHaversine)
+  }
+  df <- data.frame(the_points)
+  df$distance <- out
+  df$lng <- lng
+  df$lat <- lat
+  return(df)
+}
+
+# Load artefacts from recon_clustering.R
+
+load('final/clusters.RData')
+load('final/buffers.RData')
+load('final/cores.RData')
+load('households_spatial.RData')
+load('registrations.RData')
+load('shapefiles.RData')
+load('inclusion.RData')
+```
+
+```{r}
+# Determine which households are in which clusters, cores, buffers
+o <- sp::over(households_spatial, polygons(clusters))
+households_spatial@data$cluster_number <- clusters@data$cluster_number[o]
+o <- sp::over(households_spatial, polygons(cores))
+households_spatial@data$core_number <- cores@data$cluster_number[o]
+o <- sp::over(households_spatial, polygons(buffers))
+households_spatial@data$buffer_number <- buffers@data$cluster_number[o]
+households_spatial@data$in_core <- 
+  !is.na(households_spatial@data$core_number)
+
+# Associate relevant registrations data with households
+cha_matcher <- registrations %>%
+  filter(worker_type == 'CHV') %>%
+  dplyr::select(wid_cha, wid) %>%
+  filter(!is.na(wid_cha)) %>%
+  dplyr::distinct(wid, .keep_all = TRUE)
+
+# Get aggregate counts per cluster
+agg <- households_spatial@data %>%
+  # Get cha wid
+  left_join(cha_matcher) %>%
+  # filter out those which are not in study
+  filter(!is.na(cluster_number)) %>%
+  group_by(cluster_number) %>%
+  summarise(households_core_and_buffer = n(),
+            households_core = length(which(!is.na(core_number))),
+            households_buffer = length(which(!is.na(buffer_number))),
+            members_core_and_buffer = sum(num_hh_members),
+            members_core = sum(num_hh_members[!is.na(core_number)]),
+            members_buffer = sum(num_hh_members[!is.na(buffer_number)]),
+            members_gt_5_core_and_buffer = sum(num_hh_members_bt_5_15 + num_hh_members_gt_15),
+            members_bt_5_15_core = sum(num_hh_members_bt_5_15[!is.na(core_number)]),
+            community_health_units = paste0(sort(unique(community_health_unit)), collapse = ';'),
+            wards = paste0(sort(unique(ward)), collapse = ';'),
+            villages = paste0(sort(unique(village)), collapse = ';'),
+            chvs = paste0(sort(unique(wid)), collapse = ';'),
+            chas = paste0(sort(unique(wid_cha)), collapse = ';'))
+```
+
+## Bohemia Kenya clusters {.tabset .tabset-fade}
+
+
+### Table
+
+```{r}
+prettify(agg, nrows = nrow(agg), download_options = TRUE)
+```
+
+### Static maps
+
+#### Clusters
+
+```{r}
+clusters_fortified <- fortify(clusters, id = clusters@data$cluster_number)
+cores_fortified <- fortify(cores, id = cores@data$cluster_number)
+buffers_fortified <- fortify(buffers, id = buffers@data$cluster_number)
+centroids <- coordinates(clusters)
+centroids_df <- data.frame(centroids)
+centroids_df <- centroids_df %>%
+  dplyr::rename(longitude = X1,
+                latitude = X2) %>%
+  mutate(cluster_number = clusters@data$cluster_number)
+
+g <- ggplot() +
+  geom_polygon(data = pongwe_kikoneni_ramisi_fortified,
+               aes(x = long,
+                   y = lat,
+                   group = group),
+               color = 'black',
+               fill = 'beige') +
+  labs(x = 'Longitude',
+       y = 'Latitude') +
+  theme_bw() +
+  coord_map() 
+g +
+  geom_polygon(data = clusters_fortified,
+               aes(x = long,
+                   y = lat,
+                   group = group),
+               fill = 'black',
+               alpha = 0.7,
+               color = 'black') +
+  geom_text(data = centroids_df,
+            aes(x = longitude,
+                y = latitude, 
+                label = cluster_number),
+            size = 2,
+            alpha = 0.8,
+            color = 'white')
+    
+```
+
+#### Buffers
+
+```{r}
+g +
+  geom_polygon(data = buffers_fortified %>% filter(!is.na(hole)),
+               aes(x = long,
+                   y = lat,
+                   group = group),
+               fill = NA,
+               alpha = 0.5,
+               color = 'red') 
+```
+
+#### Cores
+
+```{r}
+g +
+  geom_polygon(data = cores_fortified %>% filter(!is.na(hole)),
+               aes(x = long,
+                   y = lat,
+                   group = group),
+               fill = 'red',
+               alpha = 0.5,
+               color = 'red') 
+```
+
+
+### Interactive map
+
+```{r, eval = TRUE}
+map_clusters <- clusters
+map_clusters@data <- left_join(map_clusters@data, agg)
+
+map_clusters@data <- map_clusters@data %>%
+  mutate(popup = paste0('Cluster ', cluster_number),
+         label = paste0('. Households: ', households_core_and_buffer, ' (',
+                        households_core, ' in core, ', households_buffer, ' in buffer). ',
+                        'Members: ', members_core_and_buffer, ' (',
+                        members_core, ' in core, ', members_buffer, ' in buffer)'))
+
+map_cores <- cores
+map_cores@data <- left_join(map_cores@data, agg)
+map_cores@data <- map_cores@data %>%
+  mutate(label = paste0('Core of cluster ', cluster_number)) %>%
+  mutate(popup = paste0('Cluster ', cluster_number))
+
+
+
+# Plot into leaflet map
+library(leaflet)
+library(leaflet.extras)
+library(raster)
+# pal <- colorNumeric(c("blue", "white", "red"), values(study_area),
+#                     na.color = "transparent")
+# xpal <- colorNumeric("Spectral", hfj@data$cases, reverse = TRUE)
+
+map <- leaflet() %>%
+  addProviderTiles(providers$Stamen.Toner, group = "Basic") %>%
+  addProviderTiles(providers$OpenStreetMap, group = "OSM") %>%
+  addProviderTiles(providers$Esri.WorldImagery, group = "Satellite")
+
+# Add social science households
+ss <- inclusion
+
+# map <- map %>%
+  # addRasterImage(study_area, colors = pal, opacity = 0.8,
+  #                group = 'PAPfPR') %>%
+  # addLegend(pal = pal, values = values(study_area),
+  #           title = "PAPfPR", group = 'PAPfPR')
+# map <- map %>%
+#   addCircleMarkers(data = hfj, color = xpal(hfj@data$cases),
+#                    label = paste0(hfj@data$Facility_Name,
+#                                   ": ", hfj@data$cases),
+#                    fillOpacity = 1,
+#                    group = 'Health facilities',
+#                    radius = 10) %>%
+#   addLegend("bottomleft", pal = xpal, values = hfj@data$cases,
+#             title = "2021 malaria cases", opacity = 1,
+#             group = 'Health facilities')
+
+map <- map %>%
+  addCircleMarkers(data = households_spatial,
+                   opacity = 1,
+                   color = 'black',
+                   radius = 0.5,
+                   fillOpacity = 1, 
+                   weight = 1,
+                   group = 'Households',
+                   popup = households_spatial@data$hh_id,
+                   label = paste0(households_spatial@data$hh_id, '. ', households_spatial@data$num_hh_members, ' members'))
+map <- map %>%
+  addCircleMarkers(data = ss, color = 'orange',
+                   label = paste0('Social science household ',
+                                  ": ", ss@data$hh_id),
+                   group = 'Social science households',
+                   radius = 1,
+                   fillOpacity = 1, 
+                   weight = 1) 
+mydrawPolylineOptions <- function (allowIntersection = TRUE, 
+                                   drawError = list(color = "#b00b00", timeout = 2500), 
+                                   guidelineDistance = 20, metric = TRUE, feet = FALSE, zIndexOffset = 2000, 
+                                   shapeOptions = drawShapeOptions(fill = FALSE), repeatMode = FALSE) {
+  leaflet::filterNULL(list(allowIntersection = allowIntersection, 
+                           drawError = drawError, guidelineDistance = guidelineDistance, 
+                           metric = metric, feet = feet, zIndexOffset = zIndexOffset,
+                           shapeOptions = shapeOptions,  repeatMode = repeatMode)) }
+
+map <- map %>%
+  addLayersControl(
+    baseGroups = c("Basic", "OSM", "Satellite"),
+    overlayGroups = c(#"Hamlet centroids", 
+      #'PAPfPR',
+      #'Health facilities',
+      'Households',
+      'Social science households'),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>% addFullscreenControl() %>% 
+  addDrawToolbar(
+    polylineOptions = mydrawPolylineOptions(metric=TRUE, feet=FALSE),
+    editOptions=editToolbarOptions(selectedPathOptions=selectedPathOptions())
+  ) 
+
+map <- map %>%
+  addPolygons(data = map_clusters, weight = 1, fillOpacity = 0.3, popup = map_clusters@data$popup, label = map_clusters@data$label) %>%
+  addPolygons(data = map_cores, fillColor = 'red', weight = 1, fillOpacity = 0.3, popup = map_cores@data$popup, label = map_cores@data$label)
+
+map
+
+# htmltools::save_html(map, file = 'map.html')
+htmlwidgets::saveWidget(widget = map,
+                        file = 'kenyaclusters.html',
+                        selfcontained = TRUE)
+
+```
+
+### Stats
+
+#### Overall numbers
+
+```{r}
+# Total details
+agg2 <- households_spatial@data %>%
+  # filter out those which are not in study
+  filter(!is.na(cluster_number)) %>%
+  summarise(households_core_and_buffer = n(),
+            households_core = length(which(!is.na(core_number))),
+            households_buffer = length(which(!is.na(buffer_number))),
+            members_core_and_buffer = sum(num_hh_members),
+            members_core = sum(num_hh_members[!is.na(core_number)]),
+            members_buffer = sum(num_hh_members[!is.na(buffer_number)]),
+            members_gt_5_core_and_buffer = sum(num_hh_members_bt_5_15 + num_hh_members_gt_15),
+            members_bt_5_15_core = sum(num_hh_members_bt_5_15[!is.na(core_number)]),
+            community_health_units = paste0(sort(unique(community_health_unit)), collapse = ';'))
+prettify(agg2)
+```
+
+#### Distribution of cluster size (households, core and buffer)
+
+```{r}
+ggplot(data = agg,
+       aes(x = households_core_and_buffer)) +
+  geom_histogram(fill = 'lightblue',
+                 color = 'black') +
+  theme_bw() +
+  labs(x = '',
+       y = 'Count')
+```
+
+#### Distribution of cluster size (members, core and buffer)
+
+```{r}
+ggplot(data = agg,
+       aes(x = members_core_and_buffer)) +
+  geom_histogram(fill = 'lightblue',
+                 color = 'black') +
+  theme_bw() +
+  labs(x = '',
+       y = 'Count')
+```
+
+#### Distribution of cluster size (members 5-15, core and buffer)
+
+```{r}
+ggplot(data = agg,
+       aes(x = members_bt_5_15_core)) +
+  geom_histogram(fill = 'lightblue',
+                 color = 'black') +
+  theme_bw() +
+  labs(x = '',
+       y = 'Count')
+```
+
+#### How to divide 275 fieldworkers
+
+Assuming fieldworker distribution should be only a function of the number of 5+ year-olds in clusters (cores and buffers combined), and assuming that there are a total of 275 fieldworkers, then the correct number of people per fieldworker would be:
+
+```{r}
+five_pluses_per_fw <- agg2$members_gt_5_core_and_buffer / 275
+five_pluses_per_fw
+```
+
+The below table shows how many fieldworkers should be assigned per cluster. It is intentionally not-rounded so as to facilitate decision-making.
+
+```{r}
+agg %>%
+  dplyr::select(cluster_number, members_gt_5_core_and_buffer) %>%
+  mutate(fieldworkers = members_gt_5_core_and_buffer / five_pluses_per_fw) %>% 
+  prettify(download_options = TRUE, nrows = nrow(.))
+```

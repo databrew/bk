@@ -29,11 +29,14 @@ if(fresh_data){
   
   # Read in recon functions
   recon_functions_dir <- '../../../recon-monitoring/R/'
+  
   recon_functions <- dir(recon_functions_dir)
   for(i in 1:length(recon_functions)){
     source(paste0(recon_functions_dir, '/', recon_functions[i]))
   }
   households <- get_household_forms()  
+  registrations <- get_registartion_forms()
+  save(registrations, file = 'registrations.RData')
   save(households, file = 'households.RData')
   save(households,
        pongwe_kikoneni_fortified,
@@ -804,21 +807,43 @@ clusters <- buffers
 buffers <- buffers - cores
 
 setwd('final/buffers')
-writeOGR(buffers, dsn = '.', layer = 'buffers', driver = "ESRI Shapefile")
+shapefile(x = buffers, file = "buffers.shp")
+# writeOGR(buffers, dsn = '.', layer = 'buffers', driver = "ESRI Shapefile")
 setwd('..')
 
 setwd('cores')
-writeOGR(cores, dsn = '.', layer = 'cores', driver = "ESRI Shapefile")
+shapefile(x = cores, file = "cores.shp")
+# writeOGR(cores, dsn = '.', layer = 'cores', driver = "ESRI Shapefile")
 setwd('..')
 
 setwd('clusters')
-writeOGR(cores, dsn = '.', layer = 'clusters', driver = "ESRI Shapefile")
+shapefile(x = clusters, file = "clusters.shp")
+# writeOGR(cores, dsn = '.', layer = 'clusters', driver = "ESRI Shapefile")
 setwd('../..')
 
+setwd('final/households')
+shapefile(x = households_spatial, file = "households.shp")
+# writeOGR(cores, dsn = '.', layer = 'clusters', driver = "ESRI Shapefile")
+setwd('../..')
 
 save(clusters, file = 'final/clusters.RData')
 save(buffers, file = 'final/buffers.RData')
 save(cores, file = 'final/cores.RData')
+save(households_spatial, file = 'households_spatial.RData')
+save(inclusion, file = 'inclusion.RData')
+save(pongwe_kikoneni,
+     pongwe_kikoneni_fortified,
+     pongwe_kikoneni_ramisi,
+     pongwe_kikoneni_ramisi_fortified,
+     file = 'shapefiles.RData')
+
+#################################################
+
+load('final/clusters.RData')
+load('final/buffers.RData')
+load('final/cores.RData')
+# Get aggregate statistics ################################
+
 
 
 

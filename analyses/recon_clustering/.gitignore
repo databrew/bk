@@ -1,3 +1,5 @@
+final/households/
+*.html
 *.pdf
 *.png
 *.RData
