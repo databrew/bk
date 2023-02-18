@@ -773,7 +773,7 @@ htmlwidgets::saveWidget(widget = map,
 # Remove clusters as per project instruction
 # https://trello.com/c/yFGlLOBt/1718-cluster-removals
 study <- list()
-remove_clusters <- c(70, 68, 81, 114, 78, 55, 22, 94, 66, 61, 96, 95, 2, 104, 80, 112, 76, 52, 89, 102, 20)
+remove_clusters <- c(70, 68, 81, 114, 78, 55, 22, 94, 66, 61, 95, 2, 104, 112, 76, 52, 89, 102, 20, 16, 13)
 
 remove_buffers <- buffers_ll[buffers_ll@data$cluster_number %in% remove_clusters,]
 plot(buffers_ll)
@@ -807,22 +807,22 @@ clusters <- buffers
 buffers <- buffers - cores
 
 setwd('final/buffers')
-shapefile(x = buffers, file = "buffers.shp")
+shapefile(x = buffers, file = "buffers.shp", overwrite = TRUE)
 # writeOGR(buffers, dsn = '.', layer = 'buffers', driver = "ESRI Shapefile")
 setwd('..')
 
 setwd('cores')
-shapefile(x = cores, file = "cores.shp")
+shapefile(x = cores, file = "cores.shp", overwrite = TRUE)
 # writeOGR(cores, dsn = '.', layer = 'cores', driver = "ESRI Shapefile")
 setwd('..')
 
 setwd('clusters')
-shapefile(x = clusters, file = "clusters.shp")
+shapefile(x = clusters, file = "clusters.shp", overwrite = TRUE)
 # writeOGR(cores, dsn = '.', layer = 'clusters', driver = "ESRI Shapefile")
 setwd('../..')
 
 setwd('final/households')
-shapefile(x = households_spatial, file = "households.shp")
+shapefile(x = households_spatial, file = "households.shp", overwrite = TRUE)
 # writeOGR(cores, dsn = '.', layer = 'clusters', driver = "ESRI Shapefile")
 setwd('../..')
 
