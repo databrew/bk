@@ -608,7 +608,8 @@ for(b in 1:length(buffer_sizes)){
 }
 stats_df <- bind_rows(stats_list)
 save(stats_df, finished_buffers_list, finished_cores_list, file = 'finished.RData')
-
+load('households_spatial.RData')
+load('households.RData')
 
 # load('image.RData')
 # load('finished.RData')
@@ -786,6 +787,51 @@ study$cores_ll <- cores_ll[!cores_ll@data$cluster_number %in% remove_clusters,]
 study$buffers_ll@data <- study$buffers_ll@data %>% dplyr::select(cluster_number)
 study$cores_ll@data <- study$cores_ll@data %>% dplyr::select(cluster_number)
 
+# Re-number each cluster 1-96
+# get distance to hq in kwale
+shp <- study$buffers_ll
+hq <- data.frame(y = -4.178132774894949, x = 39.45980823316276) %>%
+  mutate(lng = x, lat = y)
+coordinates(hq) <- ~x+y
+proj4string(hq) <- proj4string(pongwe_kikoneni_ramisi)
+library(geosphere)
+dd <- rep(NA, nrow(shp))
+for(i in 1:length(dd)){
+  d <- distm(c(hq@data$lat, hq@data$lng), c(coordinates(shp)[i,2], coordinates(shp)[i,1]), fun = distHaversine)
+  dd[i] <- d
+}
+shp@data$distance <- dd
+
+coords <- coordinates(shp)
+coords <- data.frame(coords)
+names(coords) <- c('x', 'y')
+coords$cluster_number <- shp@data$cluster_number
+coords$distance <- shp@data$distance
+number_matcher <- coords %>%
+  arrange(distance) %>%
+  mutate(new_cluster_number = 1:nrow(.))
+# plot for sanity
+p <- study$buffers_ll
+p@data <- left_join(p@data, number_matcher)
+plot(pongwe_kikoneni_ramisi, xlim = c(39.22861, 39.46),
+     ylim = c(-4.74999, -4.1))
+points(hq, col = 'red', pch = '+', cex = 3)
+
+plot(p, add = T)
+text(p, labels = p@data$new_cluster_number, cex = 0.3,
+     col = adjustcolor('black', alpha.f = 0.5))
+
+# Re-number
+number_matcher <- number_matcher %>% dplyr::select(cluster_number, new_cluster_number)
+buffers <- study$buffers_ll
+cores <- study$cores_ll
+clusters <- buffers
+buffers <- buffers - cores # removing cores buffers
+
+buffers@data <- left_join(buffers@data, number_matcher) %>% dplyr::select(-cluster_number) %>% dplyr::rename(cluster_number = new_cluster_number) 
+cores@data <- left_join(cores@data, number_matcher) %>% dplyr::select(-cluster_number) %>% dplyr::rename(cluster_number = new_cluster_number) 
+clusters@data <- left_join(clusters@data, number_matcher) %>% dplyr::select(-cluster_number) %>% dplyr::rename(cluster_number = new_cluster_number) 
+
 # Save
 if(!dir.exists('final')){
   dir.create('final')
@@ -799,12 +845,6 @@ if(!dir.exists('final/cores')){
 if(!dir.exists('final/clusters')){
   dir.create('final/clusters')
 }
-
-# Remove the core from the buffers
-buffers <- study$buffers_ll
-cores <- study$cores_ll
-clusters <- buffers
-buffers <- buffers - cores
 
 setwd('final/buffers')
 shapefile(x = buffers, file = "buffers.shp", overwrite = TRUE)
@@ -820,6 +860,13 @@ setwd('clusters')
 shapefile(x = clusters, file = "clusters.shp", overwrite = TRUE)
 # writeOGR(cores, dsn = '.', layer = 'clusters', driver = "ESRI Shapefile")
 setwd('../..')
+
+# Define which households are in cluster
+o <- sp::over(households_spatial, polygons(clusters))
+households_spatial@data$cluster_number <- clusters@data$cluster_number[o]
+households_spatial@data$cluster_number <- ifelse(is.na(households_spatial@data$cluster_number),
+                                                 0, 
+                                                 households_spatial@data$cluster_number)
 
 setwd('final/households')
 shapefile(x = households_spatial, file = "households.shp", overwrite = TRUE)
@@ -847,72 +894,72 @@ load('final/cores.RData')
 
 
 
-########################################################################
-# Examine accuracy in gps data
-# Update with "flagged" households
-load('households.RData')
-households$suspect <- households$Accuracy >= 20
-households_spatial <- households %>% filter(!is.na(Longitude))
-coordinates(households_spatial) <- ~Longitude+Latitude
-proj4string(households_spatial) <- proj4string(wds_shp)
-# See which cluster each household is in
-o <- sp::over(households_spatial, polygons(study$buffers_ll))
-households_spatial@data$buffer_number <- study$buffers_ll$cluster_number[o]
-o <- sp::over(households_spatial, polygons(study$cores_ll))
-households_spatial@data$core_number <- study$cores_ll$cluster_number[o]
+# ########################################################################
+# # Examine accuracy in gps data
+# # Update with "flagged" households
+# load('households.RData')
+# households$suspect <- households$Accuracy >= 20
+# households_spatial <- households %>% filter(!is.na(Longitude))
+# coordinates(households_spatial) <- ~Longitude+Latitude
+# proj4string(households_spatial) <- proj4string(wds_shp)
+# # See which cluster each household is in
+# o <- sp::over(households_spatial, polygons(study$buffers_ll))
+# households_spatial@data$buffer_number <- study$buffers_ll$cluster_number[o]
+# o <- sp::over(households_spatial, polygons(study$cores_ll))
+# households_spatial@data$core_number <- study$cores_ll$cluster_number[o]
+# 
+# # See which "suspect" houses are in each area
+# sus <- households_spatial@data %>%
+#   filter(suspect) %>%
+#   group_by(core_number) %>%
+#   tally
+# sus
+# sus <- households_spatial@data %>%
+#   filter(suspect) %>%
+#   filter(!is.na(core_number)) %>%
+#   dplyr::select(hh_id, core_number, num_hh_members_bt_5_15)
+# sus
+# rr = read_csv('~/Desktop/reconbhousehold.csv') # downloaded from site
+# ggplot(data = rr %>% filter(`location_geocode-Accuracy` >= 50),
+#        aes(x = `location_geocode-Longitude`,
+#            y = `location_geocode-Latitude`,
+#            color = `location_geocode-Accuracy`)) +
+#   geom_point() +
+#   scale_color_gradient2(name = '',
+#                      low = 'white',
+#                      high = 'red') +
+#   labs(title = 'GPS accuracy')
+# suspect <- rr %>% filter(`location_geocode-Accuracy` >= 50)
+# plot(study$buffers_ll)
+# points(suspect$`location_geocode-Longitude`, suspect$`location_geocode-Latitude`, col = 'red')
+# suspect_sp <- suspect %>% mutate(lng = `location_geocode-Longitude`,
+#                                  lat = `location_geocode-Latitude`)
+# coordinates(suspect_sp) <- ~lng+lat
+# proj4string(suspect_sp) <- proj4string(study$buffers_ll)
+# o <- over(suspect_sp, polygons(study$buffers_ll))
+# table(is.na(o))
+# table(o)
 
-# See which "suspect" houses are in each area
-sus <- households_spatial@data %>%
-  filter(suspect) %>%
-  group_by(core_number) %>%
-  tally
-sus
-sus <- households_spatial@data %>%
-  filter(suspect) %>%
-  filter(!is.na(core_number)) %>%
-  dplyr::select(hh_id, core_number, num_hh_members_bt_5_15)
-sus
-rr = read_csv('~/Desktop/reconbhousehold.csv') # downloaded from site
-ggplot(data = rr %>% filter(`location_geocode-Accuracy` >= 50),
-       aes(x = `location_geocode-Longitude`,
-           y = `location_geocode-Latitude`,
-           color = `location_geocode-Accuracy`)) +
-  geom_point() +
-  scale_color_gradient2(name = '',
-                     low = 'white',
-                     high = 'red') +
-  labs(title = 'GPS accuracy')
-suspect <- rr %>% filter(`location_geocode-Accuracy` >= 50)
-plot(study$buffers_ll)
-points(suspect$`location_geocode-Longitude`, suspect$`location_geocode-Latitude`, col = 'red')
-suspect_sp <- suspect %>% mutate(lng = `location_geocode-Longitude`,
-                                 lat = `location_geocode-Latitude`)
-coordinates(suspect_sp) <- ~lng+lat
-proj4string(suspect_sp) <- proj4string(study$buffers_ll)
-o <- over(suspect_sp, polygons(study$buffers_ll))
-table(is.na(o))
-table(o)
-
-# Get the cluster of each household
-hh <- households_spatial
-hh@data$joiner <- paste0(hh@data$hh_id,
-                         hh@data$Longitude,
-                         hh@data$Latitude)
-hh@data <- left_join(hh@data, ss)
-o <- sp::over(households_spatial, polygons(study$buffers_ll))
-hh@data$cluster <- o
-hh@data %>% 
-  group_by(cluster, suspect) %>%
-  summarise(n = n(),
-            five_to_fifteens = sum(num_hh_members_bt_5_15)) %>%
-  filter(!is.na(suspect))
+# # Get the cluster of each household
+# hh <- households_spatial
+# hh@data$joiner <- paste0(hh@data$hh_id,
+#                          hh@data$Longitude,
+#                          hh@data$Latitude)
+# hh@data <- left_join(hh@data, ss)
+# o <- sp::over(households_spatial, polygons(study$buffers_ll))
+# hh@data$cluster <- o
+# hh@data %>% 
+#   group_by(cluster, suspect) %>%
+#   summarise(n = n(),
+#             five_to_fifteens = sum(num_hh_members_bt_5_15)) %>%
+#   filter(!is.na(suspect))
 
 # Provokes problems with cluster 6 (12 five to 15 year olds) and maybe 89 (6)
 
-# Define suspect households
-rr$joiner <- paste0(rr$hh_id, rr$`location_geocode-Longitude`, rr$`location_geocode-Latitude`)
-ss <- tibble(joiner = rr$joiner[rr$`location_geocode-Accuracy` >= 100],
-             suspect = TRUE)
+# # Define suspect households
+# rr$joiner <- paste0(rr$hh_id, rr$`location_geocode-Longitude`, rr$`location_geocode-Latitude`)
+# ss <- tibble(joiner = rr$joiner[rr$`location_geocode-Accuracy` >= 100],
+#              suspect = TRUE)
 
 ########################################################################
 # RADIAL APPROACH
