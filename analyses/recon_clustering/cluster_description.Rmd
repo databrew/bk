@@ -204,8 +204,9 @@ agg <- households_spatial@data %>%
 ```{r}
 # Create outputs for Virginia Teach with cluster information
 if(FALSE){
-  vt <- households_spatial@data %>% filter(!is.na(cluster_number))
-  write_csv()
+  vt <- households_spatial@data %>% filter(!is.na(cluster_number)) %>%
+    dplyr::select(-core_number, -buffer_number)
+  write_csv(vt, '~/Desktop/recon_only_in_study_with_cluster_info.csv')
 }
 ```
 
