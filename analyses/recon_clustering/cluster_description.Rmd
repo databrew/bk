@@ -201,6 +201,14 @@ agg <- households_spatial@data %>%
             chas = paste0(sort(unique(wid_cha)), collapse = ';'))
 ```
 
+```{r}
+# Create outputs for Virginia Teach with cluster information
+if(FALSE){
+  vt <- households_spatial@data %>% filter(!is.na(cluster_number))
+  write_csv()
+}
+```
+
 ## Bohemia Kenya clusters {.tabset .tabset-fade}
 
 
