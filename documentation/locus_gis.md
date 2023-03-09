@@ -19,6 +19,14 @@ For the purposes of the Bohemia Kenya project, Locus GIS must be configured by a
 - Click "New project"
 - Name the new project "Bohemia"
 
+### Set the right Coordinate Reference System (CRS) for the project
+- 3 horizontal bars
+- Projects
+- Bohemia (or whatever you named the project locally)
+- Click the 3 vertical dots
+- Edit project
+- Ensure that "Coordinate reference system" is WGS 84 / EPSG: 84 (see screenshot)
+
 ### Adding new layers to that project
 
 - On your computer, go to [this google drive link](https://drive.google.com/drive/folders/1vth1P46HAPOJJc2lt0nKtV9VcLqK-cg6?usp=sharing)
