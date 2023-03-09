@@ -20,9 +20,20 @@ if(fresh_data){
   kwale_fortified <- fortify(kwale, regions = ken3@data$NAME_3)
   pongwe_kikoneni <- ken3[ken3@data$NAME_3 == 'Pongwe/Kikoneni',]
   pongwe_kikoneni_fortified <- fortify(pongwe_kikoneni, regions = ken3@data$NAME_3)
+  
+  ramisi <- ken3[ken3@data$NAME_3 %in% c('Ramisi'),]
+  ramisi_fortified <- fortify(ramisi, regions = ramisi@data$NAME_3)
+  
   pongwe_kikoneni_ramisi <- ken3[ken3@data$NAME_3 %in% c('Pongwe/Kikoneni', 'Ramisi'),]
   pongwe_kikoneni_ramisi_fortified <- fortify(pongwe_kikoneni_ramisi, regions = pongwe_kikoneni_ramisi@data$NAME_3)
   
+  # Save for later
+  save(ken3, ken3_fortified, file = 'final/ken3.RData')
+  save(kwale, kwale_fortified, file = 'final/kwale.RData')
+  save(pongwe_kikoneni, pongwe_kikoneni_fortified, file = 'final/pongwe_kikoneni.RData')
+  save(ramisi, ramisi_fortified, file = 'final/ramisi.RData')
+  save(pongwe_kikoneni_ramisi, pongwe_kikoneni_ramisi_fortified, file = 'final/pongwe_kikoneni_ramisi.RData')
+
   # aws sso login --profile dbrew-prod
   s3obj <- paws::s3()
   # s3obj$list_buckets()

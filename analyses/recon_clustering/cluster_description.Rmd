@@ -162,6 +162,11 @@ load('inclusion.RData')
 ```
 
 ```{r}
+# Load randomization assignments
+assignments <- read_csv('../randomization/assignments.csv')
+```
+
+```{r}
 # Determine which households are in which clusters, cores, buffers
 o <- sp::over(households_spatial, polygons(clusters))
 households_spatial@data$cluster_number <- clusters@data$cluster_number[o]
@@ -219,6 +224,31 @@ if(FALSE){
 prettify(agg, nrows = nrow(agg), download_options = TRUE)
 ```
 
+```{r}
+# Get info by randomization assignment
+# Get aggregate counts per cluster
+agg <- households_spatial@data %>%
+  # Get cha wid
+  left_join(cha_matcher) %>%
+  # filter out those which are not in study
+  filter(!is.na(cluster_number)) %>%
+  left_join(assignments) %>%
+  group_by(assignment, location) %>%
+  summarise(households_core_and_buffer = n(),
+            households_core = length(which(!is.na(core_number))),
+            households_buffer = length(which(!is.na(buffer_number))),
+            members_core_and_buffer = sum(num_hh_members),
+            members_core = sum(num_hh_members[!is.na(core_number)]),
+            members_buffer = sum(num_hh_members[!is.na(buffer_number)]),
+            members_gt_5_core_and_buffer = sum(num_hh_members_bt_5_15 + num_hh_members_gt_15),
+            members_bt_5_15_core = sum(num_hh_members_bt_5_15[!is.na(core_number)]),
+            community_health_units = paste0(sort(unique(community_health_unit)), collapse = ';'),
+            wards = paste0(sort(unique(ward)), collapse = ';'),
+            villages = paste0(sort(unique(village)), collapse = ';'),
+            chvs = paste0(sort(unique(wid)), collapse = ';'),
+            chas = paste0(sort(unique(wid_cha)), collapse = ';'))
+```
+
 ### Static maps
 
 #### Clusters
@@ -260,6 +290,32 @@ g +
             size = 2,
             alpha = 0.8,
             color = 'white')
+
+g +
+  geom_polygon(data = clusters_fortified,
+               aes(x = long,
+                   y = lat,
+                   # fill = location,
+                   group = group),
+               fill = 'black',
+               alpha = 0.0,
+               color = 'black') +
+      geom_point(data = centroids_df %>% left_join(assignments),
+            aes(x = longitude,
+                y = latitude, 
+                color = factor(assignment)),
+            size = 3,
+            alpha = 0.5) +
+  geom_text(data = centroids_df %>% left_join(assignments),
+            aes(x = longitude,
+                y = latitude, 
+                label = cluster_number,
+                color = location),
+            size = 2,
+            alpha = 0.8) +
+  theme(legend.position = 'bottom') +
+  scale_color_manual(name = 'Assignment',
+                     values = c('red', 'blue', 'yellow', 'green'))
     
 ```
 
