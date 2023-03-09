@@ -26,7 +26,7 @@ For the purposes of the Bohemia Kenya project, Locus GIS must be configured by a
 - Click the 3 vertical dots
 - Click Edit project
 - Ensure that "Coordinate reference system" is WGS 84 / EPSG: 84 (see below screenshot)
-![image](https://user-images.githubusercontent.com/4364537/224106288-ae05cb2f-e636-4365-9918-48aac2148c3e.png)
+<img src="[https://mma.prnewswire.com/media/1513369/Educative_Logo.jpg](https://user-images.githubusercontent.com/4364537/224106288-ae05cb2f-e636-4365-9918-48aac2148c3e.png)" height="300">
 
 
 
