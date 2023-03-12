@@ -59,4 +59,29 @@ if('assignments.csv' %in% dir()){
     mutate(assignment = c(assignment_options_north, assignment_options_south))
   # Write a csv
   write_csv(assignments, 'assignments.csv')
+  file.copy('assignments.csv', '../../data_public/randomization/assignments.csv')
+}
+
+
+###########################
+# ENTOMOLOGY
+###########################
+
+# https://docs.google.com/document/d/1MNiDi-Jln-CrNrFMgzgReJqSGkIJ1FCSaagQbxcmjOk/edit#heading=h.vo9rz17me9hc
+
+# Deliverable 1 ################    
+# select 6 clusters per arm, a total of 12 clusters. ALL the hh from these clusters will be metadata for the three Entomology data collection tools
+# Deliverable 1: a table named “Table 1_ento_clusters.csv” in which one row is an Ento cluster with the column: 
+# Cluster#
+# Arm (just the code (1 or 2), not the intervention)
+if('ento_clusters.csv' %in% dir()){
+  ento_clusters <- read_csv('ento_clusters.csv')
+} else {
+  # Select 6 clusters per arm
+  ento_clusters <- assignments %>%
+    group_by(assignment) %>%
+    dplyr::sample_n(6) %>%
+    ungroup
+  write_csv(ento_clusters, 'ento_clusters.csv')
+  file.copy('ento_clusters.csv', '../../data_public/randomization/ento_clusters.csv')
 }
