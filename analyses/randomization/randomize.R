@@ -104,6 +104,7 @@ l <- leaflet() %>%
 # Deliverable 1: a table named “Table 1_ento_clusters.csv” in which one row is an Ento cluster with the column: 
 # Cluster#
 # Arm (just the code (1 or 2), not the intervention)
+set.seed(17)
 if('ento_clusters.csv' %in% dir()){
   ento_clusters <- read_csv('ento_clusters.csv')
 } else {
@@ -116,11 +117,11 @@ if('ento_clusters.csv' %in% dir()){
   file.copy('ento_clusters.csv', '../../data_public/randomization/ento_clusters.csv')
 }
 
-ento_sp <- cores
+ento_sp <- buffers
 ento_sp <- ento_sp[ento_sp@data$cluster_number %in% ento_clusters$cluster_number,]
 l <- leaflet() %>%
   addTiles() %>%
-  addPolygons(data = buffers, fillColor = 'grey', color = 'grey', fillOpacity = 0.2, weight = 0,
+  addPolygons(data = buffers, fillColor = 'grey', color = 'grey', fillOpacity = 0.2, weight = 1,
               label = buffers@data$cluster_number) %>%
   addPolygons(data = cores[cores@data$assignment == 1,],
               label = cores@data$cluster_number[cores@data$assignment == 1],
