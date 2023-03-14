@@ -2,9 +2,12 @@
 library(dplyr)
 library(readr)
 library(leaflet)
+library(rgdal)
+
 
   # Load in clusters
 load('../recon_clustering/final/cores.RData')
+load('../recon_clustering/final/buffers.RData')
 
 # Plot to see what is above/below the highway
 leaflet() %>%
@@ -29,13 +32,13 @@ cores@data <- left_join(cores@data, clusters)
 leaflet() %>%
   addTiles() %>%
   addPolygons(data = cores[cores@data$location == 'North',],
-              label = cores@data$cluster_number,
+              label = cores@data$cluster_number[cores@data$location == 'North'],
               # labelOptions = list('permanent' = TRUE,
               #                     'autclose' = FALSE),
               fillColor = 'blue', color = 'blue'
               ) %>%
   addPolygons(data = cores[cores@data$location == 'South',],
-              label = cores@data$cluster_number,
+              label = cores@data$cluster_number[cores@data$location == 'South'],
               # labelOptions = list('permanent' = TRUE,
               #                     'autclose' = FALSE),
               fillColor = 'red', color = 'red'
@@ -62,6 +65,33 @@ if('assignments.csv' %in% dir()){
   file.copy('assignments.csv', '../../data_public/randomization/assignments.csv')
 }
 
+# See results
+# Inspect
+cores@data <- left_join(cores@data, assignments)
+l <- leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = buffers, fillColor = 'grey', color = 'grey', fillOpacity = 0.5, weight = 0,
+              label = buffers@data$cluster_number) %>%
+  addPolygons(data = cores[cores@data$assignment == 1,],
+              label = cores@data$cluster_number[cores@data$assignment == 1],
+              weight = 1,
+              # labelOptions = list('permanent' = TRUE,
+              #                     'autclose' = FALSE),
+              fillColor = 'blue', color = 'blue'
+  ) %>%
+  addPolygons(data = cores[cores@data$assignment == 2,],
+              label = cores@data$cluster_number[cores@data$assignment == 2],
+              weight = 1,
+              # labelOptions = list('permanent' = TRUE,
+              #                     'autclose' = FALSE),
+              fillColor = 'red', color = 'red'
+  )
+
+# hh <- readOGR('../../data_public/spatial/households/', 'households')
+# hhx <- hh[hh@data$village == 'Kilulu',]
+# l %>% addCircleMarkers(data = hhx, radius = 1, col = 'green') %>%
+#   addCircleMarkers(data = inclusion, radius = 1, col = 'orange')
+# load('../../analyses/recon_clustering/inclusion.RData')
 
 ###########################
 # ENTOMOLOGY
@@ -85,3 +115,38 @@ if('ento_clusters.csv' %in% dir()){
   write_csv(ento_clusters, 'ento_clusters.csv')
   file.copy('ento_clusters.csv', '../../data_public/randomization/ento_clusters.csv')
 }
+
+ento_sp <- cores
+ento_sp <- ento_sp[ento_sp@data$cluster_number %in% ento_clusters$cluster_number,]
+l <- leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = buffers, fillColor = 'grey', color = 'grey', fillOpacity = 0.2, weight = 0,
+              label = buffers@data$cluster_number) %>%
+  addPolygons(data = cores[cores@data$assignment == 1,],
+              label = cores@data$cluster_number[cores@data$assignment == 1],
+              weight = 0,
+              # labelOptions = list('permanent' = TRUE,
+              #                     'autclose' = FALSE),
+              fillOpacity = 0.2,
+              fillColor = 'blue', color = 'blue'
+  ) %>%
+  addPolygons(data = cores[cores@data$assignment == 2,],
+              label = cores@data$cluster_number[cores@data$assignment == 2],
+              weight = 0,
+              fillOpacity = 0.2,
+              # labelOptions = list('permanent' = TRUE,
+              #                     'autclose' = FALSE),
+              fillColor = 'red', color = 'red') %>%
+  addPolygons(data = ento_sp,
+              label = ento_sp@data$cluster_number,
+              weight = 1,
+              # labelOptions = list('permanent' = TRUE,
+              #                     'autclose' = FALSE),
+              fillOpacity = 0.6,
+              fillColor = 'yellow', color = 'purple'
+  )
+l
+
+plot(cores)
+plot(ento_sp, add = T, col = 'red')
+text(ento_sp@data$cluster_number)
