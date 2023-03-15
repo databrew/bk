@@ -159,6 +159,16 @@ load('households_spatial.RData')
 load('registrations.RData')
 load('shapefiles.RData')
 load('inclusion.RData')
+
+library(rgdal)
+# clusters <- readOGR('../../data_public/spatial/clusters/', 'clusters')
+# buffers <- readOGR('../../data_public/spatial/buffers/', 'buffers')
+# villages <- readOGR('../../data_public/spatial/village_shapefile/', 'village')
+# plot(villages)
+# text(villages, label = villages@data$id, cex = 0.2)
+# plot(clusters, add = T)
+# text(clusters, label = clusters@data$cluster_nu, cex = 0.4, col = 'red')
+
 ```
 
 ```{r}
@@ -199,6 +209,7 @@ agg <- households_spatial@data %>%
             members_buffer = sum(num_hh_members[!is.na(buffer_number)]),
             members_gt_5_core_and_buffer = sum(num_hh_members_bt_5_15 + num_hh_members_gt_15),
             members_bt_5_15_core = sum(num_hh_members_bt_5_15[!is.na(core_number)]),
+            members_bt_5_15_buffer = sum(num_hh_members_bt_5_15[is.na(core_number)]),
             community_health_units = paste0(sort(unique(community_health_unit)), collapse = ';'),
             wards = paste0(sort(unique(ward)), collapse = ';'),
             villages = paste0(sort(unique(village)), collapse = ';'),

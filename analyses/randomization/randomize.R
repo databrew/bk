@@ -4,6 +4,9 @@ library(readr)
 library(leaflet)
 library(rgdal)
 
+# # Load in village shapefiles
+# villages <- readOGR('../../data_public/spatial/village_shapefile/', 'village')
+
 
   # Load in clusters
 load('../recon_clustering/final/cores.RData')
