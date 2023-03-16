@@ -151,6 +151,18 @@ l <- leaflet() %>%
   )
 l
 
+# Write a shapefile
+owd <- getwd()
+dir.create('../../data_public/spatial/ento_clusters')
+setwd('../../data_public/spatial/ento_clusters')
+raster::shapefile(x = ento_sp, file = "ento_clusters.shp", overwrite = TRUE)
+# writeOGR(cores, dsn = '.', layer = 'clusters', driver = "ESRI Shapefile")
+setwd(owd)
+
+# htmltools::save_html(html = l, file = '~/Desktop/kenyaentoclusters.html')
+htmlwidgets::saveWidget(widget = l,
+                        file = '~/Desktop/kenyaentoclusters.html',
+                        selfcontained = TRUE)
 plot(cores)
 plot(ento_sp, add = T, col = 'red')
 text(ento_sp@data$cluster_number)
