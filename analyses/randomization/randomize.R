@@ -3,7 +3,7 @@ library(dplyr)
 library(readr)
 library(leaflet)
 library(rgdal)
-
+library(sp)
 # # Load in village shapefiles
 # villages <- readOGR('../../data_public/spatial/village_shapefile/', 'village')
 
@@ -12,6 +12,7 @@ library(rgdal)
 load('../recon_clustering/final/cores.RData')
 load('../recon_clustering/final/buffers.RData')
 
+
 # Plot to see what is above/below the highway
 leaflet() %>%
   addTiles() %>%
@@ -19,6 +20,20 @@ leaflet() %>%
               label = cores@data$cluster_number,
               labelOptions = list('permanent' = TRUE,
                                   'autclose' = FALSE))
+
+# # See shapefile versions
+# villages <- readOGR('../../data_public/spatial/village_shapefile/', 'village')
+# cores2 <- readOGR('../../data_public/spatial/clusters/', 'clusters')
+# plot(cores2); text(coordinates(cores2), label = cores2@data$cluster_nu)
+# cores3 <- readOGR('~/Desktop/cores/', 'cores')
+# plot(cores3); text(coordinates(cores3), label = cores2@data$cluster_nu)
+# buffers2 <- readOGR('../../data_public/spatial/buffers/', 'buffers')
+# plot(buffers2); text(coordinates(buffers2), label = buffers2@data$cluster_nu)
+# buffers3 <- readOGR('~/Desktop/buffers/', 'buffers')
+# plot(buffers3); text(coordinates(buffers3), label = buffers3@data$clstr_n)
+# clusters2 <- readOGR('../../data_public/spatial/clusters/', 'clusters')
+# plot(clusters2); text(coordinates(clusters2), label = clusters2@data$cluster_nu)
+
 
 # Based on plot, define each cluster as north or south
 clusters <- tibble(
@@ -119,50 +134,51 @@ if('ento_clusters.csv' %in% dir()){
   write_csv(ento_clusters, 'ento_clusters.csv')
   file.copy('ento_clusters.csv', '../../data_public/randomization/ento_clusters.csv')
 }
-
-ento_sp <- buffers
-ento_sp <- ento_sp[ento_sp@data$cluster_number %in% ento_clusters$cluster_number,]
-l <- leaflet() %>%
-  addTiles() %>%
-  addPolygons(data = buffers, fillColor = 'grey', color = 'grey', fillOpacity = 0.2, weight = 1,
-              label = buffers@data$cluster_number) %>%
-  addPolygons(data = cores[cores@data$assignment == 1,],
-              label = cores@data$cluster_number[cores@data$assignment == 1],
-              weight = 0,
-              # labelOptions = list('permanent' = TRUE,
-              #                     'autclose' = FALSE),
-              fillOpacity = 0.2,
-              fillColor = 'blue', color = 'blue'
-  ) %>%
-  addPolygons(data = cores[cores@data$assignment == 2,],
-              label = cores@data$cluster_number[cores@data$assignment == 2],
-              weight = 0,
-              fillOpacity = 0.2,
-              # labelOptions = list('permanent' = TRUE,
-              #                     'autclose' = FALSE),
-              fillColor = 'red', color = 'red') %>%
-  addPolygons(data = ento_sp,
-              label = ento_sp@data$cluster_number,
-              weight = 1,
-              # labelOptions = list('permanent' = TRUE,
-              #                     'autclose' = FALSE),
-              fillOpacity = 0.6,
-              fillColor = 'yellow', color = 'purple'
-  )
-l
-
-# Write a shapefile
-owd <- getwd()
-dir.create('../../data_public/spatial/ento_clusters')
-setwd('../../data_public/spatial/ento_clusters')
-raster::shapefile(x = ento_sp, file = "ento_clusters.shp", overwrite = TRUE)
-# writeOGR(cores, dsn = '.', layer = 'clusters', driver = "ESRI Shapefile")
-setwd(owd)
-
-# htmltools::save_html(html = l, file = '~/Desktop/kenyaentoclusters.html')
-htmlwidgets::saveWidget(widget = l,
-                        file = '~/Desktop/kenyaentoclusters.html',
-                        selfcontained = TRUE)
-plot(cores)
-plot(ento_sp, add = T, col = 'red')
-text(ento_sp@data$cluster_number)
+if(FALSE){
+  ento_sp <- buffers
+  ento_sp <- ento_sp[ento_sp@data$cluster_number %in% ento_clusters$cluster_number,]
+  l <- leaflet() %>%
+    addTiles() %>%
+    addPolygons(data = buffers, fillColor = 'grey', color = 'grey', fillOpacity = 0.2, weight = 1,
+                label = buffers@data$cluster_number) %>%
+    addPolygons(data = cores[cores@data$assignment == 1,],
+                label = cores@data$cluster_number[cores@data$assignment == 1],
+                weight = 0,
+                # labelOptions = list('permanent' = TRUE,
+                #                     'autclose' = FALSE),
+                fillOpacity = 0.2,
+                fillColor = 'blue', color = 'blue'
+    ) %>%
+    addPolygons(data = cores[cores@data$assignment == 2,],
+                label = cores@data$cluster_number[cores@data$assignment == 2],
+                weight = 0,
+                fillOpacity = 0.2,
+                # labelOptions = list('permanent' = TRUE,
+                #                     'autclose' = FALSE),
+                fillColor = 'red', color = 'red') %>%
+    addPolygons(data = ento_sp,
+                label = ento_sp@data$cluster_number,
+                weight = 1,
+                # labelOptions = list('permanent' = TRUE,
+                #                     'autclose' = FALSE),
+                fillOpacity = 0.6,
+                fillColor = 'yellow', color = 'purple'
+    )
+  l
+  
+  # Write a shapefile
+  owd <- getwd()
+  dir.create('../../data_public/spatial/ento_clusters')
+  setwd('../../data_public/spatial/ento_clusters')
+  raster::shapefile(x = ento_sp, file = "ento_clusters.shp", overwrite = TRUE)
+  # writeOGR(cores, dsn = '.', layer = 'clusters', driver = "ESRI Shapefile")
+  setwd(owd)
+  
+  # htmltools::save_html(html = l, file = '~/Desktop/kenyaentoclusters.html')
+  htmlwidgets::saveWidget(widget = l,
+                          file = '~/Desktop/kenyaentoclusters.html',
+                          selfcontained = TRUE)
+  plot(cores)
+  plot(ento_sp, add = T, col = 'red')
+  text(ento_sp@data$cluster_number)
+}
