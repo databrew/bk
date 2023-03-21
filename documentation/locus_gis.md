@@ -32,7 +32,7 @@ For the purposes of the Bohemia Kenya project, Locus GIS must be configured by a
 
 ### Adding new layers to that project
 
-- On your computer, go to [this google drive link](https://drive.google.com/drive/folders/1vth1P46HAPOJJc2lt0nKtV9VcLqK-cg6?usp=sharing)
+- On your computer, go to [this google drive link](https://drive.google.com/drive/folders/1HjfkjplGchuA4L18ebaFKyLVQOkRkTGg?usp=sharing)
 - Download the contents of the folder to your computer
 - Go to drive.google.com, logged in to your personal account
 - Upload the folder to your personal drive
