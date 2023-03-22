@@ -235,7 +235,7 @@ if(FALSE){
 prettify(agg, nrows = nrow(agg), download_options = TRUE)
 ```
 
-```{r}
+```{r, eval = FALSE}
 # Get info by randomization assignment
 # Get aggregate counts per cluster
 agg <- households_spatial@data %>%
@@ -389,7 +389,11 @@ library(raster)
 map <- leaflet() %>%
   addProviderTiles(providers$Stamen.Toner, group = "Basic") %>%
   addProviderTiles(providers$OpenStreetMap, group = "OSM") %>%
-  addProviderTiles(providers$Esri.WorldImagery, group = "Satellite")
+  addProviderTiles(providers$Esri.WorldImagery, group = "Satellite") %>%
+    addPolygons(data = cores,
+              label = cores@data$cluster_number,
+              labelOptions = list('permanent' = TRUE,
+                                  'autclose' = FALSE))
 
 # Add social science households
 ss <- inclusion
