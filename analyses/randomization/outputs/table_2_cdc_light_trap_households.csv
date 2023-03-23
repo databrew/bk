@@ -1,97 +1,97 @@
 cluster_number,randomization_number,core_buffer,painted_recon_hh_id,map_recon_hh_id,sub_county,ward,community_health_unit,village,longitude,latitude,wall_type,roof_type
-1,1,Core,CD-886,CD-886,Msambweni,Ramisi,Mafisini,Kidzumbani,39.4213992,-4.4549922,mixed_blocks_mud,zinc
-1,2,Core,CD-895,CD-895,Msambweni,Ramisi,Mafisini,Kidzumbani,39.4176043,-4.4564246,traditional_mud,palm
-1,3,Core,CD-883,CF-136,Msambweni,Ramisi,Mafisini,Kidzumbani,39.421912,-4.4566472,traditional_mud,palm
-1,4,Core,CD-877,CD-877,Msambweni,Ramisi,Mafisini,Kidzumbani,39.421367,-4.4547395,traditional_mud,palm
+1,1,Core,CD-896,CD-896,Msambweni,Ramisi,Mafisini,Kidzumbani,39.4163841,-4.4557092,traditional_mud,palm
+1,2,Core,CD-878,CD-878,Msambweni,Ramisi,Mafisini,Kidzumbani,39.4206235,-4.4542954,traditional_mud,palm
+1,3,Core,CD-895,CD-895,Msambweni,Ramisi,Mafisini,Kidzumbani,39.4176043,-4.4564246,traditional_mud,palm
+1,4,Core,CD-883,CD-883,Msambweni,Ramisi,Mafisini,Kidzumbani,39.421974,-4.4566485,mixed_blocks_mud,palm
 1,1,Buffer,CD-876,CD-876,Msambweni,Ramisi,Mafisini,Kidzumbani,39.4235483,-4.4547667,traditional_mud,palm
-1,2,Buffer,CD-889,CD-889,Msambweni,Ramisi,Mafisini,Kidzumbani,39.4187412,-4.4580825,traditional_mud,palm
-1,3,Buffer,CD-890,CD-890,Msambweni,Ramisi,Mafisini,Kidzumbani,39.4174731,-4.4586844,traditional_mud,palm
-1,4,Buffer,CD-891,CD-891,Msambweni,Ramisi,Mafisini,Kidzumbani,39.4175076,-4.4586603,traditional_mud,palm
-11,1,Core,BB-907,BB-907,LungaLunga,Pongwe kikoneni,Bumbani,Mwabandari,39.3135091,-4.4308785,traditional_mud,palm
-11,2,Core,BB-868,BB-868,LungaLunga,Pongwe kikoneni,Bumbani,Mwabandari,39.3098773,-4.4308519,traditional_mud,zinc
-11,3,Core,BB-870,BB-870,LungaLunga,Pongwe kikoneni,Bumbani,Mwabandari,39.3113252,-4.4283909,mixed_blocks_mud,zinc
-11,4,Core,BB-905,BB-905,LungaLunga,Pongwe kikoneni,Bumbani,Mwabandari,39.3129893,-4.4313564,traditional_mud,palm
-11,1,Buffer,BB-848,BB-848,LungaLunga,Pongwe kikoneni,Bumbani,Mwabandari,39.3130494,-4.4350537,mixed_blocks_mud,zinc
-11,2,Buffer,BB-899,BB-899,LungaLunga,Pongwe kikoneni,Bumbani,Mwabandari,39.3078476,-4.4328896,traditional_mud,zinc
-11,3,Buffer,BB-860,BB-860,LungaLunga,Pongwe kikoneni,Bumbani,Mwabandari,39.314175,-4.4335504,traditional_mud,zinc
-11,4,Buffer,BB-897,BB-897,LungaLunga,Pongwe kikoneni,Bumbani,Mwabandari,39.3079899,-4.4336923,mixed_blocks_mud,zinc
-17,1,Core,BJ-060,BJ-060,Msambweni,Ramisi,Shirazi,Mchinjirini,39.3932941,-4.4902678,traditional_mud,palm
+1,2,Buffer,CD-869,CD-869,Msambweni,Ramisi,Mafisini,Kidzumbani,39.4227417,-4.449735,traditional_mud,palm
+1,3,Buffer,CD-894,CD-894,Msambweni,Ramisi,Mafisini,Kidzumbani,39.4161658,-4.4576921,block_cement,zinc
+1,4,Buffer,CD-875,CD-875,Msambweni,Ramisi,Mafisini,Kidzumbani,39.4237138,-4.4548304,traditional_mud,palm
+11,1,Core,BB-867,BB-867,LungaLunga,Pongwe kikoneni,Bumbani,Mwabandari,39.3105863,-4.4316869,traditional_mud,zinc
+11,2,Core,BB-906,BB-906,LungaLunga,Pongwe kikoneni,Bumbani,Mwabandari,39.313424,-4.4307432,traditional_mud,palm
+11,3,Core,BB-869,BB-869,LungaLunga,Pongwe kikoneni,Bumbani,Mwabandari,39.3102781,-4.4284678,traditional_mud,palm
+11,4,Core,BB-872,BB-872,LungaLunga,Pongwe kikoneni,Bumbani,Mwabandari,39.3118175,-4.4307049,traditional_mud,zinc
+11,1,Buffer,BB-883,BB-883,LungaLunga,Pongwe kikoneni,Bumbani,Mwabandari,39.3070874,-4.4323373,traditional_mud,palm
+11,2,Buffer,BB-819,BB-819,LungaLunga,Pongwe kikoneni,Bumbani,Mwabandari,39.3169975,-4.430379,traditional_mud,zinc
+11,3,Buffer,BB-859,BB-859,LungaLunga,Pongwe kikoneni,Bumbani,Mwabandari,39.3141245,-4.4335545,traditional_mud,zinc
+11,4,Buffer,BB-862,BB-862,LungaLunga,Pongwe kikoneni,Bumbani,Mwabandari,39.3130713,-4.4324485,block_cement,zinc
+17,1,Core,BH-046,BH-046,Msambweni,Ramisi,Bodo,Darigube,39.3923718,-4.4925526,traditional_mud,palm
 17,2,Core,BJ-047,BJ-047,Msambweni,Ramisi,Shirazi,Mchinjirini,39.392589,-4.4906452,block_cement,zinc
-17,3,Core,BJ-061,BJ-061,Msambweni,Ramisi,Shirazi,Mchinjirini,39.3932601,-4.4902584,traditional_mud,palm
-17,4,Core,BJ-048,BJ-048,Msambweni,Ramisi,Shirazi,Mchinjirini,39.3918401,-4.4917018,traditional_mud,palm
-17,1,Buffer,BJ-045,BJ-045,Msambweni,Ramisi,Shirazi,Mchinjirini,39.392639,-4.4895147,traditional_mud,palm
-17,2,Buffer,BJ-073,BJ-073,Msambweni,Ramisi,Shirazi,Mchinjirini,39.3954298,-4.491981,block_cement,zinc
-17,3,Buffer,BH-049,BH-049,Msambweni,Ramisi,Bodo,Darigube,39.3922141,-4.4951845,traditional_mud,palm
-17,4,Buffer,BJ-070,BJ-070,Msambweni,Ramisi,Shirazi,Mchinjirini,39.3941643,-4.492125,traditional_mud,palm
-33,1,Core,BB-648,BB-648,LungaLunga,Pongwe kikoneni,Neema,Chigombero,39.3526677,-4.5031609,traditional_mud,palm
-33,2,Core,BB-647,BB-647,LungaLunga,Pongwe kikoneni,Neema,Chigombero,39.3526436,-4.5030767,traditional_mud,zinc
-33,3,Core,BB-651,BB-651,LungaLunga,Pongwe kikoneni,Neema,Chigombero,39.353097,-4.5032045,traditional_mud,palm
-33,4,Core,AW-748,AW-748,LungaLunga,Pongwe kikoneni,Neema,Chigombero,39.3549149,-4.5017833,traditional_mud,zinc
-33,1,Buffer,AW-745,AW-745,LungaLunga,Pongwe kikoneni,Neema,Chigombero,39.3563634,-4.4999689,traditional_mud,zinc
-33,2,Buffer,AW-740,AW-740,LungaLunga,Pongwe kikoneni,Neema,Chigombero,39.3585489,-4.5011239,traditional_mud,zinc
-33,3,Buffer,AW-735,AW-735,LungaLunga,Pongwe kikoneni,Neema,Chigombero,39.3582082,-4.5006019,traditional_mud,palm
-33,4,Buffer,AW-744,AW-744,LungaLunga,Pongwe kikoneni,Neema,Chigombero,39.3566415,-4.5000087,block_cement,zinc
-43,1,Core,BB-212,BB-212,LungaLunga,Pongwe kikoneni,Jitahidi,Kifuku,39.2868241,-4.4767592,traditional_mud,palm
-43,2,Core,BB-266,BB-266,LungaLunga,Pongwe kikoneni,Jitahidi,Kifuku,39.2885537,-4.4755483,traditional_mud,zinc
-43,3,Core,BB-283,BB-283,LungaLunga,Pongwe kikoneni,Jitahidi,Kifuku,39.290592,-4.4776441,block_cement,zinc
-43,4,Core,BB-275,BB-275,LungaLunga,Pongwe kikoneni,Jitahidi,Kifuku,39.2900159,-4.4782644,block_cement,zinc
+17,3,Core,BJ-065,BJ-065,Msambweni,Ramisi,Shirazi,Mchinjirini,39.393431,-4.4921836,traditional_mud,palm
+17,4,Core,BJ-064,BJ-064,Msambweni,Ramisi,Shirazi,Mchinjirini,39.3918577,-4.4915862,traditional_mud,palm
+17,1,Buffer,BH-049,BH-049,Msambweni,Ramisi,Bodo,Darigube,39.3922141,-4.4951845,traditional_mud,palm
+17,2,Buffer,BJ-059,BJ-059,Msambweni,Ramisi,Shirazi,Mchinjirini,39.391095,-4.4879426,block_cement,zinc
+17,3,Buffer,BH-050,BH-050,Msambweni,Ramisi,Bodo,Darigube,39.39354,-4.4948286,traditional_mud,palm
+17,4,Buffer,BH-047,BH-047,Msambweni,Ramisi,Bodo,Darigube,39.391781,-4.4944307,traditional_mud,zinc
+33,1,Core,AW-750,AW-750,LungaLunga,Pongwe kikoneni,Neema,Chigombero,39.3534681,-4.5022805,block_cement,zinc
+33,2,Core,BB-656,BB-656,LungaLunga,Pongwe kikoneni,Neema,Chigombero,39.3528181,-4.5035835,traditional_mud,palm
+33,3,Core,BB-685,BB-685,LungaLunga,Pongwe kikoneni,Neema,Chigombero,39.3569687,-4.5019691,traditional_mud,palm
+33,4,Core,BB-669,BB-669,LungaLunga,Pongwe kikoneni,Neema,Chigombero,39.3548871,-4.5017661,mixed_blocks_mud,zinc
+33,1,Buffer,AW-736,AW-736,LungaLunga,Pongwe kikoneni,Neema,Chigombero,39.3580216,-4.5003246,traditional_mud,palm
+33,2,Buffer,BB-698,BB-698,LungaLunga,Pongwe kikoneni,Neema,Chigombero,39.356758,-4.5065655,block_cement,zinc
+33,3,Buffer,BB-689,BB-689,LungaLunga,Pongwe kikoneni,Neema,Chigombero,39.3589755,-4.5038966,traditional_mud,zinc
+33,4,Buffer,BB-640,BB-640,LungaLunga,Pongwe kikoneni,Neema,Chigombero,39.3538274,-4.4992753,block_cement,zinc
+43,1,Core,BB-267,BB-267,LungaLunga,Pongwe kikoneni,Jitahidi,Kifuku,39.2874842,-4.478467,block_cement,palm
+43,2,Core,BB-212,BB-212,LungaLunga,Pongwe kikoneni,Jitahidi,Kifuku,39.2868241,-4.4767592,traditional_mud,palm
+43,3,Core,BB-272,BB-272,LungaLunga,Pongwe kikoneni,Jitahidi,Kifuku,39.2890476,-4.4782625,traditional_mud,zinc
+43,4,Core,BB-284,BB-284,LungaLunga,Pongwe kikoneni,Jitahidi,Kifuku,39.2907205,-4.477627,traditional_mud,zinc
 43,1,Buffer,BB-259,BB-259,LungaLunga,Pongwe kikoneni,Jitahidi,Kifuku,39.2901946,-4.474003,traditional_mud,palm
-43,2,Buffer,AY-641,AY-641,LungaLunga,Pongwe kikoneni,Jitahidi,Kifuku,39.2906324,-4.4834967,traditional_mud,palm
-43,3,Buffer,BB-248,BB-248,LungaLunga,Pongwe kikoneni,Jitahidi,Kifuku,39.2901684,-4.4718207,traditional_mud,zinc
-43,4,Buffer,BB-247,BB-247,LungaLunga,Pongwe kikoneni,Jitahidi,Kifuku,39.2902097,-4.4718108,traditional_mud,palm
-60,1,Core,AV-637,AV-679,LungaLunga,Pongwe kikoneni,Mwangwei,Mshiu,39.308572,-4.5383081,traditional_mud,palm
-60,2,Core,AV-637,AV-637,LungaLunga,Pongwe kikoneni,Mwangwei,Mshiu,39.3085257,-4.5382165,traditional_mud,palm
-60,3,Core,AV-628,AV-677,LungaLunga,Pongwe kikoneni,Mwangwei,Mshiu,39.3069267,-4.5382562,traditional_mud,palm
-60,4,Core,AV-661,AV-661,LungaLunga,Pongwe kikoneni,Mwangwei,Mshiu,39.3080688,-4.5450331,palm,palm
-60,1,Buffer,AB-669,AB-669,LungaLunga,Pongwe kikoneni,Mwangwei,Magoma,39.3061751,-4.5476157,traditional_mud,palm
-60,2,Buffer,AB-686,AB-686,LungaLunga,Pongwe kikoneni,Mwangwei,Magoma,39.302251,-4.5389236,traditional_mud,palm
-60,3,Buffer,AV-630,AV-630,LungaLunga,Pongwe kikoneni,Mwangwei,Mshiu,39.3068329,-4.5382704,traditional_mud,palm
-60,4,Buffer,AV-645,AV-645,LungaLunga,Pongwe kikoneni,Mwangwei,Mshiu,39.3117534,-4.5354598,palm,palm
-66,1,Core,AM-661,AM-661,LungaLunga,Pongwe kikoneni,Mzizima A,Lolagako,39.355072,-4.5799947,traditional_mud,palm
-66,2,Core,AM-660,AM-660,LungaLunga,Pongwe kikoneni,Mzizima A,Lolagako,39.3584435,-4.5733933,traditional_mud,palm
-66,3,Core,AM-657,AM-657,LungaLunga,Pongwe kikoneni,Mzizima A,Lolagako,39.3563412,-4.5734435,block_cement,zinc
-66,4,Core,AW-827,AW-827,LungaLunga,Pongwe kikoneni,Mzizima A,Lolagako,39.357039,-4.5821177,traditional_mud,palm
-66,1,Buffer,AW-836,AW-836,LungaLunga,Pongwe kikoneni,Mzizima A,Lolagako,39.3548902,-4.5834339,block_cement,palm
-66,2,Buffer,AW-826,AW-826,LungaLunga,Pongwe kikoneni,Mzizima A,Lolagako,39.359202,-4.5831225,traditional_mud,palm
-66,3,Buffer,AW-831,AW-831,LungaLunga,Pongwe kikoneni,Mzizima A,Lolagako,39.3551553,-4.584009,traditional_mud,palm
-66,4,Buffer,AW-832,AW-832,LungaLunga,Pongwe kikoneni,Mzizima A,Lolagako,39.3550126,-4.5840337,traditional_mud,palm
-77,1,Core,AT-117,AT-117,LungaLunga,Pongwe kikoneni,Mzizima B,Kivumoni,39.348709,-4.6035471,block_cement,zinc
-77,2,Core,AT-119,AT-119,LungaLunga,Pongwe kikoneni,Mzizima B,Kivumoni,39.3492044,-4.6034947,block_cement,zinc
-77,3,Core,AT-313,AT-313,LungaLunga,Pongwe kikoneni,Mzizima B,Kikomani,39.349183,-4.6026486,block_cement,zinc
-77,4,Core,AT-311,AT-311,LungaLunga,Pongwe kikoneni,Mzizima B,Kikomani,39.349408,-4.602538,block_cement,zinc
-77,1,Buffer,AT-143,AT-143,LungaLunga,Pongwe kikoneni,Mzizima B,Kivumoni,39.3504421,-4.6046851,traditional_mud,palm
-77,2,Buffer,AT-297,AT-297,LungaLunga,Pongwe kikoneni,Mzizima B,Kikomani,39.3530516,-4.6017043,block_cement,zinc
-77,3,Buffer,AT-284,AT-284,LungaLunga,Pongwe kikoneni,Mzizima B,Kikomani,39.3524529,-4.6005031,palm,palm
-77,4,Buffer,AT-034,AT-034,LungaLunga,Pongwe kikoneni,Mzizima B,Kivumoni,39.3512211,-4.6040453,block_cement,zinc
-79,1,Core,AB-437,AB-482,LungaLunga,Pongwe kikoneni,Majoreni,Mwanaire,39.2678169,-4.5559592,traditional_mud,zinc
-79,2,Core,AB-449,AB-449,LungaLunga,Pongwe kikoneni,Majoreni,Mwanaire,39.2724074,-4.5519341,traditional_mud,zinc
-79,3,Core,AB-444,AB-444,LungaLunga,Pongwe kikoneni,Majoreni,Mwanaire,39.2685872,-4.5552429,traditional_mud,palm
-79,4,Core,AB-439,AB-439,LungaLunga,Pongwe kikoneni,Majoreni,Mwanaire,39.2679086,-4.5560497,traditional_mud,palm
-79,1,Buffer,AF-944,AF-944,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2657191,-4.5609881,mixed_blocks_mud,zinc
-79,2,Buffer,AB-457,AB-456,LungaLunga,Pongwe kikoneni,Majoreni,Mwanaire,39.2722133,-4.5511173,traditional_mud,palm
-79,3,Buffer,AB-453,AB-453,LungaLunga,Pongwe kikoneni,Majoreni,Mwanaire,39.2719888,-4.5510058,traditional_mud,palm
-79,4,Buffer,AB-454,AB-454,LungaLunga,Pongwe kikoneni,Majoreni,Mwanaire,39.2720931,-4.5508918,traditional_mud,palm
-85,1,Core,AF-915,AF-915,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.25133,-4.5553501,traditional_mud,palm
-85,2,Core,AF-913,AF-913,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2511776,-4.5557726,traditional_mud,palm
-85,3,Core,AF-912,AF-912,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2509988,-4.5559693,traditional_mud,zinc
-85,4,Core,AF-916,AF-916,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2514303,-4.5552367,traditional_mud,palm
-85,1,Buffer,AF-919,AF-919,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2502349,-4.5551166,traditional_mud,palm
-85,2,Buffer,AF-928,AF-928,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2490159,-4.5549836,traditional_mud,palm
-85,3,Buffer,AF-927,AF-927,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2490817,-4.5549929,traditional_mud,zinc
-85,4,Buffer,AF-888,AF-888,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2543386,-4.556014,traditional_mud,zinc
-86,1,Core,AK-871,AK-871,LungaLunga,Pongwe kikoneni,Rise And Shine,Mwarani,39.4024775,-4.6397219,Nylons,zinc
-86,2,Core,AK-874,AK-874,LungaLunga,Pongwe kikoneni,Rise And Shine,Mwarani,39.3984157,-4.6406579,traditional_mud,palm
-86,3,Core,AL-229,AL-229,LungaLunga,Pongwe kikoneni,Shimoni,Anzwani,39.4006153,-4.6374862,traditional_mud,zinc
-86,4,Core,AK-873,AK-873,LungaLunga,Pongwe kikoneni,Rise And Shine,Mwarani,39.3986334,-4.6407838,Grass,grass
-86,1,Buffer,AL-225,AL-225,LungaLunga,Pongwe kikoneni,Shimoni,Anzwani,39.3939167,-4.6347237,traditional_mud,palm
-86,2,Buffer,AF-623,AF-623,LungaLunga,Pongwe kikoneni,Shimoni,Anzwani,39.3941545,-4.6340885,traditional_mud,palm
-86,3,Buffer,AK-864,AK-864,LungaLunga,Pongwe kikoneni,Rise And Shine,Mwarani,39.3973764,-4.6453939,block_cement,zinc
-86,4,Buffer,AF-640,AF-640,LungaLunga,Pongwe kikoneni,Shimoni,Anzwani,39.3929107,-4.6332407,traditional_mud,palm
-89,1,Core,AP-670,AP-670,LungaLunga,Pongwe kikoneni,Mzizima B,Kijiweni,39.3487808,-4.6309828,traditional_mud,palm
-89,2,Core,AP-664,AP-671,LungaLunga,Pongwe kikoneni,Mzizima B,Kijiweni,39.3489951,-4.6312184,traditional_mud,palm
-89,3,Core,AP-668,AP-668,LungaLunga,Pongwe kikoneni,Mzizima B,Kijiweni,39.3486265,-4.6308679,traditional_mud,palm
-89,4,Core,AP-662,AP-662,LungaLunga,Pongwe kikoneni,Mzizima B,Kijiweni,39.3489185,-4.6315093,palm,palm
-89,1,Buffer,AR-516,AR-516,LungaLunga,Pongwe kikoneni,Mzizima B,Kijiweni,39.3462379,-4.6295938,DUNGU,palm
-89,2,Buffer,AP-658,AP-657,LungaLunga,Pongwe kikoneni,Mzizima B,Kijiweni,39.3492738,-4.631023,palm,palm
+43,2,Buffer,BB-294,BB-294,LungaLunga,Pongwe kikoneni,Jitahidi,Kifuku,39.2936675,-4.4747194,block_cement,zinc
+43,3,Buffer,BB-255,BB-255,LungaLunga,Pongwe kikoneni,Jitahidi,Kifuku,39.2898532,-4.4724348,traditional_mud,palm
+43,4,Buffer,BB-290,BB-290,LungaLunga,Pongwe kikoneni,Jitahidi,Kifuku,39.292525,-4.4753962,traditional_mud,palm
+60,1,Core,AH-276,AH-277,LungaLunga,Pongwe kikoneni,Mwangwei,Mvumoni,39.3122038,-4.5478773,traditional_mud,palm
+60,2,Core,AV-636,AV-636,LungaLunga,Pongwe kikoneni,Mwangwei,Mshiu,39.3069517,-4.5387095,traditional_mud,palm
+60,3,Core,AV-632,AV-632,LungaLunga,Pongwe kikoneni,Mwangwei,Mshiu,39.306317,-4.5400795,traditional_mud,zinc
+60,4,Core,AV-657,AV-657,LungaLunga,Pongwe kikoneni,Mwangwei,Mshiu,39.3102208,-4.5439592,block_cement,palm
+60,1,Buffer,AB-686,AB-686,LungaLunga,Pongwe kikoneni,Mwangwei,Magoma,39.302251,-4.5389236,traditional_mud,palm
+60,2,Buffer,AV-643,AV-643,LungaLunga,Pongwe kikoneni,Mwangwei,Mshiu,39.3090633,-4.5365633,traditional_mud,palm
+60,3,Buffer,AV-644,AV-644,LungaLunga,Pongwe kikoneni,Mwangwei,Mshiu,39.3116517,-4.5350729,mixed_blocks_mud,zinc
+60,4,Buffer,AV-640,AV-640,LungaLunga,Pongwe kikoneni,Mwangwei,Mshiu,39.3078968,-4.5371142,block_cement,zinc
+66,1,Core,AM-658,AM-658,LungaLunga,Pongwe kikoneni,Mzizima A,Lolagako,39.3569339,-4.5732776,block_cement,zinc
+66,2,Core,AM-653,AM-653,LungaLunga,Pongwe kikoneni,Mzizima A,Lolagako,39.3536452,-4.5788928,block_cement,zinc
+66,3,Core,AM-660,AM-660,LungaLunga,Pongwe kikoneni,Mzizima A,Lolagako,39.3584435,-4.5733933,traditional_mud,palm
+66,4,Core,AM-654,AM-654,LungaLunga,Pongwe kikoneni,Mzizima A,Lolagako,39.3550583,-4.5780067,mixed_blocks_mud,zinc
+66,1,Buffer,AW-829,AW-829,LungaLunga,Pongwe kikoneni,Mzizima A,Lolagako,39.3552788,-4.5841124,block_cement,zinc
+66,2,Buffer,AW-832,AW-832,LungaLunga,Pongwe kikoneni,Mzizima A,Lolagako,39.3550126,-4.5840337,traditional_mud,palm
+66,3,Buffer,AW-835,AW-835,LungaLunga,Pongwe kikoneni,Mzizima A,Lolagako,39.3548497,-4.5833872,traditional_mud,palm
+66,4,Buffer,AW-828,AW-828,LungaLunga,Pongwe kikoneni,Mzizima A,Lolagako,39.3552898,-4.5847612,traditional_mud,palm
+77,1,Core,AT-129,AT-128,LungaLunga,Pongwe kikoneni,Mzizima B,Kivumoni,39.3488481,-4.6037926,block_cement,palm
+77,2,Core,AT-350,AT-350,LungaLunga,Pongwe kikoneni,Mzizima B,Kikomani,39.3495716,-4.6029439,block_cement,zinc
+77,3,Core,AT-127,AT-127,LungaLunga,Pongwe kikoneni,Mzizima B,Kivumoni,39.3488898,-4.6038345,traditional_mud,palm
+77,4,Core,AT-310,AT-310,LungaLunga,Pongwe kikoneni,Mzizima B,Kikomani,39.3493571,-4.602611,block_cement,zinc
+77,1,Buffer,AT-065,AT-065,LungaLunga,Pongwe kikoneni,Mzizima B,Kivumoni,39.3522856,-4.6044754,traditional_mud,palm
+77,2,Buffer,AT-315,AT-315,LungaLunga,Pongwe kikoneni,Mzizima B,Kikomani,39.3498808,-4.602443,block_cement,zinc
+77,3,Buffer,AT-341,AT-341,LungaLunga,Pongwe kikoneni,Mzizima B,Kikomani,39.3523286,-4.6023728,block_cement,zinc
+77,4,Buffer,AT-101,AT-101,LungaLunga,Pongwe kikoneni,Mzizima B,Kivumoni,39.3494681,-4.6050771,traditional_mud,palm
+79,1,Core,AB-438,AB-438,LungaLunga,Pongwe kikoneni,Majoreni,Mwanaire,39.267592,-4.5560237,traditional_mud,palm
+79,2,Core,AB-450,AB-450,LungaLunga,Pongwe kikoneni,Majoreni,Mwanaire,39.2722896,-4.5519729,traditional_mud,zinc
+79,3,Core,AB-429,AB-429,LungaLunga,Pongwe kikoneni,Majoreni,Mwanaire,39.2686099,-4.5561877,traditional_mud,palm
+79,4,Core,AB-441,AB-441,LungaLunga,Pongwe kikoneni,Majoreni,Mwanaire,39.2677162,-4.5559795,traditional_mud,palm
+79,1,Buffer,AB-454,AB-454,LungaLunga,Pongwe kikoneni,Majoreni,Mwanaire,39.2720931,-4.5508918,traditional_mud,palm
+79,2,Buffer,AF-946,AF-946,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2646257,-4.5603846,palm,palm
+79,3,Buffer,AB-455,AB-455,LungaLunga,Pongwe kikoneni,Majoreni,Mwanaire,39.2719441,-4.5508052,traditional_mud,palm
+79,4,Buffer,AF-945,AF-945,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2645193,-4.5614632,mixed_blocks_mud,palm
+85,1,Core,AF-899,AF-899,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2529819,-4.5552823,traditional_mud,palm
+85,2,Core,AF-916,AF-916,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2514303,-4.5552367,traditional_mud,palm
+85,3,Core,AF-892,AF-892,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2530676,-4.5556082,traditional_mud,palm
+85,4,Core,AF-915,AF-915,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.25133,-4.5553501,traditional_mud,palm
+85,1,Buffer,AF-926,AF-926,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2489335,-4.5560033,traditional_mud,palm
+85,2,Buffer,AF-923,AF-922,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2498056,-4.5563686,traditional_mud,zinc
+85,3,Buffer,AF-888,AF-888,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2543386,-4.556014,traditional_mud,zinc
+85,4,Buffer,AF-928,AF-928,LungaLunga,Pongwe kikoneni,Majoreni,Kivuma,39.2490159,-4.5549836,traditional_mud,palm
+86,1,Core,AK-868,AK-868,LungaLunga,Pongwe kikoneni,Rise And Shine,Mwarani,39.4000176,-4.6411896,mixed_blocks_mud,palm
+86,2,Core,AF-626,AF-626,LungaLunga,Pongwe kikoneni,Shimoni,Anzwani,39.4017083,-4.6370983,traditional_mud,zinc
+86,3,Core,AK-875,AK-875,LungaLunga,Pongwe kikoneni,Rise And Shine,Mwarani,39.3982994,-4.6403413,traditional_mud,zinc
+86,4,Core,AF-625,AF-625,LungaLunga,Pongwe kikoneni,Shimoni,Anzwani,39.4019612,-4.6385884,traditional_mud,palm
+86,1,Buffer,AF-638,AF-638,LungaLunga,Pongwe kikoneni,Shimoni,Anzwani,39.3935858,-4.6325026,traditional_mud,palm
+86,2,Buffer,AK-865,AK-865,LungaLunga,Pongwe kikoneni,Rise And Shine,Mwarani,39.3968096,-4.6446159,traditional_mud,grass
+86,3,Buffer,AF-624,AF-624,LungaLunga,Pongwe kikoneni,Shimoni,Anzwani,39.394225,-4.6333236,traditional_mud,palm
+86,4,Buffer,AF-623,AF-623,LungaLunga,Pongwe kikoneni,Shimoni,Anzwani,39.3941545,-4.6340885,traditional_mud,palm
+89,1,Core,AP-665,AP-665,LungaLunga,Pongwe kikoneni,Mzizima B,Kijiweni,39.3489559,-4.6310502,traditional_mud,palm
+89,2,Core,AP-666,AP-666,LungaLunga,Pongwe kikoneni,Mzizima B,Kijiweni,39.3486458,-4.631369,block_cement,zinc
+89,3,Core,AP-664,AP-664,LungaLunga,Pongwe kikoneni,Mzizima B,Kijiweni,39.3488702,-4.6312149,traditional_mud,palm
+89,4,Core,AP-667,AP-667,LungaLunga,Pongwe kikoneni,Mzizima B,Kijiweni,39.348639,-4.6312671,block_cement,zinc
+89,1,Buffer,AP-658,AP-658,LungaLunga,Pongwe kikoneni,Mzizima B,Kijiweni,39.3489399,-4.6316988,traditional_mud,palm
+89,2,Buffer,AR-516,AR-516,LungaLunga,Pongwe kikoneni,Mzizima B,Kijiweni,39.3462379,-4.6295938,DUNGU,palm
 89,3,Buffer,AP-658,AP-656,LungaLunga,Pongwe kikoneni,Mzizima B,Kijiweni,39.349319,-4.6310616,traditional_mud,palm
-89,4,Buffer,AP-658,AP-658,LungaLunga,Pongwe kikoneni,Mzizima B,Kijiweni,39.3489399,-4.6316988,traditional_mud,palm
+89,4,Buffer,AP-674,AP-674,LungaLunga,Pongwe kikoneni,Mzizima B,Kijiweni,39.3485036,-4.6309183,traditional_mud,palm

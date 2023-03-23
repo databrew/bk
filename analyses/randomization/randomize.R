@@ -19,34 +19,34 @@ load('../recon_clustering/final/cores.RData')
 load('../recon_clustering/final/buffers.RData')
 
 # Plot to see what is above/below the highway
-leaflet() %>%
-  addTiles() %>%
-  addPolygons(data = cores,
-              label = cores@data$cluster_number,
-              labelOptions = list('permanent' = TRUE,
-                                  'autclose' = FALSE))
+if(FALSE){
+  leaflet() %>%
+    addTiles() %>%
+    addPolygons(data = cores,
+                label = cores@data$cluster_number,
+                labelOptions = list('permanent' = TRUE,
+                                    'autclose' = FALSE))  
+  # Inspect
+  cores@data <- left_join(cores@data, clusters)
+  leaflet() %>%
+    addTiles() %>%
+    addPolygons(data = cores[cores@data$location == 'North',],
+                label = cores@data$cluster_number[cores@data$location == 'North'],
+                # labelOptions = list('permanent' = TRUE,
+                #                     'autclose' = FALSE),
+                fillColor = 'blue', color = 'blue'
+    ) %>%
+    addPolygons(data = cores[cores@data$location == 'South',],
+                label = cores@data$cluster_number[cores@data$location == 'South'],
+                # labelOptions = list('permanent' = TRUE,
+                #                     'autclose' = FALSE),
+                fillColor = 'red', color = 'red'
+    )
+}
 
-# Inspect
-cores@data <- left_join(cores@data, clusters)
-leaflet() %>%
-  addTiles() %>%
-  addPolygons(data = cores[cores@data$location == 'North',],
-              label = cores@data$cluster_number[cores@data$location == 'North'],
-              # labelOptions = list('permanent' = TRUE,
-              #                     'autclose' = FALSE),
-              fillColor = 'blue', color = 'blue'
-              ) %>%
-  addPolygons(data = cores[cores@data$location == 'South',],
-              label = cores@data$cluster_number[cores@data$location == 'South'],
-              # labelOptions = list('permanent' = TRUE,
-              #                     'autclose' = FALSE),
-              fillColor = 'red', color = 'red'
-  )
-
-
-
-if('assignments.csv' %in% dir()){
-  assignments <- read_csv('assignments.csv')
+# North / South  randomization
+if('assignments.csv' %in% dir('outputs')){
+  assignments <- read_csv('outputs/assignments.csv')
 } else {
   # Set a randomization seed
   set.seed(123)
@@ -60,37 +60,41 @@ if('assignments.csv' %in% dir()){
     arrange(location) %>%
     mutate(assignment = c(assignment_options_north, assignment_options_south))
   # Write a csv
-  write_csv(assignments, 'assignments.csv')
-  file.copy('assignments.csv', '../../data_public/randomization/assignments.csv')
+  write_csv(assignments, 'outputs/assignments.csv')
+  file.copy('outputs/assignments.csv', '../../data_public/randomization/assignments.csv')
 }
 
 # See results
-# Inspect
-cores@data <- left_join(cores@data, assignments)
-l <- leaflet() %>%
-  addTiles() %>%
-  addPolygons(data = buffers, fillColor = 'grey', color = 'grey', fillOpacity = 0.5, weight = 0,
-              label = buffers@data$cluster_number) %>%
-  addPolygons(data = cores[cores@data$assignment == 1,],
-              label = cores@data$cluster_number[cores@data$assignment == 1],
-              weight = 1,
-              # labelOptions = list('permanent' = TRUE,
-              #                     'autclose' = FALSE),
-              fillColor = 'blue', color = 'blue'
-  ) %>%
-  addPolygons(data = cores[cores@data$assignment == 2,],
-              label = cores@data$cluster_number[cores@data$assignment == 2],
-              weight = 1,
-              # labelOptions = list('permanent' = TRUE,
-              #                     'autclose' = FALSE),
-              fillColor = 'red', color = 'red'
-  )
-
-# hh <- readOGR('../../data_public/spatial/households/', 'households')
-# hhx <- hh[hh@data$village == 'Kilulu',]
-# l %>% addCircleMarkers(data = hhx, radius = 1, col = 'green') %>%
-#   addCircleMarkers(data = inclusion, radius = 1, col = 'orange')
-# load('../../analyses/recon_clustering/inclusion.RData')
+if(FALSE){
+  
+  # Inspect
+  cores@data <- left_join(cores@data, assignments)
+  l <- leaflet() %>%
+    addTiles() %>%
+    addPolygons(data = buffers, fillColor = 'grey', color = 'grey', fillOpacity = 0.5, weight = 0,
+                label = buffers@data$cluster_number) %>%
+    addPolygons(data = cores[cores@data$assignment == 1,],
+                label = cores@data$cluster_number[cores@data$assignment == 1],
+                weight = 1,
+                # labelOptions = list('permanent' = TRUE,
+                #                     'autclose' = FALSE),
+                fillColor = 'blue', color = 'blue'
+    ) %>%
+    addPolygons(data = cores[cores@data$assignment == 2,],
+                label = cores@data$cluster_number[cores@data$assignment == 2],
+                weight = 1,
+                # labelOptions = list('permanent' = TRUE,
+                #                     'autclose' = FALSE),
+                fillColor = 'red', color = 'red'
+    )
+  
+  # See some social science stuff
+  # hh <- readOGR('../../data_public/spatial/households/', 'households')
+  # hhx <- hh[hh@data$village == 'Kilulu',]
+  # l %>% addCircleMarkers(data = hhx, radius = 1, col = 'green') %>%
+  #   addCircleMarkers(data = inclusion, radius = 1, col = 'orange')
+  # load('../../analyses/recon_clustering/inclusion.RData')
+}
 
 ###########################
 # ENTOMOLOGY
@@ -173,8 +177,10 @@ if(FALSE){
 
 # Process households for preparation for household-specific deliverables
 # Get sub-counties for use in final output
-load('../recon_clustering/final/clusters.RData')
+# load('../recon_clustering/final/clusters.RData')
+load('../../data_public/spatial/clusters.RData')
 
+# Get sub-counties
 sub_counties <- recon %>%
   group_by(ward, community_health_unit, village, sub_county) %>%
   tally %>%
@@ -205,12 +211,38 @@ hhsp@data$core_buffer <- ifelse(!is.na(hhsp@data$core), 'Core',
                                 ifelse(!is.na(hhsp@data$buffer), 'Buffer', NA))
 hhsp@data$core_buffer <- factor(hhsp@data$core_buffer, levels = c('Core', 'Buffer'))
 hhsp <- hhsp[!is.na(hhsp@data$core_buffer),]
+
+# SPATIAL OBJECTS FOR LOCUS GIS #######################
+if(!dir.exists('outputs/general_spatial')){
+  dir.create('outputs/general_spatial')
+}
+if(!file.exists('outputs/general_spatial/clusters.shp')){
+  message('Writing shapefile')
+  raster::shapefile(clusters, 'outputs/general_spatial/clusters.shp')
+} else {
+  message('Shapefile already written')
+}
+if(!file.exists('outputs/general_spatial/households.shp')){
+  message('Writing shapefile')
+  all_study_households <- hhsp
+  all_study_households@data <- all_study_households@data %>%
+    dplyr::select(hh_id_clean, hh_id_raw,
+                  cluster, Longitude, Latitude, core_buffer)
+  raster::shapefile(all_study_households, 'outputs/general_spatial/households.shp')
+} else {
+  message('Shapefile already written')
+}
+
 # Filter down to only those in ento clusters
-hhsp@data <- left_join(
-  hhsp@data %>% dplyr::rename(cluster_number = cluster),
-  ento_clusters %>% dplyr::select(cluster_number) %>% mutate(ento = TRUE)
-) %>%
-  filter(!is.na(ento))
+hhsp@data$cluster_number <- hhsp@data$cluster
+hhsp <- hhsp[hhsp@data$cluster_number %in% ento_clusters$cluster_number,]
+
+# Get list of cleaned IDs for Xing
+xing <- hhsp@data %>% dplyr::select(cluster_number, hh_id_clean,
+                                    hh_id_raw, core_buffer) %>%
+  arrange(cluster_number, hh_id_clean)
+write_csv(xing, '/tmp/ento_recon_clean_ids.csv')
+
 
 # Deliverable 2 ################    
 #  One table for each of the 12 entomology per clusters from deliverable 1, in which each row is one household. The team will enroll a total of 4 hh per cluster. Randomly select: 
@@ -380,4 +412,43 @@ if('table_5_cdc_light_trap_livestock_enclosures.csv' %in% dir('outputs')){
   rmarkdown::render('rmds/cdc_light_trap_livestock_enclosures.Rmd')
 }
 
+# Deliverable 9, geographic files
+#####################################################################
+# Generate spatial files and then manually copy-paste to this google drive:
+# https://drive.google.com/drive/folders/1pVEcZzPevVCcHe4Sc4lAn5Gmri1xR_RB?usp=sharing
+if(!dir.exists('outputs/ento_households_shp')){
+  dir.create('outputs/ento_households_shp')
+}
+if(!dir.exists('outputs/cores_shp')){
+  dir.create('outputs/cores_shp')
+}
+if(!dir.exists('outputs/buffers_shp')){
+  dir.create('outputs/buffers_shp')
+}
+
+if(!file.exists('outputs/ento_households_shp/households.shp')){
+  message('Writing shapefile')  
+  households <- hhsp
+  # households <- households[households@data$cluster_number %in% ento_clusters$cluster_number,]
+  households@data <- households@data %>% dplyr::select(cluster_number, core_buffer, hh_id_clean, hh_id_raw, Longitude, Latitude)
+  raster::shapefile(households, 'outputs/ento_households_shp/households.shp', overwrite = TRUE)
+} else {
+  message('Shapefile already written')
+}
+
+if(!file.exists('outputs/buffers_shp/buffers_shp.shp')){
+  message('Writing shapefile')  
+  buffers_shp <- buffers[buffers@data$cluster_number %in% ento_clusters$cluster_number,]
+  raster::shapefile(buffers_shp, 'outputs/buffers_shp/buffers_shp.shp')
+} else {
+  message('Shapefile already written')
+}
+
+if(!file.exists('outputs/cores_shp/cores_shp.shp')){
+  message('Writing shapefile')
+  cores_shp <- cores[cores@data$cluster_number %in% ento_clusters$cluster_number,]
+  raster::shapefile(cores_shp, 'outputs/cores_shp/cores_shp.shp')
+} else {
+  message('Shapefile already written')
+}
 
