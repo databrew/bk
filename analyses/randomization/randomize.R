@@ -129,16 +129,15 @@ recon_curated <- read_csv('inputs/curated_recon_household_data.csv')
 # Cluster#
 # Arm (just the code (1 or 2), not the intervention)
 set.seed(17)
-if('ento_clusters.csv' %in% dir('outputs/')){
-  ento_clusters <- read_csv('outputs/ento_clusters.csv')
+if('table_1_ento_clusters.csv' %in% dir('outputs/')){
+  ento_clusters <- read_csv('outputs/table_1_ento_clusters.csv')
 } else {
   # Select 6 clusters per arm
   ento_clusters <- assignments %>%
     group_by(assignment) %>%
     dplyr::sample_n(6) %>%
     ungroup
-  write_csv(ento_clusters, 'outputs/ento_clusters.csv')
-  file.copy('outputs/ento_clusters.csv', '../../data_public/randomization/ento_clusters.csv')
+  write_csv(ento_clusters, 'outputs/table_1_ento_clusters.csv')
 }
 
 # Examine a bit
@@ -264,6 +263,8 @@ if('table_2_cdc_light_trap_households.csv' %in% dir('outputs/')){
                   roof_type) %>%
     arrange(cluster_number, core_buffer, randomization_number)
   write_csv(cdc_light_trap_households, 'outputs/table_2_cdc_light_trap_households.csv')
-  file.copy('outputs/table_2_cdc_light_trap_households.csv', '../../data_public/randomization/table_2_cdc_light_trap_households.csv')
 }
+
+# Create a supporting document of entomology table 2 (ie, 1 table per cluster, formatted, etc.)
+rmarkdown::render('rmds/entomology_cdc_light_trap_households.Rmd', envir = new.nev())
 
