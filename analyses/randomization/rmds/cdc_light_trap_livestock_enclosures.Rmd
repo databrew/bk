@@ -1,9 +1,14 @@
 ---
-title: "Entomology CDC Light Trap Households"
+title: "Entomology CDC Light Trap Livestock Enclosures Households"
 output: pdf_document
+geometry: margin=1cm
+classoption: landscape
+---
+
+```{r, eval = FALSE, echo = FALSE}
 header-includes:
 - \usepackage{booktabs}
-- \usepackage{longtable}
+- \usepackage{xcolor}
 - \usepackage{array}
 - \usepackage{multirow}
 - \usepackage{wrapfig}
@@ -11,11 +16,9 @@ header-includes:
 - \usepackage{colortbl}
 - \usepackage{pdflscape}
 - \usepackage{tabu}
-- \usepackage{threeparttable}
 - \usepackage[normalem]{ulem}
-geometry: margin=1cm
-classoption: landscape
----
+
+```
 
 
 ```{r, include = FALSE}
@@ -45,33 +48,39 @@ library(dplyr)
 
 ```{r}
 # Read in the randomization results
-cdc_light_trap_households <- read_csv('../outputs/table_2_cdc_light_trap_households.csv')
+resting_household_indoor_households <- read_csv('../outputs/table_5_cdc_light_trap_livestock_enclosures.csv')
 # Get the list of clusters
-clusters <- sort(unique(cdc_light_trap_households$cluster_number))
+clusters <- sort(unique(resting_household_indoor_households$cluster_number))
 
 ```
 
-```{r results='asis'}  
+```{r results='asis', eval = TRUE}  
 # Print the titles/tables
 for (i in 1:length(clusters)) {
   this_cluster <- clusters[i]
-  this_data <- cdc_light_trap_households %>% filter(cluster_number == this_cluster)
+  this_data <- resting_household_indoor_households %>% filter(cluster_number == this_cluster)
   this_data$`cluster_number` <- NULL
   this_data$roof_type <- gsub('_', ' ', this_data$roof_type)
   this_data$wall_type <- gsub('_', ' ', this_data$wall_type)
 
   names(this_data) <- gsub('_', ' ', names(this_data))
-  names(this_data) <- gsub('randomization', 'random-\nization', names(this_data))
+  names(this_data) <- gsub('randomization number', 'rand num', names(this_data))
+
+  # names(this_data) <- gsub('randomization', 'random-\nization', names(this_data))
 
   names(this_data) <- Hmisc::capitalize(names(this_data))
   k <- kable(this_data, format = "latex",
-              # longtable = TRUE,
+              longtable = TRUE,
               booktabs = TRUE,
               #align = "c", 
           row.names = FALSE) %>%
-      kable_styling(latex_options = c("striped", "scale_down"), full_width = T, 
+      kable_styling(latex_options = c(#"scale_down",
+                                       "striped"
+                                      ), 
+                     # full_width = T, 
                     font_size = 7) 
-  cat(paste0('# Cluster ', this_cluster, '\n\n'))
+  cat(paste0('# Cluster ', this_cluster, '. L-', this_cluster,'\n\n'))
   # k <- paste0(paste0('Cluster ', this_cluster, '\\', k))
   print(k)
+  cat('\\newpage')
 }

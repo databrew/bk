@@ -300,4 +300,84 @@ if('table_3_resting_household_indoor_households.csv' %in% dir('outputs/')){
                   roof_type) %>%
     arrange(cluster_number, core_buffer, randomization_number)  
   write_csv(resting_household_indoor_households, 'outputs/table_3_resting_household_indoor_households.csv')
+  rmarkdown::render('rmds/resting_household_indoor_households.Rmd')
+  
 }
+
+# # Deliverable 4 ################   
+# Table 4 resting household pit shelter
+
+if('table_4_resting_household_pit_shelter.csv' %in% dir('outputs')){
+  resting_household_pit_shelter <- read_csv('outputs/table_4_resting_household_pit_shelter.csv')
+} else {
+  resting_household_pit_shelter <-  hhsp@data %>%
+    mutate(dummy = 1) %>%
+    # randomize the order
+    dplyr::sample_n(nrow(.)) %>%
+    # Keep only core
+    filter(core_buffer == 'Core') %>%
+    group_by(cluster_number) %>%
+    # create the assignment order
+    mutate(randomization_number = cumsum(dummy)) %>%
+    ungroup %>%
+    # Keep just 3 per cluster (ie, 1 selection plus 2 backups)
+    filter(randomization_number <= 3) %>%
+    left_join(sub_counties) %>%
+    # Keep only the relevant columns
+    dplyr::select(cluster_number,
+                  randomization_number,
+                  painted_recon_hh_id = hh_id_raw,
+                  map_recon_hh_id = hh_id_clean,
+                  sub_county,
+                  ward,
+                  community_health_unit,
+                  village,
+                  longitude = Longitude,
+                  latitude  = Latitude,
+                  wall_type = house_wal0,
+                  roof_type) %>%
+    arrange(cluster_number, randomization_number)
+  
+  write_csv(resting_household_pit_shelter, 'outputs/table_4_resting_household_pit_shelter.csv')
+  rmarkdown::render('rmds/resting_household_pit_shelter.Rmd')
+}
+
+# # Deliverable 5 ################   
+# Deliverable 5: Table5_cdc_light_trap_livestock_enclosure: one table per cluster in which one row is one household and ALL the households of the cluster are ordered randomly. Each table will contain at the top: 
+#   Cluster #
+# L(cluster #)-11
+#   E.g. Cluster 76, L76-11, Cluster 05, L05-11
+if('table_5_cdc_light_trap_livestock_enclosures.csv' %in% dir('outputs')){
+  cdc_light_trap_livestock_enclosures <- read_csv('outputs/table_5_cdc_light_trap_livestock_enclosures.csv')
+} else {
+  cdc_light_trap_livestock_enclosures <-  hhsp@data %>%
+    mutate(dummy = 1) %>%
+    # randomize the order
+    dplyr::sample_n(nrow(.)) %>%
+    # Keep only core
+    group_by(cluster_number) %>%
+    # create the assignment order
+    mutate(randomization_number = cumsum(dummy)) %>%
+    ungroup %>%
+    left_join(sub_counties) %>%
+    # Keep only the relevant columns
+    dplyr::select(cluster_number,
+                  # core_buffer,
+                  randomization_number,
+                  painted_recon_hh_id = hh_id_raw,
+                  map_recon_hh_id = hh_id_clean,
+                  sub_county,
+                  ward,
+                  community_health_unit,
+                  village,
+                  longitude = Longitude,
+                  latitude  = Latitude,
+                  wall_type = house_wal0,
+                  roof_type) %>%
+    arrange(cluster_number, randomization_number)
+  
+  write_csv(cdc_light_trap_livestock_enclosures, 'outputs/table_5_cdc_light_trap_livestock_enclosures.csv')
+  rmarkdown::render('rmds/cdc_light_trap_livestock_enclosures.Rmd')
+}
+
+

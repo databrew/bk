@@ -1,5 +1,5 @@
 ---
-title: "Entomology CDC Light Trap Households"
+title: "Entomology Resting Household Pit Shelter Households"
 output: pdf_document
 header-includes:
 - \usepackage{booktabs}
@@ -45,9 +45,9 @@ library(dplyr)
 
 ```{r}
 # Read in the randomization results
-cdc_light_trap_households <- read_csv('../outputs/table_2_cdc_light_trap_households.csv')
+resting_household_pit_shelter <- read_csv('../outputs/table_4_resting_household_pit_shelter.csv')
 # Get the list of clusters
-clusters <- sort(unique(cdc_light_trap_households$cluster_number))
+clusters <- sort(unique(resting_household_pit_shelter$cluster_number))
 
 ```
 
@@ -55,7 +55,7 @@ clusters <- sort(unique(cdc_light_trap_households$cluster_number))
 # Print the titles/tables
 for (i in 1:length(clusters)) {
   this_cluster <- clusters[i]
-  this_data <- cdc_light_trap_households %>% filter(cluster_number == this_cluster)
+  this_data <- resting_household_pit_shelter %>% filter(cluster_number == this_cluster)
   this_data$`cluster_number` <- NULL
   this_data$roof_type <- gsub('_', ' ', this_data$roof_type)
   this_data$wall_type <- gsub('_', ' ', this_data$wall_type)
