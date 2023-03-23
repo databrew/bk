@@ -23,11 +23,8 @@ For the purposes of the Bohemia Kenya project, Locus GIS must be configured by a
 
 ### Adding new layers to that project
 
-- For general project use, on your computer, go to [this google drive link](https://drive.google.com/drive/folders/1HjfkjplGchuA4L18ebaFKyLVQOkRkTGg?usp=sharing)
-- - For entomology use, on your computer, go to [this google drive link](https://drive.google.com/drive/u/0/folders/1pVEcZzPevVCcHe4Sc4lAn5Gmri1xR_RB) and then import the following:
-  - `buffers_shp/buffers_shp.shp`
-  - `cores_shp/cores_shp.shp`
-  - `ento_households_shp/households.shp`
+- For general project use, on your computer, go to [this google drive link](https://drive.google.com/drive/folders/1lHUvXWL2zCe3R_Cw-_hdzSlp3WVVAi0b?usp=sharing)
+- For entomology use, on your computer, go to [this google drive link](https://drive.google.com/drive/u/0/folders/1pVEcZzPevVCcHe4Sc4lAn5Gmri1xR_RB)
 - Download the contents of the folder to your computer
 - Go to drive.google.com, logged in to your personal account
 - Upload the folder to your personal drive
@@ -36,8 +33,8 @@ For the purposes of the Bohemia Kenya project, Locus GIS must be configured by a
 - Click the "plus" icon in the bottom right
 - Click "Import shp file"
 - Click "Google Drive"
-- Select `KENYA CLUSTERS/clusters/clusters.shp` from the menu
-- Do the same for `KENYA CLUSTERS/households/households.shp`
+- For general project use, import the "clusters" and "households" shapefiles
+- For Entomology use, import the "buffers", "cores", and "households" shapefiles
 
 
 ## Use
