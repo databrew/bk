@@ -4,14 +4,19 @@ library(readr)
 library(leaflet)
 library(rgdal)
 library(sp)
-# # Load in village shapefiles
-# villages <- readOGR('../../data_public/spatial/village_shapefile/', 'village')
+
+# Based on plot, define each cluster as north or south
+clusters <- tibble(
+  cluster_number = 1:96,
+  location = c(rep('North', 48),
+               'South', 'South', 'South', 'North', 'North', 'South',
+               'North', 'North',
+               rep('South', 40)))
 
 
-  # Load in clusters
+# Load in spatial files
 load('../recon_clustering/final/cores.RData')
 load('../recon_clustering/final/buffers.RData')
-load('../recon_clustering/final/clusters.RData')
 
 # Plot to see what is above/below the highway
 leaflet() %>%
@@ -20,30 +25,6 @@ leaflet() %>%
               label = cores@data$cluster_number,
               labelOptions = list('permanent' = TRUE,
                                   'autclose' = FALSE))
-
-# # See shapefile versions
-# villages <- readOGR('../../data_public/spatial/village_shapefile/', 'village')
-# cores2 <- readOGR('../../data_public/spatial/clusters/', 'clusters')
-# plot(cores2); text(coordinates(cores2), label = cores2@data$cluster_nu)
-# cores3 <- readOGR('~/Desktop/cores/', 'cores')
-# plot(cores3); text(coordinates(cores3), label = cores2@data$cluster_nu)
-# buffers2 <- readOGR('../../data_public/spatial/buffers/', 'buffers')
-# plot(buffers2); text(coordinates(buffers2), label = buffers2@data$cluster_nu)
-# buffers3 <- readOGR('~/Desktop/buffers/', 'buffers')
-# plot(buffers3); text(coordinates(buffers3), label = buffers3@data$clstr_n)
-# clusters2 <- readOGR('../../data_public/spatial/clusters/', 'clusters')
-# plot(clusters2); text(coordinates(clusters2), label = clusters2@data$cluster_nu)
-
-
-# Based on plot, define each cluster as north or south
-clusters <- tibble(
-  cluster_number = 1:96,
-  location = c(rep('North', 48),
-               'South', 'South', 'South', 'North', 'North', 'South',
-               'North', 'North',
-               rep('South', 40))
-)
-
 
 # Inspect
 cores@data <- left_join(cores@data, clusters)
@@ -190,49 +171,54 @@ if(FALSE){
   text(ento_sp@data$cluster_number)
 }
 
+# Process households for preparation for household-specific deliverables
+# Get sub-counties for use in final output
+load('../recon_clustering/final/clusters.RData')
+
+sub_counties <- recon %>%
+  group_by(ward, community_health_unit, village, sub_county) %>%
+  tally %>%
+  ungroup %>%
+  arrange(desc(n)) %>%
+  dplyr::distinct(ward, .keep_all = TRUE) %>%
+  dplyr::select(ward, sub_county) %>%
+  filter(!is.na(ward))
+
+# Read in and organize recon data
+hhsp <- readOGR('../../data_public/spatial/households/', 'households')
+hhsp@data <- left_join(hhsp@data %>% dplyr::rename(hh_id_clean = hh_id) %>% dplyr::select(-village, ward),
+                       recon_curated %>% dplyr::select(hh_id_raw, hh_id_clean,
+                                                       community_health_unit,
+                                                       village,
+                                                       ward))
+# See if in cluster core / buffer
+o <- sp::over(hhsp, polygons(clusters))
+hhsp@data$cluster <- clusters@data$cluster_number[o]
+o <- sp::over(hhsp, polygons(buffers))
+hhsp@data$buffer <- buffers@data$cluster_number[o]
+o <- sp::over(hhsp, polygons(cores))
+hhsp@data$core <- cores@data$cluster_number[o]
+# Keep only those which are in clusters
+hhsp <- hhsp[!is.na(hhsp@data$cluster),]
+# Define buffer / core status
+hhsp@data$core_buffer <- ifelse(!is.na(hhsp@data$core), 'Core',
+                                ifelse(!is.na(hhsp@data$buffer), 'Buffer', NA))
+hhsp@data$core_buffer <- factor(hhsp@data$core_buffer, levels = c('Core', 'Buffer'))
+hhsp <- hhsp[!is.na(hhsp@data$core_buffer),]
+# Filter down to only those in ento clusters
+hhsp@data <- left_join(
+  hhsp@data %>% dplyr::rename(cluster_number = cluster),
+  ento_clusters %>% dplyr::select(cluster_number) %>% mutate(ento = TRUE)
+) %>%
+  filter(!is.na(ento))
+
 # Deliverable 2 ################    
 #  One table for each of the 12 entomology per clusters from deliverable 1, in which each row is one household. The team will enroll a total of 4 hh per cluster. Randomly select: 
 set.seed(17)
 if('table_2_cdc_light_trap_households.csv' %in% dir('outputs/')){
   cdc_light_trap_households <- read_csv('outputs/table_2_cdc_light_trap_households.csv')
 } else {
-  # Get sub-counties for use in final output
-  sub_counties <- recon %>%
-    group_by(ward, community_health_unit, village, sub_county) %>%
-    tally %>%
-    ungroup %>%
-    arrange(desc(n)) %>%
-    dplyr::distinct(ward, .keep_all = TRUE) %>%
-    dplyr::select(ward, sub_county) %>%
-    filter(!is.na(ward))
-  
-  # Read in and organize recon data
-  hhsp <- readOGR('../../data_public/spatial/households/', 'households')
-  hhsp@data <- left_join(hhsp@data %>% dplyr::rename(hh_id_clean = hh_id) %>% dplyr::select(-village, ward),
-                         recon_curated %>% dplyr::select(hh_id_raw, hh_id_clean,
-                                                         community_health_unit,
-                                                         village,
-                                                         ward))
-  # See if in cluster core / buffer
-  o <- sp::over(hhsp, polygons(clusters))
-  hhsp@data$cluster <- clusters@data$cluster_number[o]
-  o <- sp::over(hhsp, polygons(buffers))
-  hhsp@data$buffer <- buffers@data$cluster_number[o]
-  o <- sp::over(hhsp, polygons(cores))
-  hhsp@data$core <- cores@data$cluster_number[o]
-  # Keep only those which are in clusters
-  hhsp <- hhsp[!is.na(hhsp@data$cluster),]
-  # Define buffer / core status
-  hhsp@data$core_buffer <- ifelse(!is.na(hhsp@data$core), 'Core',
-                                  ifelse(!is.na(hhsp@data$buffer), 'Buffer', NA))
-  hhsp@data$core_buffer <- factor(hhsp@data$core_buffer, levels = c('Core', 'Buffer'))
-  hhsp <- hhsp[!is.na(hhsp@data$core_buffer),]
-  # Filter down to only those in ento clusters
-  hhsp@data <- left_join(
-    hhsp@data %>% dplyr::rename(cluster_number = cluster),
-    ento_clusters %>% dplyr::select(cluster_number) %>% mutate(ento = TRUE)
-  ) %>%
-    filter(!is.na(ento))
+
   # "The team will enroll a total of 4 hh per cluster. Randomly select: 
   # 2 hh in the core + 2 hh extra in the core
   # 2 hh in the buffer + 2 hh extra in the buffer"
@@ -263,8 +249,55 @@ if('table_2_cdc_light_trap_households.csv' %in% dir('outputs/')){
                   roof_type) %>%
     arrange(cluster_number, core_buffer, randomization_number)
   write_csv(cdc_light_trap_households, 'outputs/table_2_cdc_light_trap_households.csv')
+  # Create a supporting document of entomology table 2 (ie, 1 table per cluster, formatted, etc.)
+  rmarkdown::render('rmds/entomology_cdc_light_trap_households.Rmd')
 }
 
-# Create a supporting document of entomology table 2 (ie, 1 table per cluster, formatted, etc.)
-rmarkdown::render('rmds/entomology_cdc_light_trap_households.Rmd', envir = new.nev())
 
+
+# # Deliverable 3 ################   
+# Resting household indoor
+# One table per entomology cluster in which each row is one household. The team will enroll a total of 6 hh per cluster. Exclude households randomized to Deliverable 2: “Table2_cdc_light_trap_household” Randomly select: 
+# 4 hh in the core + 4 hh extra in the core
+# 2 hh in the buffer + 2 hh extra in the buffer
+# Each table will contain the Cluster # at the top.
+
+set.seed(25)
+if('table_3_resting_household_indoor_households.csv' %in% dir('outputs/')){
+  resting_household_indoor_households <- read_csv('outputs/table_3_resting_household_indoor_households.csv')
+} else {
+  resting_household_indoor_households <- hhsp@data %>%
+    # Remove those in table 2
+    filter(!hh_id_raw %in% cdc_light_trap_households$painted_recon_hh_id,
+           !hh_id_clean %in% cdc_light_trap_households$map_recon_hh_id) %>%
+    mutate(dummy = 1) %>%
+    # randomize the order
+    dplyr::sample_n(nrow(.)) %>%
+    group_by(core_buffer, cluster_number) %>%
+    # create the assignment order
+    mutate(randomization_number = cumsum(dummy)) %>%
+    ungroup %>%
+    # Keep just 8 per category if core
+    # and 4 per category if buffer
+    filter(
+      (randomization_number <= 8 & core_buffer == 'Core') |
+        (randomization_number <= 4 & core_buffer == 'Buffer')
+    ) %>%
+    left_join(sub_counties) %>%
+    # Keep only the relevant columns
+    dplyr::select(cluster_number,
+                  randomization_number,
+                  core_buffer,
+                  painted_recon_hh_id = hh_id_raw,
+                  map_recon_hh_id = hh_id_clean,
+                  sub_county,
+                  ward,
+                  community_health_unit,
+                  village,
+                  longitude = Longitude,
+                  latitude  = Latitude,
+                  wall_type = house_wal0,
+                  roof_type) %>%
+    arrange(cluster_number, core_buffer, randomization_number)  
+  write_csv(resting_household_indoor_households, 'outputs/table_3_resting_household_indoor_households.csv')
+}
