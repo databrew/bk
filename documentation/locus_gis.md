@@ -18,21 +18,13 @@ For the purposes of the Bohemia Kenya project, Locus GIS must be configured by a
 - In the bottom right, click the "plus" icon
 - Click "New project"
 - Name the new project "Bohemia"
-
-### Set the right Coordinate Reference System (CRS) for the project
-- Click the 3 horizontal bars in the upper left
-- Click Projects
-- Click Bohemia
-- Click the 3 vertical dots
-- Click Edit project
-- Ensure that "Coordinate reference system" is WGS 84 / EPSG: 84 (see below screenshot)
-<img src="[https://mma.prnewswire.com/media/1513369/Educative_Logo.jpg](https://user-images.githubusercontent.com/4364537/224106288-ae05cb2f-e636-4365-9918-48aac2148c3e.png)" height="300">
-
+- Ensure that the "Coordinate reference system" in the "New project" menu is set to "WGS 84: EPSG: 84" (ie, not the default pseudo-mercator)
 
 
 ### Adding new layers to that project
 
-- On your computer, go to [this google drive link](https://drive.google.com/drive/folders/1HjfkjplGchuA4L18ebaFKyLVQOkRkTGg?usp=sharing)
+- For general project use, on your computer, go to [this google drive link](https://drive.google.com/drive/folders/1lHUvXWL2zCe3R_Cw-_hdzSlp3WVVAi0b?usp=sharing)
+- For entomology use, on your computer, go to [this google drive link](https://drive.google.com/drive/u/0/folders/1pVEcZzPevVCcHe4Sc4lAn5Gmri1xR_RB)
 - Download the contents of the folder to your computer
 - Go to drive.google.com, logged in to your personal account
 - Upload the folder to your personal drive
@@ -41,8 +33,8 @@ For the purposes of the Bohemia Kenya project, Locus GIS must be configured by a
 - Click the "plus" icon in the bottom right
 - Click "Import shp file"
 - Click "Google Drive"
-- Select `KENYA CLUSTERS/clusters/clusters.shp` from the menu
-- Do the same for `KENYA CLUSTERS/households/households.shp`
+- For general project use, import the "clusters" and "households" shapefiles
+- For Entomology use, import the "buffers", "cores", and "households" shapefiles
 
 
 ## Use
