@@ -64,5 +64,5 @@ hhsp@data %>%
 
 hhsp@data %>%
   group_by(assignment) %>%
-  summarise(five_plus = sum(num_hh_members)) %>%
+  summarise(people_five_plus = sum(num_hh_members_5_15) + sum(num_hh_members_gt_15)) %>%
   knitr::kable()
