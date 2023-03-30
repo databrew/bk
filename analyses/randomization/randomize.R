@@ -150,7 +150,7 @@ hhsp <- hhsp[!is.na(hhsp@data$core_buffer),]
 # Deliverable 1: a table named “Table 1_ento_clusters.csv” in which one row is an Ento cluster with the column: 
 # Cluster#
 # Arm (just the code (1 or 2), not the intervention)
-set.seed(17)
+set.seed(18)
 if('table_1_ento_clusters.csv' %in% dir('outputs/')){
   ento_clusters <- read_csv('outputs/table_1_ento_clusters.csv')
 } else {
