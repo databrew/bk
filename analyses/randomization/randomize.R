@@ -108,8 +108,45 @@ recon <- read_csv('inputs/reconbhousehold.csv')
 # https://s3.console.aws.amazon.com/s3/object/databrew.org?region=us-east-1&prefix=kwale/recon/clean-form/reconbhousehold/curated_recon_household_data.csv
 recon_curated <- read_csv('inputs/curated_recon_household_data.csv')
 
+# Process households for preparation for household-specific deliverables
+# Get sub-counties for use in final output
+# load('../recon_clustering/final/clusters.RData')
+load('../../data_public/spatial/clusters.RData')
+
+# Get sub-counties
+sub_counties <- recon %>%
+  group_by(ward, community_health_unit, village, sub_county) %>%
+  tally %>%
+  ungroup %>%
+  arrange(desc(n)) %>%
+  dplyr::distinct(ward, .keep_all = TRUE) %>%
+  dplyr::select(ward, sub_county) %>%
+  filter(!is.na(ward))
+
+# Read in and organize recon data
+hhsp <- readOGR('../../data_public/spatial/households/', 'households')
+hhsp@data <- left_join(hhsp@data %>% dplyr::rename(hh_id_clean = hh_id) %>% dplyr::select(-village, ward),
+                       recon_curated %>% dplyr::select(hh_id_raw, hh_id_clean,
+                                                       community_health_unit,
+                                                       village,
+                                                       ward))
+# See if in cluster core / buffer
+o <- sp::over(hhsp, polygons(clusters))
+hhsp@data$cluster <- clusters@data$cluster_number[o]
+o <- sp::over(hhsp, polygons(buffers))
+hhsp@data$buffer <- buffers@data$cluster_number[o]
+o <- sp::over(hhsp, polygons(cores))
+hhsp@data$core <- cores@data$cluster_number[o]
+# Keep only those which are in clusters
+hhsp <- hhsp[!is.na(hhsp@data$cluster),]
+# Define buffer / core status
+hhsp@data$core_buffer <- ifelse(!is.na(hhsp@data$core), 'Core',
+                                ifelse(!is.na(hhsp@data$buffer), 'Buffer', NA))
+hhsp@data$core_buffer <- factor(hhsp@data$core_buffer, levels = c('Core', 'Buffer'))
+hhsp <- hhsp[!is.na(hhsp@data$core_buffer),]
+
 # Deliverable 1 ################    
-# select 6 clusters per arm, a total of 12 clusters. ALL the hh from these clusters will be metadata for the three Entomology data collection tools
+# select 6 clusters per arm, a total of 12 clusters. ALL the hh from these clusters will be metadata for the three Entomology data collection tools. Select only from clusters that have more than 15 hh in the core.
 # Deliverable 1: a table named “Table 1_ento_clusters.csv” in which one row is an Ento cluster with the column: 
 # Cluster#
 # Arm (just the code (1 or 2), not the intervention)
@@ -117,8 +154,17 @@ set.seed(17)
 if('table_1_ento_clusters.csv' %in% dir('outputs/')){
   ento_clusters <- read_csv('outputs/table_1_ento_clusters.csv')
 } else {
+  # Get the number of households per core
+  hh_per_core <- hhsp@data %>%
+    filter(core_buffer == 'Core') %>%
+    group_by(cluster) %>%
+    tally %>%
+    ungroup %>%
+    filter(n >= 15)
   # Select 6 clusters per arm
   ento_clusters <- assignments %>%
+    # keep only those households which have at least 15 households in the core
+    filter(cluster_number %in% hh_per_core$cluster) %>%
     group_by(assignment) %>%
     dplyr::sample_n(6) %>%
     ungroup
@@ -175,42 +221,6 @@ if(FALSE){
   text(ento_sp@data$cluster_number)
 }
 
-# Process households for preparation for household-specific deliverables
-# Get sub-counties for use in final output
-# load('../recon_clustering/final/clusters.RData')
-load('../../data_public/spatial/clusters.RData')
-
-# Get sub-counties
-sub_counties <- recon %>%
-  group_by(ward, community_health_unit, village, sub_county) %>%
-  tally %>%
-  ungroup %>%
-  arrange(desc(n)) %>%
-  dplyr::distinct(ward, .keep_all = TRUE) %>%
-  dplyr::select(ward, sub_county) %>%
-  filter(!is.na(ward))
-
-# Read in and organize recon data
-hhsp <- readOGR('../../data_public/spatial/households/', 'households')
-hhsp@data <- left_join(hhsp@data %>% dplyr::rename(hh_id_clean = hh_id) %>% dplyr::select(-village, ward),
-                       recon_curated %>% dplyr::select(hh_id_raw, hh_id_clean,
-                                                       community_health_unit,
-                                                       village,
-                                                       ward))
-# See if in cluster core / buffer
-o <- sp::over(hhsp, polygons(clusters))
-hhsp@data$cluster <- clusters@data$cluster_number[o]
-o <- sp::over(hhsp, polygons(buffers))
-hhsp@data$buffer <- buffers@data$cluster_number[o]
-o <- sp::over(hhsp, polygons(cores))
-hhsp@data$core <- cores@data$cluster_number[o]
-# Keep only those which are in clusters
-hhsp <- hhsp[!is.na(hhsp@data$cluster),]
-# Define buffer / core status
-hhsp@data$core_buffer <- ifelse(!is.na(hhsp@data$core), 'Core',
-                                ifelse(!is.na(hhsp@data$buffer), 'Buffer', NA))
-hhsp@data$core_buffer <- factor(hhsp@data$core_buffer, levels = c('Core', 'Buffer'))
-hhsp <- hhsp[!is.na(hhsp@data$core_buffer),]
 
 # SPATIAL OBJECTS FOR LOCUS GIS #######################
 if(!dir.exists('outputs/general_spatial')){
