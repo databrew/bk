@@ -175,6 +175,8 @@ if('table_1_ento_clusters.csv' %in% dir('outputs/')){
 if(FALSE){
   ento_sp <- buffers
   ento_sp <- ento_sp[ento_sp@data$cluster_number %in% ento_clusters$cluster_number,]
+  cores@data <- left_join(cores@data, assignments)
+  
   l <- leaflet() %>%
     addTiles() %>%
     addPolygons(data = buffers, fillColor = 'grey', color = 'grey', fillOpacity = 0.2, weight = 1,
