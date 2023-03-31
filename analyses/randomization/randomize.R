@@ -220,6 +220,7 @@ if(FALSE){
                           selfcontained = TRUE)
   plot(cores)
   plot(ento_sp, add = T, col = 'red')
+  plot(buffers, add = T)
   text(ento_sp@data$cluster_number)
 }
 
@@ -257,33 +258,39 @@ write_csv(xing, '/tmp/ento_recon_clean_ids.csv')
 
 
 # Deliverable 2 ################    
-#  One table for each of the 12 entomology per clusters from deliverable 1, in which each row is one household. The team will enroll a total of 4 hh per cluster. Randomly select: 
+#  	Deliverable 2: “Table2_cdc_resting_households_core”: One table for each of the 12 entomology clusters from deliverable 1, in which each row is one household. Randomly order all hh in the core of the cluster. 
+
+# Each table will contain the Cluster # at the top. The columns of the tables will be: 
+# 
+# Randomization number (row number)
+# Painted Recon Hh_id (i.e.; from the Raw Reconnaissance)
+# Map Recon Hh_id (i.e.; from the Clean Reconnaissance)
+# Ward
+# Community unit
+# Village
+# Geolocation (lng  and lat)
+# Wall type
+# Roof type
+
 set.seed(17)
-if('table_2_cdc_light_trap_households.csv' %in% dir('outputs/')){
-  cdc_light_trap_households <- read_csv('outputs/table_2_cdc_light_trap_households.csv')
+if('table_2_cdc_resting_households_core.csv' %in% dir('outputs/')){
+  cdc_resting_households_core <- read_csv('outputs/table_2_cdc_resting_households_core.csv')
 } else {
-
-  # "The team will enroll a total of 4 hh per cluster. Randomly select: 
-  # 2 hh in the core + 2 hh extra in the core
-  # 2 hh in the buffer + 2 hh extra in the buffer"
-  cdc_light_trap_households <- hhsp@data %>%
+  cdc_resting_households_core <- hhsp@data %>%
     mutate(dummy = 1) %>%
+    # keep just core
+    filter(core_buffer == 'Core') %>%
     # randomize the order
     dplyr::sample_n(nrow(.)) %>%
-    group_by(core_buffer, cluster_number) %>%
+    group_by(cluster_number) %>%
     # create the assignment order
     mutate(randomization_number = cumsum(dummy)) %>%
     ungroup %>%
-    # Keep just 4 per category
-    filter(randomization_number <= 4) %>%
-    left_join(sub_counties) %>%
     # Keep only the relevant columns
     dplyr::select(cluster_number,
                   randomization_number,
-                  core_buffer,
                   painted_recon_hh_id = hh_id_raw,
                   map_recon_hh_id = hh_id_clean,
-                  sub_county,
                   ward,
                   community_health_unit,
                   village,
@@ -291,50 +298,45 @@ if('table_2_cdc_light_trap_households.csv' %in% dir('outputs/')){
                   latitude  = Latitude,
                   wall_type = house_wal0,
                   roof_type) %>%
-    arrange(cluster_number, core_buffer, randomization_number)
-  write_csv(cdc_light_trap_households, 'outputs/table_2_cdc_light_trap_households.csv')
+    arrange(cluster_number, randomization_number)
+  write_csv(cdc_resting_households_core, 'outputs/table_2_cdc_resting_households_core.csv')
   # Create a supporting document of entomology table 2 (ie, 1 table per cluster, formatted, etc.)
-  rmarkdown::render('rmds/entomology_cdc_light_trap_households.Rmd')
+  rmarkdown::render('rmds/entomology_table_2_cdc_resting_households_core.Rmd')
 }
 
-
-
-# # Deliverable 3 ################   
-# Resting household indoor
-# One table per entomology cluster in which each row is one household. The team will enroll a total of 6 hh per cluster. Exclude households randomized to Deliverable 2: “Table2_cdc_light_trap_household” Randomly select: 
-# 4 hh in the core + 4 hh extra in the core
-# 2 hh in the buffer + 2 hh extra in the buffer
-# Each table will contain the Cluster # at the top.
-
-set.seed(25)
-if('table_3_resting_household_indoor_households.csv' %in% dir('outputs/')){
-  resting_household_indoor_households <- read_csv('outputs/table_3_resting_household_indoor_households.csv')
+# # # Deliverable 3 ################   
+# One table for each of the 12 entomology clusters from deliverable 1 in which each row is one household. Randomly order all hh in the buffer of the cluster. 
+# 
+# Each table will contain the Cluster # at the top. The columns of the table will be:
+# 
+# Randomization number (row number)
+# Painted Recon Hh_id (i.e.; from the Raw Reconnaissance)
+# Map Recon Hh_id (i.e.; from the Clean Reconnaissance)
+# Ward
+# Community unit
+# Village
+# Geolocation (lng  and lat)
+# Wall type
+# Roof type
+set.seed(17)
+if('table_3_cdc_resting_households_buffer.csv' %in% dir('outputs/')){
+  cdc_resting_households_buffer <- read_csv('outputs/table_3_cdc_resting_households_buffer.csv')
 } else {
-  resting_household_indoor_households <- hhsp@data %>%
-    # Remove those in table 2
-    filter(!hh_id_raw %in% cdc_light_trap_households$painted_recon_hh_id,
-           !hh_id_clean %in% cdc_light_trap_households$map_recon_hh_id) %>%
+  cdc_resting_households_buffer <- hhsp@data %>%
     mutate(dummy = 1) %>%
+    # keep just core
+    filter(core_buffer == 'Buffer') %>%
     # randomize the order
     dplyr::sample_n(nrow(.)) %>%
-    group_by(core_buffer, cluster_number) %>%
+    group_by(cluster_number) %>%
     # create the assignment order
     mutate(randomization_number = cumsum(dummy)) %>%
     ungroup %>%
-    # Keep just 8 per category if core
-    # and 4 per category if buffer
-    filter(
-      (randomization_number <= 8 & core_buffer == 'Core') |
-        (randomization_number <= 4 & core_buffer == 'Buffer')
-    ) %>%
-    left_join(sub_counties) %>%
     # Keep only the relevant columns
     dplyr::select(cluster_number,
                   randomization_number,
-                  core_buffer,
                   painted_recon_hh_id = hh_id_raw,
                   map_recon_hh_id = hh_id_clean,
-                  sub_county,
                   ward,
                   community_health_unit,
                   village,
@@ -342,11 +344,12 @@ if('table_3_resting_household_indoor_households.csv' %in% dir('outputs/')){
                   latitude  = Latitude,
                   wall_type = house_wal0,
                   roof_type) %>%
-    arrange(cluster_number, core_buffer, randomization_number)  
-  write_csv(resting_household_indoor_households, 'outputs/table_3_resting_household_indoor_households.csv')
-  rmarkdown::render('rmds/resting_household_indoor_households.Rmd')
-  
+    arrange(cluster_number, randomization_number)
+  write_csv(cdc_resting_households_buffer, 'outputs/table_3_cdc_resting_households_buffer.csv')
+  # Create a supporting document of entomology table 2 (ie, 1 table per cluster, formatted, etc.)
+  rmarkdown::render('rmds/entomology_table_3_cdc_resting_households_buffer.Rmd')
 }
+
 
 # # Deliverable 4 ################   
 # Table 4 resting household pit shelter

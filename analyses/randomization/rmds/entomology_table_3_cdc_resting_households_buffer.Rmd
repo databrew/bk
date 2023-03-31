@@ -1,8 +1,9 @@
 ---
-title: "Entomology Resting Household Pit Shelter Households"
+title: "CDC Resting Households Buffer"
 output: pdf_document
+geometry: margin=1cm
+classoption: landscape
 header-includes:
-  \usepackage{longtable}
 - \usepackage{booktabs}
 - \usepackage{longtable}
 - \usepackage{array}
@@ -13,9 +14,6 @@ header-includes:
 - \usepackage{pdflscape}
 - \usepackage{tabu}
 - \usepackage{threeparttable}
-- \usepackage[normalem]{ulem}
-geometry: margin=1cm
-classoption: landscape
 ---
 
 
@@ -46,9 +44,9 @@ library(dplyr)
 
 ```{r}
 # Read in the randomization results
-resting_household_pit_shelter <- read_csv('../outputs/table_4_resting_household_pit_shelter.csv')
+cdc_resting_households_buffer <- read_csv('../outputs/table_3_cdc_resting_households_buffer.csv')
 # Get the list of clusters
-clusters <- sort(unique(resting_household_pit_shelter$cluster_number))
+clusters <- sort(unique(cdc_resting_households_buffer$cluster_number))
 
 ```
 
@@ -56,7 +54,7 @@ clusters <- sort(unique(resting_household_pit_shelter$cluster_number))
 # Print the titles/tables
 for (i in 1:length(clusters)) {
   this_cluster <- clusters[i]
-  this_data <- resting_household_pit_shelter %>% filter(cluster_number == this_cluster)
+  this_data <- cdc_resting_households_buffer %>% filter(cluster_number == this_cluster)
   this_data$`cluster_number` <- NULL
   this_data$roof_type <- gsub('_', ' ', this_data$roof_type)
   this_data$wall_type <- gsub('_', ' ', this_data$wall_type)
@@ -66,13 +64,17 @@ for (i in 1:length(clusters)) {
 
   names(this_data) <- Hmisc::capitalize(names(this_data))
   k <- kable(this_data, format = "latex",
-              # longtable = TRUE,
+              longtable = TRUE,
               booktabs = TRUE,
               #align = "c", 
           row.names = FALSE) %>%
-      kable_styling(latex_options = c("striped", "scale_down"), full_width = T, 
+      kable_styling(latex_options = c(#"scale_down",
+                                       "striped"
+                                      ), 
+                     # full_width = T, 
                     font_size = 7) 
   cat(paste0('# Cluster ', this_cluster, '\n\n'))
   # k <- paste0(paste0('Cluster ', this_cluster, '\\', k))
   print(k)
+  cat('\\newpage')
 }
