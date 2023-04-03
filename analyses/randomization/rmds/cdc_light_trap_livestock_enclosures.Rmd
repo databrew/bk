@@ -51,7 +51,19 @@ library(dplyr)
 resting_household_indoor_households <- read_csv('../outputs/table_5_cdc_light_trap_livestock_enclosures.csv')
 # Get the list of clusters
 clusters <- sort(unique(resting_household_indoor_households$cluster_number))
-
+# Define function for adding zero
+add_zero <- function (x, n) {
+  x <- as.character(x)
+  adders <- n - nchar(x)
+  adders <- ifelse(adders < 0, 0, adders)
+  for (i in 1:length(x)) {
+    if (!is.na(x[i])) {
+      x[i] <- paste0(paste0(rep("0", adders[i]), collapse = ""),
+                     x[i], collapse = "")
+    }
+  }
+  return(x)
+}
 ```
 
 ```{r results='asis', eval = TRUE}  
@@ -79,7 +91,7 @@ for (i in 1:length(clusters)) {
                                       ), 
                      # full_width = T, 
                     font_size = 7) 
-  cat(paste0('# Cluster ', this_cluster, '. L-', this_cluster,'\n\n'))
+  cat(paste0('# Cluster ', this_cluster, '. L-', add_zero(this_cluster, 2),'\n\n'))
   # k <- paste0(paste0('Cluster ', this_cluster, '\\', k))
   print(k)
   cat('\\newpage')

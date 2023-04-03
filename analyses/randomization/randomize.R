@@ -246,14 +246,22 @@ if(!file.exists('outputs/general_spatial/households.shp')){
   message('Shapefile already written')
 }
 
-# Filter down to only those in ento clusters
+# Assign cluster number
 hhsp@data$cluster_number <- hhsp@data$cluster
-hhsp <- hhsp[hhsp@data$cluster_number %in% ento_clusters$cluster_number,]
 
 # Get list of cleaned IDs for Xing
 xing <- hhsp@data %>% dplyr::select(cluster_number, hh_id_clean,
                                     hh_id_raw, core_buffer) %>%
   arrange(cluster_number, hh_id_clean)
+# write csv
+write_csv(xing, '/tmp/recon_clean_ids.csv')
+
+# Filter down to only those in ento clusters
+hhsp <- hhsp[hhsp@data$cluster_number %in% ento_clusters$cluster_number,]
+xing <- hhsp@data %>% dplyr::select(cluster_number, hh_id_clean,
+                                    hh_id_raw, core_buffer) %>%
+  arrange(cluster_number, hh_id_clean)
+
 write_csv(xing, '/tmp/ento_recon_clean_ids.csv')
 
 
@@ -369,13 +377,13 @@ if('table_4_resting_household_pit_shelter.csv' %in% dir('outputs')){
     ungroup %>%
     # Keep just 3 per cluster (ie, 1 selection plus 2 backups)
     filter(randomization_number <= 3) %>%
-    left_join(sub_counties) %>%
-    # Keep only the relevant columns
+    # left_join(sub_counties) %>%
+    # # Keep only the relevant columns
     dplyr::select(cluster_number,
                   randomization_number,
                   painted_recon_hh_id = hh_id_raw,
                   map_recon_hh_id = hh_id_clean,
-                  sub_county,
+                  # sub_county,
                   ward,
                   community_health_unit,
                   village,
@@ -401,19 +409,18 @@ if('table_5_cdc_light_trap_livestock_enclosures.csv' %in% dir('outputs')){
     mutate(dummy = 1) %>%
     # randomize the order
     dplyr::sample_n(nrow(.)) %>%
-    # Keep only core
     group_by(cluster_number) %>%
     # create the assignment order
     mutate(randomization_number = cumsum(dummy)) %>%
     ungroup %>%
-    left_join(sub_counties) %>%
+    # left_join(sub_counties) %>%
     # Keep only the relevant columns
     dplyr::select(cluster_number,
                   # core_buffer,
                   randomization_number,
                   painted_recon_hh_id = hh_id_raw,
                   map_recon_hh_id = hh_id_clean,
-                  sub_county,
+                  # sub_county,
                   ward,
                   community_health_unit,
                   village,
@@ -454,7 +461,7 @@ if(!file.exists('outputs/ento_households_shp/households.shp')){
 if(!file.exists('outputs/buffers_shp/buffers_shp.shp')){
   message('Writing shapefile')  
   buffers_shp <- buffers[buffers@data$cluster_number %in% ento_clusters$cluster_number,]
-  raster::shapefile(buffers_shp, 'outputs/buffers_shp/buffers_shp.shp')
+  raster::shapefile(buffers_shp, 'outputs/buffers_shp/buffers_shp.shp', overwrite = TRUE)
 } else {
   message('Shapefile already written')
 }
@@ -462,7 +469,7 @@ if(!file.exists('outputs/buffers_shp/buffers_shp.shp')){
 if(!file.exists('outputs/cores_shp/cores_shp.shp')){
   message('Writing shapefile')
   cores_shp <- cores[cores@data$cluster_number %in% ento_clusters$cluster_number,]
-  raster::shapefile(cores_shp, 'outputs/cores_shp/cores_shp.shp')
+  raster::shapefile(cores_shp, 'outputs/cores_shp/cores_shp.shp', overwrite = TRUE)
 } else {
   message('Shapefile already written')
 }
