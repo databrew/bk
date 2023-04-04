@@ -13,7 +13,7 @@ Each tablet will need to be configured to disable the automatic finalization and
 3.  In the Form Management screen, (1) uncheck the "Default to Finalize" button and (2) click on "Auto Send".
 <img src="img/autosend2.jpg" width="350"/>
 
-4. Once you click "Auto Send", a popup window will appear. Check the radio button "Off"<br
+4. Once you click "Auto Send", a popup window will appear. Check the radio button "Off"<br>
 <img src="img/autosend5.jpg" width="350"/>
 
 5. Your settings have now been changed. You must now manually check the "Finalize" button at the end of each form once it is finalized. 
