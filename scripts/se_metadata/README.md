@@ -7,7 +7,7 @@ The "safety and efficacy" forms are described in [this google doc](https://docs.
 - “V0 form” (no metadata)
 - “V1-4 Safety form”
 - “V1-3 Safety new members”
-- “V1-7 Efficacy form”
+- “V1-6 Efficacy form”
 - “V2-V13 Pregnancy follow up form (PFU)”
 
 This document describes the metadata that the last 4 forms consume.
