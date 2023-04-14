@@ -37,11 +37,17 @@ hh <- households@data %>%
 hh <- hh %>% filter(cluster > 0)
 
 # Identify mismatches in IDS
-mm <- hh
-mm$mismatch <- mm$map_recon_HHID != mm$painted_recon_HHID
-x <- mm %>%
-  filter(mismatch) %>%
-  group_by(clusters)
+if(FALSE){
+  mm <- hh
+  mm$mismatch <- mm$map_recon_HHID != mm$painted_recon_HHID
+  x <- mm %>%
+    filter(mismatch) %>%
+    group_by(cluster) %>%
+    tally %>%
+    arrange(desc(n))
+  hh <- hh %>% filter(cluster %in% c(3, 40))
+  mm %>% filter(cluster %in% c(3, 40)) %>% filter(mismatch) %>% dplyr::select(cluster, contains('HHID'))
+}
 
 # Write a csv
 write_csv(hh, 'hh.csv')
