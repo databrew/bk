@@ -2,9 +2,6 @@ library(readr)
 library(dplyr)
 library(babynames)
 
-# Read in cleaned / curated recon data
-## https://bohemiakenya.slack.com/archives/C042P3A05UP/p1679505186892229
-recon <- read_csv('recon/curated_recon_household_data.csv')
 
 # Generate households
 n_households <- 500
@@ -91,3 +88,5 @@ if(!dir.exists('dummy_metadata')){
 }
 write_csv(households, 'dummy_metadata/households.csv')
 write_csv(individuals, 'dummy_metadata/individuals.csv')
+
+
