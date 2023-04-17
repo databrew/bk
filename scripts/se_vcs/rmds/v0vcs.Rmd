@@ -1,5 +1,4 @@
 ---
-title: "Visit control sheets - Visit 0"
 output: pdf_document
 header-includes:
 - \usepackage{booktabs}
@@ -52,7 +51,6 @@ clusters <- sort(unique(hh$cluster))
 
 ```
 
-\newpage
 
 \pagenumbering{gobble} 
 
@@ -80,7 +78,8 @@ for (i in 1:length(clusters)) {
               #align = "c", 
           row.names = FALSE) %>%
       kable_styling(latex_options = c(#"scale_down",
-                                       "striped"
+                                       "striped",
+                                       'repeat_header'
                                       ), 
                      # full_width = T, 
                     font_size = 9) %>%
