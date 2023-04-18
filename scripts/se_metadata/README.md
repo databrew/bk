@@ -45,6 +45,7 @@ efficacy_preselected
 migrated	
 pfu_absences	
 efficacy_absences
+starting_efficacy_status
 ```
 
 ### `household_data`
@@ -86,6 +87,7 @@ What follows are the acceptable values / formats for each variable in the `indiv
 - `migrated`: numeric representing a boolean; one of 0 or 1; 0 = no; 1 = yes	
 - `pfu_absences`: integer of 0 or above	
 - `efficacy_absences`: integer of 0 or above
+- `starting_efficacy_status`: string; all lowercase; one of "in", "out", "eos". 
 
 
 ### `household_data`
