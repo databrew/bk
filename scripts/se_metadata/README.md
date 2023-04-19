@@ -7,7 +7,7 @@ The "safety and efficacy" forms are described in [this google doc](https://docs.
 - “V0 form” (no metadata)
 - “V1-4 Safety form”
 - “V1-3 Safety new members”
-- “V1-6 Efficacy form”
+- “V1-7 Efficacy form”
 - “V2-V13 Pregnancy follow up form (PFU)”
 
 This document describes the metadata that the last 4 forms consume.
@@ -50,7 +50,7 @@ starting_efficacy_status
 
 ### `household_data`
 
-The individual data table, `individual_data.csv`, is a one row per household dataframe consisting of the following variables:
+The household data table, `household_data.csv`, is a one row per household dataframe consisting of the following variables:
 
 ```
 hhid	
@@ -92,7 +92,7 @@ What follows are the acceptable values / formats for each variable in the `indiv
 
 ### `household_data`
 
-What follows are the acceptable values / formats for each variable in the `individual_data.csv` table.
+What follows are the acceptable values / formats for each variable in the `household_data.csv` table.
 
 
 - `hhid`: an integer	
