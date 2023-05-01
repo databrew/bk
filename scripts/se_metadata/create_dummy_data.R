@@ -37,8 +37,17 @@ households <-
     cluster = sample(1:98, size = n_households, replace = TRUE),
     healthecon_preselected = sample(0:1, size = n_households, replace = TRUE)
   )
-
-households$arm <- (households$cluster %% 2) + 1
+households$visits_done <- NA
+for(i in 1:nrow(households)){
+  vd1 <- sample(c('V1', ''), 1)
+  vd2 <- sample(c('V2', ''), 1)
+  vd3 <- sample(c('V3', ''), 1)
+  vds <- c(vd1, vd2, vd3)
+  vds <- vds[vds != '']
+  vd <- paste0(vds, collapse = ',')
+  households$visits_done[i] <- vd
+}
+households$intervention <- (households$cluster %% 2) + 1
 
 # Generate people data
 counter <- 0
@@ -49,8 +58,8 @@ for(i in 1:nrow(households)){
   hhid <- this_household$hhid
   num_members <- this_household$num_members
   lastname <- Hmisc::capitalize(paste0(sample(letters, 10), collapse = ''))
-  arm <- this_household$arm
-  intervention <- ifelse(arm == 1, 'Treatment', 'Control')
+  intervention <- this_household$intervention
+  intervention <- ifelse(intervention == 1, 'Treatment', 'Control')
   for(j in 1:num_members){
     extid <- paste0(hhid, '-', add_zero(j, 2))
     sex <- sample(c('Male', 'Female'), 1)
@@ -64,8 +73,11 @@ for(i in 1:nrow(households)){
     starting_safety_status <- sample(c('icf', 'in', 'out', 'refusal', 'eos', 'completion'), 1)
     if(starting_safety_status == 'in'){
       starting_weight <- sample(15:100, 1)
+      starting_height <- sample(20:200, 1)
     } else {
       starting_weight <- sample(3:100, 1)
+      starting_height <- sample(50:200, 1)
+      
     }
     pk_preselected <- sample(0:1, 1)
     efficacy_preselected <- sample(0:1, 1)
@@ -87,7 +99,7 @@ for(i in 1:nrow(households)){
       }
     }
     if(starting_safety_status %in% c('icf', 'out')){
-      starting_weight <- NA
+      starting_weight <- starting_height <- NA
     }
     if(starting_safety_status %in% c('icf', 'out')){
       migrated <- 0
@@ -119,6 +131,7 @@ for(i in 1:nrow(households)){
                   starting_safety_status,
                   starting_pregnancy_status,
                   starting_weight,
+                  starting_height,
                   pk_preselected,
                   efficacy_preselected,
                   migrated,

@@ -40,6 +40,7 @@ intervention
 starting_safety_status	
 starting_pregnancy_status	
 starting_weight	
+starting_height	
 pk_preselected	
 efficacy_preselected	
 migrated	
@@ -57,9 +58,10 @@ hhid
 roster	
 num_members	
 cluster	
-arm	
+intervention	
 healthecon_preselected	
 household_head
+visits_done
 ```
 
 
@@ -82,6 +84,7 @@ What follows are the acceptable values / formats for each variable in the `indiv
 - `starting_safety_status`: string; all lowercase; one of "icf", "in", "out", "refusal", "eos", "completion". This variable is derived from the "safety_status" variable from SE V0 form and then the most recent "safety_status" variable of Safety form	
 - `starting_pregnancy_status`: string; all lowercase; one of "in", "out", "eos".	This variable is derived from the most recent "pregnancy_status" variable from the Safety form or Pregnancy Follow up form
 - `starting_weight`: numeric	
+- `starting_height`: numeric	
 - `pk_preselected`: numeric representing a boolean; one of 0 or 1; 0 = no; 1 = yes	
 - `efficacy_preselected`: numeric representing a boolean; one of 0 or 1; 0 = no; 1 = yes	
 - `migrated`: numeric representing a boolean; one of 0 or 1; 0 = no; 1 = yes	
@@ -99,8 +102,9 @@ What follows are the acceptable values / formats for each variable in the `indiv
 - `roster`: string; a comma+space (", ") separated list of members, wherein each element consists of the concatenation of `firstname` + space + `lastname` + space + `extid` wrapped in parentheses	
 - `num_members`: an integer	
 - `cluster`: an integer	
-- `arm`: an integer	
+- `intervention`: String. "Treatment" or "Control"	
 - `healthecon_preselected`: numeric representing a boolean; one of 0 or 1; 0 = no; 1 = yes	
 - `household_head`: string; the full name of the household head in order of `firstname`, then space, then `lastname`
+- `visits_done`: string, the comma-separated visits carried out to date (for example, "V1", or "V1,V3")
 
 
