@@ -1,0 +1,331 @@
+---
+title: "Clusters and CHV areas of work"
+author: "Databrew"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE, echo = FALSE}
+# Basic knitr options
+library(knitr)
+opts_chunk$set(comment = NA, 
+               echo = FALSE,
+               warning = FALSE, 
+               message = FALSE, 
+               error = TRUE, 
+               cache = FALSE,
+               fig.width = 9.64,
+               fig.height = 5.9,
+               fig.path = 'figures/')
+```
+
+```{r}
+library(paws)
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(rgdal)
+library(raster)
+library(ggthemes)
+library(sp)
+
+# Load in spatial polygons
+load('../recon_clustering/final/cores.RData')
+load('../recon_clustering/final/buffers.RData')
+load('../recon_clustering/final/clusters.RData')
+load('../recon_clustering/registrations.RData')
+
+# Load in recon data
+# https://s3.console.aws.amazon.com/s3/object/databrew.org?region=us-east-1&prefix=kwale/recon/clean-form/reconbhousehold/reconbhousehold.csv
+recon <- read_csv('from_aws/reconbhousehold.csv')
+# https://s3.console.aws.amazon.com/s3/object/databrew.org?region=us-east-1&prefix=kwale/recon/clean-form/reconbhousehold/curated_recon_household_data.csv
+recon_curated <- read_csv('from_aws/curated_recon_household_data.csv')
+
+# Read in and organize recon data
+hhsp <- readOGR('../../data_public/spatial/households/', 'households')
+hhsp@data <- left_join(hhsp@data %>% dplyr::rename(hh_id_clean = hh_id) %>% dplyr::select(-village, ward),
+                       recon_curated %>% dplyr::select(hh_id_raw, hh_id_clean,
+                                                       community_health_unit,
+                                                       village,
+                                                       ward))
+# See if in cluster core / buffer
+o <- sp::over(hhsp, polygons(clusters))
+hhsp@data$cluster <- clusters@data$cluster_number[o]
+o <- sp::over(hhsp, polygons(buffers))
+hhsp@data$buffer <- buffers@data$cluster_number[o]
+o <- sp::over(hhsp, polygons(cores))
+hhsp@data$core <- cores@data$cluster_number[o]
+# Keep only those which are in clusters
+hhsp <- hhsp[!is.na(hhsp@data$cluster),]
+# Define buffer / core status
+hhsp@data$core_buffer <- ifelse(!is.na(hhsp@data$core), 'Core',
+                                ifelse(!is.na(hhsp@data$buffer), 'Buffer', NA))
+hhsp@data$core_buffer <- factor(hhsp@data$core_buffer, levels = c('Core', 'Buffer'))
+hhsp <- hhsp[!is.na(hhsp@data$core_buffer),]
+
+
+# For each community health unit, get the clusters
+x <- hhsp@data %>%
+  group_by(community_health_unit, cluster) %>%
+  summarise(hh = n()) %>%
+  ungroup
+
+# Do by chu
+by_chu <- x %>%
+  arrange(desc(hh)) %>%
+  group_by(community_health_unit) %>%
+  summarise(n_clusters = n(),
+            n_households = sum(hh),
+            clusters = paste0('Cluster ', cluster, ' (', hh, ' households)', collapse = '<br>'))
+names(by_chu) <- toupper(names(by_chu))
+names(by_chu) <- gsub('_', ' ', names(by_chu))
+dt <- DT::datatable(by_chu, escape = FALSE,
+              options = list(
+                paging =TRUE,
+                pageLength =  nrow(by_chu)
+              ))
+# htmltools::save_html(dt, file = '~/Desktop/by_chu.html')
+# htmlwidgets::saveWidget(dt, file = 'chu.html')
+```
+
+# Which clusters are in each CHU (community health unit)?
+
+```{r}
+dt
+```
+
+# Which CHUs are in each cluster?
+
+```{r}
+# Do by chu
+by_cluster <- x %>%
+  arrange(desc(hh)) %>%
+  group_by(cluster) %>%
+  summarise(n_chus = n(),
+            n_households = sum(hh),
+            chus = paste0('CHU ', community_health_unit, ' (', hh, ' households)', collapse = '<br>'))
+names(by_cluster) <- toupper(names(by_cluster))
+names(by_cluster) <- gsub('_', ' ', names(by_cluster))
+dt <- DT::datatable(by_cluster, escape = FALSE,
+              options = list(
+                paging =TRUE,
+                pageLength =  nrow(by_cluster)
+              ))
+dt
+```
+
+# Which clusters are in each CHU (community health unit)?
+
+```{r}
+dt
+```
+
+# In which cluster does each CHV work (per recon geocoding)?
+
+```{r}
+pd <- recon %>%
+  mutate(wid = ifelse(is.na(wid_qr), wid_manual, wid_qr)) %>%
+  dplyr::select(longitude = Longitude, 
+                latitude = Latitude, wid) %>%
+  mutate(x = longitude, y = latitude) %>%
+  filter(!is.na(longitude))
+coordinates(pd) <- ~x+y
+proj4string(pd) <-  "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+o <- sp::over(pd, polygons(clusters))
+pd$cluster_number <- clusters$cluster_number[o]
+pdx <- pd@data %>%
+  filter(!is.na(cluster_number))  %>%
+  group_by(wid) %>%
+  summarise(n_clusters = length(unique(cluster_number)),
+            clusters = paste0(sort(unique(cluster_number)), collapse = '; ')) 
+names(pdx) <- toupper(names(pdx))
+names(pdx) <- gsub('_', ' ', names(pdx))
+dt <- DT::datatable(pdx, escape = FALSE,
+              options = list(
+                paging =TRUE,
+                pageLength =  nrow(pdx)
+              ))
+dt
+```
+
+
+# Which WID (worker IDs) are associated with each cluster?
+
+```{r}
+pd <- recon %>%
+  mutate(wid = ifelse(is.na(wid_qr), wid_manual, wid_qr)) %>%
+  dplyr::select(longitude = Longitude, 
+                latitude = Latitude, wid) %>%
+  mutate(x = longitude, y = latitude) %>%
+  filter(!is.na(longitude))
+coordinates(pd) <- ~x+y
+proj4string(pd) <-  "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+o <- sp::over(pd, polygons(clusters))
+pd$cluster_number <- clusters$cluster_number[o]
+pdx <- pd@data %>%
+  filter(!is.na(cluster_number))  %>%
+  group_by(cluster_number) %>%
+  summarise(n_wids = length(unique(wid)),
+            wids = paste0(sort(unique(wid)), collapse = '; ')) 
+names(pdx) <- toupper(names(pdx))
+names(pdx) <- gsub('_', ' ', names(pdx))
+dt <- DT::datatable(pdx, escape = FALSE,
+              options = list(
+                paging =TRUE,
+                pageLength =  nrow(pdx)
+              ))
+dt
+```
+
+# Which "areas of work" are associated with each cluster?  (using `registration` data)
+
+```{r}
+right <- registrations %>%
+  filter(worker_type == 'CHV') %>%
+  mutate(wid = ifelse(is.na(wid_qr), wid_manual, wid_qr)) %>%
+  mutate(areas_of_work = paste0(villages_chv, villages_chv_specify)) %>%
+  dplyr::select(areas_of_work, wid)
+pd <- recon %>%
+  mutate(wid = ifelse(is.na(wid_qr), wid_manual, wid_qr)) %>%
+  dplyr::select(longitude = Longitude, 
+                latitude = Latitude, wid) %>%
+  mutate(x = longitude, y = latitude) %>%
+  filter(!is.na(longitude)) %>%
+  left_join(right)
+coordinates(pd) <- ~x+y
+proj4string(pd) <-  "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+o <- sp::over(pd, polygons(clusters))
+pd$cluster_number <- clusters$cluster_number[o]
+pdx <- pd@data %>%
+  filter(!is.na(cluster_number))  %>%
+  group_by(cluster_number) %>%
+  summarise(n_villages = length(unique(areas_of_work)),
+            villages = paste0(sort(unique(areas_of_work)), collapse = '; ')) 
+names(pdx) <- toupper(names(pdx))
+names(pdx) <- gsub('_', ' ', names(pdx))
+dt <- DT::datatable(pdx, escape = FALSE,
+              options = list(
+                paging =TRUE,
+                pageLength =  nrow(pdx)
+              ))
+dt
+```
+
+
+# Which clusters are associated with each "area of work"? (using `registration` data)
+
+Note that the "areas of work" question had possibly >1 response, and it's not clear from recon registrations which houses are associated with each
+
+```{r}
+right <- registrations %>%
+  filter(worker_type == 'CHV') %>%
+  mutate(wid = ifelse(is.na(wid_qr), wid_manual, wid_qr)) %>%
+  mutate(areas_of_work = paste0(villages_chv, villages_chv_specify)) %>%
+  dplyr::select(areas_of_work, wid)
+pd <- recon %>%
+  mutate(wid = ifelse(is.na(wid_qr), wid_manual, wid_qr)) %>%
+  dplyr::select(longitude = Longitude, 
+                latitude = Latitude, wid) %>%
+  mutate(x = longitude, y = latitude) %>%
+  filter(!is.na(longitude)) %>%
+  left_join(right)
+coordinates(pd) <- ~x+y
+proj4string(pd) <-  "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+o <- sp::over(pd, polygons(clusters))
+pd$cluster_number <- clusters$cluster_number[o]
+pdx <- pd@data %>%
+  filter(!is.na(cluster_number))  %>%
+  group_by(areas_of_work) %>%
+  summarise(n_clusters = length(unique(cluster_number)),
+            clusters = paste0(sort(unique(cluster_number)), collapse = '; ')) 
+names(pdx) <- toupper(names(pdx))
+names(pdx) <- gsub('_', ' ', names(pdx))
+dt <- DT::datatable(pdx, escape = FALSE,
+              options = list(
+                paging =TRUE,
+                pageLength =  nrow(pdx)
+              ))
+dt
+```
+
+
+# Which "areas of work" are associated with each cluster?  (using `recon` data)
+
+```{r}
+pd <- recon %>%
+  mutate(wid = ifelse(is.na(wid_qr), wid_manual, wid_qr)) %>%
+  dplyr::select(longitude = Longitude, 
+                latitude = Latitude, wid,
+                areas_of_work = village) %>%
+  mutate(x = longitude, y = latitude) %>%
+  filter(!is.na(longitude)) 
+coordinates(pd) <- ~x+y
+proj4string(pd) <-  "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+o <- sp::over(pd, polygons(clusters))
+pd$cluster_number <- clusters$cluster_number[o]
+pdx <- pd@data %>%
+  filter(!is.na(cluster_number))  %>%
+  group_by(cluster_number) %>%
+  summarise(n_villages = length(unique(areas_of_work)),
+            villages = paste0(sort(unique(areas_of_work)), collapse = '; ')) 
+names(pdx) <- toupper(names(pdx))
+names(pdx) <- gsub('_', ' ', names(pdx))
+dt <- DT::datatable(pdx, escape = FALSE,
+              options = list(
+                paging =TRUE,
+                pageLength =  nrow(pdx)
+              ))
+dt
+```
+
+# Which clusters are associated with each "area of work"? (using `recon`` data)
+
+
+```{r}
+pd <- recon %>%
+  mutate(wid = ifelse(is.na(wid_qr), wid_manual, wid_qr)) %>%
+  dplyr::select(longitude = Longitude, 
+                latitude = Latitude, wid,
+                areas_of_work = village) %>%
+  mutate(x = longitude, y = latitude) %>%
+  filter(!is.na(longitude))
+coordinates(pd) <- ~x+y
+proj4string(pd) <-  "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+o <- sp::over(pd, polygons(clusters))
+pd$cluster_number <- clusters$cluster_number[o]
+pdx <- pd@data %>%
+  filter(!is.na(cluster_number))  %>%
+  group_by(village = areas_of_work) %>%
+  summarise(n_clusters = length(unique(cluster_number)),
+            clusters = paste0(sort(unique(cluster_number)), collapse = '; ')) 
+names(pdx) <- toupper(names(pdx))
+names(pdx) <- gsub('_', ' ', names(pdx))
+dt <- DT::datatable(pdx, escape = FALSE,
+              options = list(
+                paging =TRUE,
+                pageLength =  nrow(pdx)
+              ))
+dt
+```
+
+
+# Map
+
+```{r}
+pd <- recon %>%
+  mutate(wid = ifelse(is.na(wid_qr), wid_manual, wid_qr)) %>%
+  dplyr::select(longitude = Longitude, 
+                latitude = Latitude, wid,
+                village) %>%
+  mutate(x = longitude, y = latitude) %>%
+  filter(!is.na(longitude)) 
+coordinates(pd) <- ~x+y
+proj4string(pd) <-  "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+library(leaflet)
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = clusters, label = clusters$cluster_number,
+              popup = clusters$cluster_number) %>%
+  addMarkers(data = pd, popup = pd$village, label = pd$village, clusterOptions = markerClusterOptions())
+```
+
