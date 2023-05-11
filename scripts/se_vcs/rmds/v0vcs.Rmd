@@ -68,6 +68,8 @@ for (i in 1:length(clusters)) {
   this_data$wall_material <- tools::toTitleCase(this_data$wall_material)
 
   names(this_data) <- gsub('_', ' ', names(this_data))
+  
+  this_data$`New household ID` <- '       '
   this_data$Notes <- '       '
 
   # names(this_data) <- Hmisc::capitalize(names(this_data))
