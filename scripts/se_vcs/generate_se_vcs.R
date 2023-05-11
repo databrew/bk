@@ -7,14 +7,43 @@ library(readr)
 library(dplyr)
 library(rgdal)
 library(sp)
+library(cloudbrewr)
 
-# Read in cleaned / curated recon data
-## https://bohemiakenya.slack.com/archives/C042P3A05UP/p1679505186892229
-recon <- read_csv('recon/curated_recon_household_data.csv')
+# login to aws via cloudbrewr
+tryCatch({
+  # login to AWS - this will be bypassed if executed in CI/CD environment
+  cloudbrewr::aws_login(
+    role_name = 'cloudbrewr-aws-role',
+    profile_name =  'cloudbrewr-aws-role',
+    pipeline_stage = 'production')
+
+}, error = function(e){
+  logger::log_error('AWS Login Failed')
+  stop(e$message)
+})
+
+# Read in cleaned / curated recon data: https://bohemiakenya.slack.com/archives/C042P3A05UP/p1679505186892229
+recon_raw <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'raw-form/reconbhousehold.csv')
+
+recon <- cloudbrewr::aws_s3_get_table(
+  bucket = 'databrew.org',
+  key = 'clean-form/reconbhousehold/reconbhousehold.csv') %>%
+  dplyr::select(hh_id_clean = hh_id,
+                ward,
+                community_health_unit,
+                village,
+                roof_type,
+                instanceID,
+                todays_date) %>%
+  dplyr::left_join(recon_raw %>% dplyr::select(instanceID, hh_id_raw = hh_id)) %>%
+  dplyr::select(instanceID, todays_date, hh_id_clean, hh_id_raw, ward,
+                community_health_unit, village, roof_type)
 
 # Get geographic data and randomization data
-assignments <- read_csv('../../data_public/randomization/assignments.csv')
-households <- rgdal::readOGR('../../data_public/spatial/households/', 'households')
+assignments <- read_csv('data_public/randomization/assignments.csv')
+households <- rgdal::readOGR('data_public/spatial/households/', 'households')
 
 # Get the raw/uncorrected ID into the households data
 households@data <- left_join(households@data,
