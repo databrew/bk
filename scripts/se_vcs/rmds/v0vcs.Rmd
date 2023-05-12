@@ -84,7 +84,7 @@ for (i in 1:length(clusters)) {
                                        'repeat_header'
                                       ), 
                      # full_width = T, 
-                    font_size = 9) %>%
+                    font_size = 8) %>%
     column_spec(8, width = "18em")
   cat(paste0('# Cluster ', this_cluster, '\n\n'))
   # k <- paste0(paste0('Cluster ', this_cluster, '\\', k))
