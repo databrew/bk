@@ -23,27 +23,40 @@ tryCatch({
 })
 
 # Read in cleaned / curated recon data: https://bohemiakenya.slack.com/archives/C042P3A05UP/p1679505186892229
-recon_raw <- cloudbrewr::aws_s3_get_table(
-  bucket = 'databrew.org',
-  key = 'raw-form/reconbhousehold.csv')
+if('recon_raw.RData' %in% dir()){
+  load('recon_raw.RData')
+} else {
+  recon_raw <- cloudbrewr::aws_s3_get_table(
+    bucket = 'databrew.org',
+    key = 'raw-form/reconbhousehold.csv')
+  # recon_raw <- read_csv('reconbhousehold.csv') # had to download from https://s3.console.aws.amazon.com/s3/buckets/databrew.org?region=us-east-1&tab=objects
+  save(recon_raw, file = 'recon_raw.RData')
+}
 
-recon <- cloudbrewr::aws_s3_get_table(
-  bucket = 'databrew.org',
-  key = 'clean-form/reconbhousehold/reconbhousehold.csv') %>%
-  dplyr::select(hh_id_clean = hh_id,
-                ward,
-                community_health_unit,
-                village,
-                roof_type,
-                instanceID,
-                todays_date) %>%
-  dplyr::left_join(recon_raw %>% dplyr::select(instanceID, hh_id_raw = hh_id)) %>%
-  dplyr::select(instanceID, todays_date, hh_id_clean, hh_id_raw, ward,
-                community_health_unit, village, roof_type)
+if('recon.RData' %in% dir()){
+  load('recon.RData')
+} else {
+  recon <- cloudbrewr::aws_s3_get_table(
+    bucket = 'databrew.org',
+    key = 'clean-form/reconbhousehold/reconbhousehold.csv') %>%
+    dplyr::select(hh_id_clean = hh_id,
+                  ward,
+                  community_health_unit,
+                  village,
+                  roof_type,
+                  instanceID,
+                  todays_date) %>%
+    dplyr::left_join(recon_raw %>% dplyr::select(instanceID, hh_id_raw = hh_id)) %>%
+    dplyr::select(instanceID, todays_date, hh_id_clean, hh_id_raw, ward,
+                  community_health_unit, village, roof_type)
+  # recon <- read_csv('reconbhousehold_clean.csv')
+  save(recon, file = 'recon.RData')
+}
+
 
 # Get geographic data and randomization data
-assignments <- read_csv('data_public/randomization/assignments.csv')
-households <- rgdal::readOGR('data_public/spatial/households/', 'households')
+assignments <- read_csv('../../data_public/randomization/assignments.csv')
+households <- rgdal::readOGR('../../data_public/spatial/households/', 'households')
 
 # Get the raw/uncorrected ID into the households data
 households@data <- left_join(households@data,
