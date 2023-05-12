@@ -393,6 +393,39 @@ if('table_4_resting_household_pit_shelter.csv' %in% dir('outputs')){
                   roof_type) %>%
     arrange(cluster_number, randomization_number)
   
+  resting_household_pit_shelter_b <-  hhsp@data %>%
+    filter(!hh_id_raw %in% resting_household_pit_shelter$painted_recon_hh_id,
+           !hh_id_clean %in% resting_household_pit_shelter$map_recon_hh_id) %>%
+    mutate(dummy = 1) %>%
+    # randomize the order
+    dplyr::sample_n(nrow(.)) %>%
+    # Keep only core
+    filter(core_buffer == 'Core') %>%
+    group_by(cluster_number) %>%
+    # create the assignment order
+    mutate(randomization_number = cumsum(dummy) + 3) %>%
+    ungroup %>%
+    # Keep just 3 per cluster (ie, 1 selection plus 2 backups)
+    filter(randomization_number <= 10 & randomization_number >= 4) %>%
+    # left_join(sub_counties) %>%
+    # # Keep only the relevant columns
+    dplyr::select(cluster_number,
+                  randomization_number,
+                  painted_recon_hh_id = hh_id_raw,
+                  map_recon_hh_id = hh_id_clean,
+                  # sub_county,
+                  ward,
+                  community_health_unit,
+                  village,
+                  longitude = Longitude,
+                  latitude  = Latitude,
+                  wall_type = house_wal0,
+                  roof_type) %>%
+    arrange(cluster_number, randomization_number)
+  resting_household_pit_shelter <- resting_household_pit_shelter %>%
+    bind_rows(resting_household_pit_shelter_b) %>%
+    arrange(cluster_number, randomization_number)
+  
   write_csv(resting_household_pit_shelter, 'outputs/table_4_resting_household_pit_shelter.csv')
   rmarkdown::render('rmds/resting_household_pit_shelter.Rmd')
 }
@@ -472,5 +505,15 @@ if(!file.exists('outputs/cores_shp/cores_shp.shp')){
   raster::shapefile(cores_shp, 'outputs/cores_shp/cores_shp.shp', overwrite = TRUE)
 } else {
   message('Shapefile already written')
+}
+
+# Assign arms 1 and 2 to control / intervention
+set.seed(321)
+if('intervention_assignment.csv' %in% dir('outputs')){
+  intervention_assignment <- read_csv('outputs/intervention_assignment.csv')
+} else {
+  intervention_assignment <- tibble(arm = sample(1:2, 2),
+                                    intervention = c('Control', 'Treatment'))
+  write_csv(intervention_assignment, 'outputs/intervention_assignment.csv')
 }
 
