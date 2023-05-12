@@ -2,6 +2,37 @@ library(readr)
 library(dplyr)
 library(babynames)
 
+# Read in intervention assignments
+intervention_assignment <- read_csv('../../analyses/randomization/outputs/intervention_assignment.csv')
+assignments <- read_csv('../../analyses/randomization/outputs/assignments.csv')
+
+# Add cluster / ward / village
+# Use recon data
+if('recon_hierarchy.RData' %in% dir()){
+  load('recon_hierarchy.RData')
+} else {
+  load('../se_vcs/recon.RData')
+  households <- rgdal::readOGR('../../data_public/spatial/households/', 'households')
+  households@data <- left_join(households@data %>% dplyr::select(-village,
+                                                                 -ward,
+                                                                 -community0),
+                               recon %>% dplyr::select(
+                                 hh_id = hh_id_clean,
+                                 hh_id_raw,
+                                 village,
+                                 ward,
+                                 community_unit = community_health_unit
+                               )) %>%
+    mutate(cluster = cluster_n0)
+  recon_hierarchy <- households@data %>% dplyr::distinct(
+    cluster,
+    hh_id,
+    ward, 
+    village)
+  save(recon_hierarchy, file = 'recon_hierarchy.RData')
+}
+
+
 # Define function for adding zero to numbers
 add_zero <- function (x, n) {
   x <- as.character(x)
@@ -16,26 +47,30 @@ add_zero <- function (x, n) {
   return(x)
 }
 
-# Get a list of possible household IDs
-right_side <- 1:999
-left_side <- 1:96
-right_side <- add_zero(right_side, 3)
-left_side <- add_zero(left_side, 2)
-possible_household_ids <- expand.grid(
-  l = left_side,
-  r = right_side
-) %>%
-  mutate(hhid = paste0(l, r)) %>%
-  pull(hhid)
+# # Get a list of possible household IDs
+# right_side <- 1:999
+# left_side <- 1:96
+# right_side <- add_zero(right_side, 3)
+# left_side <- add_zero(left_side, 2)
+# possible_household_ids <- expand.grid(
+#   l = left_side,
+#   r = right_side
+# ) %>%
+#   mutate(hhid = paste0(l, r)) %>%
+#   pull(hhid)
+possible_household_ids <- recon_hierarchy$hh_id
 
 # Generate households
-n_households <- 500
+n_households <- 200
+indices <- sample(1:nrow(recon_hierarchy), n_households)
 households <- 
   tibble(
-    hhid = sample(possible_household_ids, n_households),
+    hhid = possible_household_ids[indices],
     num_members = sample(1:12, size = n_households, replace = TRUE),
-    cluster = sample(1:98, size = n_households, replace = TRUE),
-    healthecon_preselected = sample(0:1, size = n_households, replace = TRUE)
+    cluster = recon_hierarchy$cluster[indices],
+    healthecon_preselected = sample(0:1, size = n_households, replace = TRUE),
+    ward = recon_hierarchy$ward[indices],
+    village = recon_hierarchy$village[indices]
   )
 households$visits_done <- NA
 for(i in 1:nrow(households)){
@@ -47,7 +82,17 @@ for(i in 1:nrow(households)){
   vd <- paste0(vds, collapse = ',')
   households$visits_done[i] <- vd
 }
-households$intervention <- (households$cluster %% 2) + 1
+# households$intervention <- (households$cluster %% 2) + 1
+# Get intervention and assignment
+households <- households %>%
+  left_join(assignments %>%
+              dplyr::select(cluster = cluster_number,
+                            assignment)) %>%
+  left_join(intervention_assignment %>%
+              dplyr::rename(assignment = arm)) %>%
+  dplyr::select(-assignment)
+
+
 
 # Generate people data
 counter <- 0
@@ -82,13 +127,20 @@ for(i in 1:nrow(households)){
     pk_preselected <- sample(0:1, 1)
     efficacy_preselected <- sample(0:1, 1)
     migrated<- sample(0:1, 1)
-    pfu_absences <- sample(0:5, 1, prob = 6:1)
+    pregnancy_absences <- sample(0:5, 1, prob = 6:1)
     efficacy_absences <- sample(0:5, 1, prob = 6:1)
+    efficacy_absent_most_recent_visit <- sample(0:1, 1, prob = c(6,1))
+    efficacy_most_recent_visit_present <- sample(1:7, 1, prob = 7:1)
     starting_efficacy_status <- sample(c('in', 'out', 'eos'), 1)
+    efficacy_active <- ifelse(starting_efficacy_status %in% c('in', 'out'), 1, 0) # this is much more complicated https://trello.com/c/SoWdHH4Q/1855-changes-additions-to-metadata-files
     if(sex == 'Male' | age < 13 | age > 49){
       starting_pregnancy_status <- NA
+      pregnancy_absent_most_recent_visit <- NA
+      pregnancy_most_recent_visit_present <- NA
     } else {
       starting_pregnancy_status <- sample(c('in', 'out', 'eos'), 1)
+      pregnancy_absent_most_recent_visit <- sample(0:1, 1, prob = c(5,1))
+      pregnancy_most_recent_visit_present <- sample(2:13, 1, prob = 13:2)
     }
     if(starting_safety_status == 'in' & sex == 'Female'){
       starting_pregnancy_status <- 'out'
@@ -106,17 +158,19 @@ for(i in 1:nrow(households)){
     }
     if(!is.na(starting_pregnancy_status)){
       if(starting_pregnancy_status == 'out'){
-        pfu_absences <- 0
+        pregnancy_absences <- 0
       }
     }
     if(is.na(starting_pregnancy_status)){
-      pfu_absences <- NA
+      pregnancy_absences <- NA
     }
     if(starting_efficacy_status == 'out'){
       efficacy_absences <- 0
     }
     if(is.na(starting_efficacy_status)){
       efficacy_absences <- NA
+      efficacy_absent_most_recent_visit <-NA
+      efficacy_most_recent_visit_present <- NA
     }
     out <- tibble(firstname,
                   lastname,
@@ -135,14 +189,46 @@ for(i in 1:nrow(households)){
                   pk_preselected,
                   efficacy_preselected,
                   migrated,
-                  pfu_absences,
+                  pregnancy_absences,
                   efficacy_absences,
-                  starting_efficacy_status)
+                  starting_efficacy_status,
+                  efficacy_active,
+                  efficacy_absent_most_recent_visit,
+                  pregnancy_absent_most_recent_visit,
+                  pregnancy_most_recent_visit_present
+                  )
     counter <- counter + 1
     people_list[[counter]] <- out
   }
 }
 individuals <- bind_rows(people_list)
+
+# Add efficacy visits done
+individuals$efficacy_visits_done <- NA
+for(i in 1:nrow(individuals)){
+  vd1 <- sample(c('V1', ''), 1)
+  vd2 <- sample(c('V2', ''), 1)
+  vd3 <- sample(c('V3', ''), 1)
+  vds <- c(vd1, vd2, vd3)
+  vds <- vds[vds != '']
+  vd <- paste0(vds, collapse = ',')
+  individuals$efficacy_visits_done[i] <- vd
+}
+individuals$efficacy_visits_done[individuals$efficacy_preselected == 0] <- ""
+
+# Add pregnancy visits done
+individuals$pregnancy_visits_done <- NA
+for(i in 1:nrow(individuals)){
+  vd1 <- sample(c('V1', ''), 1)
+  vd2 <- sample(c('V2', ''), 1)
+  vd3 <- sample(c('V3', ''), 1)
+  vds <- c(vd1, vd2, vd3)
+  vds <- vds[vds != '']
+  vd <- paste0(vds, collapse = ',')
+  individuals$pregnancy_visits_done[i] <- vd
+}
+individuals$pregnancy_visits_done[individuals$sex == 'Male'] <- ""
+
 
 # add missing variables to households
 # roster, arm household_head
@@ -154,7 +240,7 @@ households <- left_join(households, right)
 
 # # Inject NAs
 # households$household_head[sample(1:nrow(households), (round(0.2 * nrow(households))))] <- NA
-# na_columns <- c('starting_safety_status', 'starting_pregnancy_status', 'starting_weight', 'pk_preselected', 'efficacy_preselected', 'migrated', 'pfu_absences', 'efficacy_absences')
+# na_columns <- c('starting_safety_status', 'starting_pregnancy_status', 'starting_weight', 'pk_preselected', 'efficacy_preselected', 'migrated', 'pregnancy_absences', 'efficacy_absences')
 # for(j in 1:length(na_columns)){
 #   this_column <- na_columns[j]
 #   individuals[sample(1:nrow(individuals), (round(0.2 * nrow(households)))),this_column] <- NA
