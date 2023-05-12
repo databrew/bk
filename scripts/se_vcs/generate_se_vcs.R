@@ -10,17 +10,20 @@ library(sp)
 library(cloudbrewr)
 
 # login to aws via cloudbrewr
-tryCatch({
-  # login to AWS - this will be bypassed if executed in CI/CD environment
-  cloudbrewr::aws_login(
-    role_name = 'cloudbrewr-aws-role',
-    profile_name =  'cloudbrewr-aws-role',
-    pipeline_stage = 'production')
-
-}, error = function(e){
-  logger::log_error('AWS Login Failed')
-  stop(e$message)
-})
+if(FALSE){
+  tryCatch({
+    # login to AWS - this will be bypassed if executed in CI/CD environment
+    cloudbrewr::aws_login(
+      role_name = 'cloudbrewr-aws-role',
+      profile_name =  'cloudbrewr-aws-role',
+      pipeline_stage = 'production')
+    
+  }, error = function(e){
+    logger::log_error('AWS Login Failed')
+    stop(e$message)
+  })
+  
+}
 
 # Read in cleaned / curated recon data: https://bohemiakenya.slack.com/archives/C042P3A05UP/p1679505186892229
 if('recon_raw.RData' %in% dir()){
@@ -59,16 +62,22 @@ assignments <- read_csv('../../data_public/randomization/assignments.csv')
 households <- rgdal::readOGR('../../data_public/spatial/households/', 'households')
 
 # Get the raw/uncorrected ID into the households data
-households@data <- left_join(households@data,
+households@data <- left_join(households@data %>% dplyr::select(-village,
+                                                               -ward,
+                                                               -community0),
                              recon %>% dplyr::select(
                                hh_id = hh_id_clean,
-                               hh_id_raw
+                               hh_id_raw,
+                               village,
+                               ward,
+                               community_unit = community_health_unit
                              ))
+
 # Reformat columns
 hh <- households@data %>%
   dplyr::select(cluster = cluster_n0,
                 ward,
-                community_unit = community0,
+                community_unit,
                 village,
                 map_recon_HHID = hh_id,
                 painted_recon_HHID = hh_id_raw,
