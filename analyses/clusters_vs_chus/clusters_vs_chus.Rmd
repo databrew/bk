@@ -28,6 +28,7 @@ library(rgdal)
 library(raster)
 library(ggthemes)
 library(sp)
+library(bohemia)
 
 # Load in spatial polygons
 load('../recon_clustering/final/cores.RData')
@@ -76,14 +77,12 @@ by_chu <- x %>%
   group_by(community_health_unit) %>%
   summarise(n_clusters = n(),
             n_households = sum(hh),
-            clusters = paste0('Cluster ', cluster, ' (', hh, ' households)', collapse = '<br>'))
+            clusters = paste0('Cluster ', cluster, ' (', hh, ' households)', collapse = '; '))
 names(by_chu) <- toupper(names(by_chu))
 names(by_chu) <- gsub('_', ' ', names(by_chu))
-dt <- DT::datatable(by_chu, escape = FALSE,
-              options = list(
-                paging =TRUE,
-                pageLength =  nrow(by_chu)
-              ))
+dt <- bohemia::prettify(by_chu, nrows = nrow(by_chu),
+                  download_options = TRUE)
+
 # htmltools::save_html(dt, file = '~/Desktop/by_chu.html')
 # htmlwidgets::saveWidget(dt, file = 'chu.html')
 ```
@@ -103,26 +102,23 @@ by_cluster <- x %>%
   group_by(cluster) %>%
   summarise(n_chus = n(),
             n_households = sum(hh),
-            chus = paste0('CHU ', community_health_unit, ' (', hh, ' households)', collapse = '<br>'))
+            chus = paste0('CHU ', community_health_unit, ' (', hh, ' households)', collapse = '; '))
 names(by_cluster) <- toupper(names(by_cluster))
 names(by_cluster) <- gsub('_', ' ', names(by_cluster))
-dt <- DT::datatable(by_cluster, escape = FALSE,
-              options = list(
-                paging =TRUE,
-                pageLength =  nrow(by_cluster)
-              ))
-dt
+
 ```
 
 # Which clusters are in each CHU (community health unit)?
 
 ```{r}
-dt
+bohemia::prettify(by_cluster, nrows = nrow(by_cluster),
+                  download_options = TRUE)
 ```
 
 # In which cluster does each CHV work (per recon geocoding)?
 
 ```{r}
+p275 <- read_csv('275.csv') # https://bohemia.team/kenyaclusterdetails/
 pd <- recon %>%
   mutate(wid = ifelse(is.na(wid_qr), wid_manual, wid_qr)) %>%
   dplyr::select(longitude = Longitude, 
@@ -137,14 +133,25 @@ pdx <- pd@data %>%
   filter(!is.na(cluster_number))  %>%
   group_by(wid) %>%
   summarise(n_clusters = length(unique(cluster_number)),
+            n_households = n(),
             clusters = paste0(sort(unique(cluster_number)), collapse = '; ')) 
+# Calculate number of fieldworkers, adding up ALL the clusters associated with
+# that fieldworker
+pdx$n_fieldworkers <- pdx$fieldworkers_details <- NA
+for(i in 1:nrow(pdx)){
+  this_row <- pdx[i,]
+  these_clusters <- this_row$clusters
+  these_clusters <- sort(unique(as.numeric(unlist(strsplit(these_clusters, '; ')))))
+  sub_275 <- p275 %>% filter(`Cluster number` %in% these_clusters) %>%
+    arrange(`Cluster number`)
+  pdx$n_fieldworkers[i] <- sum(sub_275$Fieldworkers)
+  pdx$fieldworkers_details[i] <- sub_275 %>% mutate(x = paste0('Cluster ', `Cluster number`, ': ', Fieldworkers, ' fieldworkers. ')) %>% pull(x) %>% paste0(collapse = '')
+}
 names(pdx) <- toupper(names(pdx))
 names(pdx) <- gsub('_', ' ', names(pdx))
-dt <- DT::datatable(pdx, escape = FALSE,
-              options = list(
-                paging =TRUE,
-                pageLength =  nrow(pdx)
-              ))
+dt <- bohemia::prettify(pdx, nrows = nrow(pdx),
+                  download_options = TRUE)
+
 dt
 ```
 
@@ -169,12 +176,9 @@ pdx <- pd@data %>%
             wids = paste0(sort(unique(wid)), collapse = '; ')) 
 names(pdx) <- toupper(names(pdx))
 names(pdx) <- gsub('_', ' ', names(pdx))
-dt <- DT::datatable(pdx, escape = FALSE,
-              options = list(
-                paging =TRUE,
-                pageLength =  nrow(pdx)
-              ))
-dt
+dt <- bohemia::prettify(pdx, nrows = nrow(pdx),
+                  download_options = TRUE)
+
 ```
 
 # Which "areas of work" are associated with each cluster?  (using `registration` data)
@@ -203,11 +207,9 @@ pdx <- pd@data %>%
             villages = paste0(sort(unique(areas_of_work)), collapse = '; ')) 
 names(pdx) <- toupper(names(pdx))
 names(pdx) <- gsub('_', ' ', names(pdx))
-dt <- DT::datatable(pdx, escape = FALSE,
-              options = list(
-                paging =TRUE,
-                pageLength =  nrow(pdx)
-              ))
+dt <- bohemia::prettify(pdx, nrows = nrow(pdx),
+                  download_options = TRUE)
+
 dt
 ```
 
@@ -240,11 +242,8 @@ pdx <- pd@data %>%
             clusters = paste0(sort(unique(cluster_number)), collapse = '; ')) 
 names(pdx) <- toupper(names(pdx))
 names(pdx) <- gsub('_', ' ', names(pdx))
-dt <- DT::datatable(pdx, escape = FALSE,
-              options = list(
-                paging =TRUE,
-                pageLength =  nrow(pdx)
-              ))
+dt <- bohemia::prettify(pdx, nrows = nrow(pdx),
+                  download_options = TRUE)
 dt
 ```
 
@@ -270,11 +269,8 @@ pdx <- pd@data %>%
             villages = paste0(sort(unique(areas_of_work)), collapse = '; ')) 
 names(pdx) <- toupper(names(pdx))
 names(pdx) <- gsub('_', ' ', names(pdx))
-dt <- DT::datatable(pdx, escape = FALSE,
-              options = list(
-                paging =TRUE,
-                pageLength =  nrow(pdx)
-              ))
+dt <- bohemia::prettify(pdx, nrows = nrow(pdx),
+                  download_options = TRUE)
 dt
 ```
 
@@ -300,11 +296,8 @@ pdx <- pd@data %>%
             clusters = paste0(sort(unique(cluster_number)), collapse = '; ')) 
 names(pdx) <- toupper(names(pdx))
 names(pdx) <- gsub('_', ' ', names(pdx))
-dt <- DT::datatable(pdx, escape = FALSE,
-              options = list(
-                paging =TRUE,
-                pageLength =  nrow(pdx)
-              ))
+dt <- bohemia::prettify(pdx, nrows = nrow(pdx),
+                  download_options = TRUE)
 dt
 ```
 
@@ -321,11 +314,33 @@ pd <- recon %>%
   filter(!is.na(longitude)) 
 coordinates(pd) <- ~x+y
 proj4string(pd) <-  "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+o <- sp::over(pd, polygons(clusters))
+pd <- pd[!is.na(o),]
+wids <- sort(unique(pd$wid))
+cols <- rainbow(length(wids))
 library(leaflet)
-leaflet() %>%
+l <- leaflet() %>%
   addTiles() %>%
   addPolygons(data = clusters, label = clusters$cluster_number,
-              popup = clusters$cluster_number) %>%
-  addMarkers(data = pd, popup = pd$village, label = pd$village, clusterOptions = markerClusterOptions())
+              popup = clusters$cluster_number,
+              fillColor = 'black',
+              color = 'black') 
+for(i in 1:length(wids)){
+  this_wid <- wids[i]
+  this_color <- cols[i]
+  z <-  pd[pd@data$wid == this_wid,]
+  l <- l %>%
+    addCircleMarkers(data = z,
+                    
+                     radius = 3,
+                     fillOpacity = 1,
+                     fillColor = this_color,
+                     weight = 0,
+                     color = this_color,
+                     label = paste0(z$wid, '. ', z$village),
+                     popup = paste0(z$wid, '. ', z$village))
+}
+l
+  # addMarkers(data = pd, popup = pd$village, label = pd$village, clusterOptions = markerClusterOptions())
 ```
 

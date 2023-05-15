@@ -517,3 +517,67 @@ if('intervention_assignment.csv' %in% dir('outputs')){
   write_csv(intervention_assignment, 'outputs/intervention_assignment.csv')
 }
 
+##########################
+# DELIVERABLE 8
+##########################
+# Deliverable 8: “Ento_enrolled_livestock enclosures” Table of all livestock enclosures enrolled for Entomology. One table that includes all clusters in which one row is one household. This table is generated using the data collected from the Screening form where the answer to “What are you screening?” == Livestock enclosure and “Has the owner of the livestock enclosure or representative given informed consent?” == yes
+# The columns of the list will be: 
+#   Cluster
+# Hh_id (i.e.; Clean Recon HhId of the closest hh from the LE GPS registered)
+# Livestock enclosure ID
+# Ward
+# Community unit
+# Village
+# Geolocation (lng  and lat)
+# Wall type
+# Roof type
+# Download entoscreeningke.zip from databrew.org
+# unzip('entoscreeningke.zip')
+# Read
+if(file.exists('outputs/table_8_entomology_enrolled_livestock_enclosures.csv')){
+  le <- read_csv('outputs/table_8_entomology_enrolled_livestock_enclosures.csv')
+} else {
+  entoscreeningke <- read_csv('inputs/entoscreeningke.csv')
+  out <- entoscreeningke %>%
+    filter(site == 'Livestock enclosure',
+           le_owner_consent == 'yes') %>%
+    mutate(longitude = `hh_geolocation-Longitude`,
+           latitude = `hh_geolocation-Latitude`) %>%
+    mutate(x = longitude, y = latitude)
+  # Get which cluster each is in
+  out_sp <- out
+  coordinates(out_sp) <- ~x+y
+  proj4string(out_sp) <- proj4string(hhsp)
+  o <- sp::over(out_sp, polygons(clusters))
+  out_sp@data$cluster <- clusters@data$cluster_number[o]
+  # Get nearest household
+  recon_curated_sp <- recon_curated %>%
+    left_join(recon %>% dplyr::select(instanceID, latitude = Latitude,
+                                      longitude = Longitude,
+                                      ward,
+                                      community_unit = community_health_unit,
+                                      village,
+                                      wall_type = house_wall_material,
+                                      roof_type)) %>%
+    mutate(x = longitude, y = latitude)
+  coordinates(recon_curated_sp) <- ~x+y
+  proj4string(recon_curated_sp) <- proj4string(hhsp)
+  distances <- rgeos::gDistance(out_sp, recon_curated_sp, byid = TRUE)
+  min_distances <- apply(distances, 2, which.min)
+  out_sp@data$nearest_household <- recon_curated_sp$hh_id_clean[min_distances]
+  out <- out_sp@data %>%
+    dplyr::select(cluster,
+                  hh_id = nearest_household,
+                  livestock_enclosure_id = leid,
+                  ward,
+                  community_unit = community_health_unit,
+                  village,
+                  longitude,
+                  latitude) %>%
+    # get wall type and roof type based on nearest household
+    left_join(recon_curated_sp@data %>% dplyr::select(hh_id = hh_id_clean,
+                                                      roof_type,
+                                                      wall_type))
+  le <- out
+  write_csv(le, 'outputs/table_8_entomology_enrolled_livestock_enclosures.csv')
+}
