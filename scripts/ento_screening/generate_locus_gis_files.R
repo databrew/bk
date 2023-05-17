@@ -31,6 +31,20 @@ dups <- hh %>%
   arrange(recon_hhid_manual) %>%
   mutate(label = paste0(recon_hhid_map, '-', cs, '-'))
 
+# View the duplicates and mark as invalid
+
+dups %>% dplyr::select(instanceID, start_time, hhid, recon_hhid_map, recon_hhid_painted, hh_collection) %>% arrange(recon_hhid_map, start_time) %>% View
+
+# TEMPORARY read in the google sheet with modifications so as to "fix" the raw data
+# This assumes everything is a SET
+modifications <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1i98uVuSj3qETbrH7beC8BkFmKV80rcImGobBvUGuqbU/edit#gid=0')
+entoscreeningke_modifications <- modifications %>%
+  filter(Form == 'entoscreeningke')
+for(i in 1:nrow(entoscreeningke_modifications)){
+  this_modification <- entoscreeningke_modifications[i,]
+  hh[hh$instanceID == this_modification$instanceID, this_modification$Column]  <- this_modification$`Set To`
+}
+
 library(ggplot2)
 library(ggrepel)
 ggplot(data = dups,

@@ -518,6 +518,27 @@ if('intervention_assignment.csv' %in% dir('outputs')){
 }
 
 ##########################
+# DELIVERABLE 7
+##########################
+# Deliverable 7: “Ento_enrolled_households” Table of all houses enrolled for Entomology after round 1 of Ento work (from round 2 onwards Caroline Kiuru will generate this list herself if any hh has changed): One table that includes all clusters in which one row is one household. This table is generated using the data collected from the Screening form where the answer to “What are you screening?” == household and “Has the household head or household head substitute agreed to participate to mosquito collections“  == Yes
+# 
+# The columns of the list will be: 
+#   Cluster
+# Collection method (□ CDC-light trap □ Resting household indoor □ Resting household pit-shelter)
+# Recon Hh_id entered in the Screening form (Map HhID: “Write the Recon5-character household ID of the pin that you see in the map”)
+# New Hh ID assigned
+# Core/buffer
+# Ward
+# Community unit
+# Village
+# Geolocation (lng  and lat)
+# Wall type
+# Roof type
+
+
+
+
+##########################
 # DELIVERABLE 8
 ##########################
 # Deliverable 8: “Ento_enrolled_livestock enclosures” Table of all livestock enclosures enrolled for Entomology. One table that includes all clusters in which one row is one household. This table is generated using the data collected from the Screening form where the answer to “What are you screening?” == Livestock enclosure and “Has the owner of the livestock enclosure or representative given informed consent?” == yes
