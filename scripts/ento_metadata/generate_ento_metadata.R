@@ -9,6 +9,7 @@ library(data.table)
 library(sf)
 library(sp)
 library(lubridate)
+library(readr)
 
 # Define production
 Sys.setenv(PIPELINE_STAGE = 'develop') # change to production
@@ -61,6 +62,19 @@ for(i in 1:length(datasets)){
     output_dir = output_dir
   )
 }
+
+# Need a list of things
+# "A list of tube IDs from the entoltmorphid (these will be found in repeat groups) from the following variables:
+# tubes_dissected_unfed_gambiae_qr
+# tubes_dissected_unfed_funestus_qr 
+# and from entorcmorphid:
+# tubes_gambiae_gonotrophic_qr
+# tubes_funestus_gonotrophic_qr
+# "
+lt_ga <- read_csv('kwale_ento_testing/raw-form/entoltmorphid/entoltmorphid-repeat_tubes_dissected_unfed_gambiae.csv')
+lt_fu <- read_csv('kwale_ento_testing/raw-form/entoltmorphid/entoltmorphid-repeat_tubes_dissected_unfed_funestus.csv')
+rc_ga <- read_csv('kwale_ento_testing/raw-form/entorcmorphid/entorcmorphid-repeat_tubes_fed_gambiae.csv')
+rc_fu <- read_csv('kwale_ento_testing/raw-form/entorcmorphid/entorcmorphid-repeat_tubes_fed_funestus.csv')
 
 # # save dim table
 # cloudbrewr::aws_s3_store(
