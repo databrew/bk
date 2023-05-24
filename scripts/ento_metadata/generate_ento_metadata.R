@@ -63,25 +63,28 @@ for(i in 1:length(datasets)){
   )
 }
 
-# Need a list of things
-# "A list of tube IDs from the entoltmorphid (these will be found in repeat groups) from the following variables:
-# tubes_dissected_unfed_gambiae_qr
-# tubes_dissected_unfed_funestus_qr 
-# and from entorcmorphid:
-# tubes_gambiae_gonotrophic_qr
-# tubes_funestus_gonotrophic_qr
-# "
-lt_ga <- read_csv('kwale_ento_testing/raw-form/entoltmorphid/entoltmorphid-repeat_tubes_dissected_unfed_gambiae.csv')
-lt_fu <- read_csv('kwale_ento_testing/raw-form/entoltmorphid/entoltmorphid-repeat_tubes_dissected_unfed_funestus.csv')
-rc_ga <- read_csv('kwale_ento_testing/raw-form/entorcmorphid/entorcmorphid-repeat_tubes_fed_gambiae.csv')
-rc_fu <- read_csv('kwale_ento_testing/raw-form/entorcmorphid/entorcmorphid-repeat_tubes_fed_funestus.csv')
 
-# # save dim table
-# cloudbrewr::aws_s3_store(
-#   bucket = bucket_name,
-#   key = 'clean-form/dim-kwale-location-hierarchy/dim-kwale-location-hierarchy.csv',
-#   filename = as.character(output_filename)
-# )
-#
-# # create log messages
-# logger::log_success('Created dim table')
+# one csv file with two columns tube_id and collection_type would be easiest for me to manage. In the tube_id column, the tube QR code from:
+#   entoltmorphid-repeat_tubes_dissected_unfed_funestus.csv
+# entoltmorphid-repeat_tubes_dissected_unfed_gambiae.csv
+# entorcmorphid-repeat_tube_funestus_gonotrophic.csv
+# entorcmorphid-repeat_tube_gambiae_gonotrophic.csv
+# and in the collection_type column: "LT" if the QR is from the entoltmorphid form and "RC" if the QR is from entorcmorphid form.
+
+e1 <- read_csv('kwale_ento_testing/raw-form/entoltmorphid/entoltmorphid-repeat_tubes_dissected_unfed_funestus.csv')
+e2 <- read_csv('kwale_ento_testing/raw-form/entoltmorphid/entoltmorphid-repeat_tubes_dissected_unfed_gambiae.csv')
+e3 <- read_csv('kwale_ento_testing/raw-form/entorcmorphid/entorcmorphid-repeat_tube_funestus_gonotrophic.csv')
+e4 <- read_csv('kwale_ento_testing/raw-form/entorcmorphid/entorcmorphid-repeat_tube_gambiae_gonotrophic.csv')
+
+out <- 
+  bind_rows(
+    e1 %>% dplyr::select(tube_id = tubes_dissected_unfed_funestus_qr) %>%
+      mutate(collection_type = 'LT', tube_id = as.character(tube_id)),
+    e2 %>% dplyr::select(tube_id = tubes_dissected_unfed_gambiae_qr) %>%
+      mutate(collection_type = 'LT', tube_id = as.character(tube_id)),
+    e3 %>% dplyr::select(tube_id = tubes_funestus_gonotrophic) %>%
+      mutate(collection_type = 'RC', tube_id = as.character(tube_id)),
+    e4 %>% dplyr::select(tube_id = tubes_gambiae_gonotrophic) %>%
+      mutate(collection_type = 'RC', tube_id = as.character(tube_id))
+  )
+write_csv(out, 'metadata.csv')
