@@ -100,6 +100,41 @@ if(FALSE){
   mm %>% filter(cluster %in% c(3, 40)) %>% filter(mismatch) %>% dplyr::select(cluster, contains('HHID'))
 }
 
+# Read in the number of fieldworkers per cluster
+if('fw_per_cluster.RData' %in% dir()){
+  load('fw_per_cluster.RData')
+} else {
+  g <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/13nTDel4sRvUfMy1s_HyrLo9EhEn6Kj-XSr0llpfoRqk/edit#gid=0') 
+  g <- g %>% dplyr::rename(cls = CLs_V0_in_cluster)
+  fw_per_cluster <- g
+  save(fw_per_cluster, file = 'fw_per_cluster.RData')
+}
+
+# Re order
+hh <- hh %>%
+  arrange(cluster, map_recon_HHID)
+
+# Loop through each cluster and get a page number
+clusters <- sort(unique(hh$cluster))
+
+hh$pg <- NA
+for(i in 1:length(clusters)){
+  this_cluster <- clusters[i]
+  # number of casual laborers
+  n_cls <- fw_per_cluster %>% filter(cluster == this_cluster) %>% pull(cls)
+  these_hh <- hh %>% filter(cluster == this_cluster)
+  n_hh <- nrow(these_hh)
+  n_per_cl <- ceiling(n_hh / n_cls)
+  vec <- rep(1:n_cls, each = n_per_cl)
+  vec <- vec[1:n_hh]
+  if(length(vec) != length(hh$pg[hh$cluster == this_cluster]) ){
+    message(i)
+  }
+  hh$pg[hh$cluster == this_cluster] <- vec
+}
+hh$let <- LETTERS[hh$pg]
+hh$pg <- hh$cluster -1 + hh$pg
+
 # Write a csv
 write_csv(hh, 'hh.csv')
 

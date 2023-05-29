@@ -48,6 +48,7 @@ library(tools)
 hh <- read_csv('../hh.csv')
 # Get the list of clusters
 clusters <- sort(unique(hh$cluster))
+pgs <- sort(unique(hh$pg))
 
 ```
 
@@ -56,16 +57,27 @@ clusters <- sort(unique(hh$cluster))
 
 ```{r results='asis'}  
 # Print the titles/tables
-for (i in 1:length(clusters)) {
-  this_cluster <- clusters[i]
-  this_data <- hh %>% filter(cluster == this_cluster) %>%
+# for (i in 1:length(clusters)) {
+for(i in 1:length(pgs)){
+  # this_cluster <- clusters[i]
+  this_pg <- pgs[i]
+  this_data <- hh %>%
+    filter(pg == this_pg) %>%
+    # filter(cluster == this_cluster) %>%
     arrange(map_recon_HHID)
+  this_cluster <- this_data$cluster[1]
+  this_letter <- this_data$let[1]
+  # Get the number of casual laborers associated with the cluster
+  # n_cls <- fw_per_cluster %>% filter(cluster == this_cluster) %>% dplyr::pull(cls)
+  
   this_data$cluster <- NULL
   this_data$roof_material <- gsub('_', ' ', this_data$roof_material)
   this_data$roof_material <- tools::toTitleCase(this_data$roof_material)
 
   this_data$wall_material <- gsub('_', ' ', this_data$wall_material)
   this_data$wall_material <- tools::toTitleCase(this_data$wall_material)
+  
+  this_data$pg <- this_data$let <- NULL
 
   names(this_data) <- gsub('_', ' ', names(this_data))
   
@@ -86,7 +98,7 @@ for (i in 1:length(clusters)) {
                      # full_width = T, 
                     font_size = 8) %>%
     column_spec(8, width = "18em")
-  cat(paste0('# Cluster ', this_cluster, '\n\n'))
+  cat(paste0('# Cluster ', this_cluster, ' - ', this_letter,  '\n\n'))
   # k <- paste0(paste0('Cluster ', this_cluster, '\\', k))
   print(k)
   cat('\\newpage')
