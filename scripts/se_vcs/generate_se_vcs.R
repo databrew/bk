@@ -133,10 +133,51 @@ for(i in 1:length(clusters)){
   hh$pg[hh$cluster == this_cluster] <- vec
 }
 hh$let <- LETTERS[hh$pg]
-hh$pg <- hh$cluster -1 + hh$pg
+add_zero <- function (x, n) {
+  x <- as.character(x)
+  adders <- n - nchar(x)
+  adders <- ifelse(adders < 0, 0, adders)
+  for (i in 1:length(x)) {
+    if (!is.na(x[i])) {
+      x[i] <- paste0(paste0(rep("0", adders[i]), collapse = ""), 
+                     x[i], collapse = "")
+    }
+  }
+  return(x)
+}
+hh$pg <- as.numeric(factor(paste0(add_zero(hh$cluster, 3), '-', add_zero(hh$pg, 3))))
 
-# Write a csv
-write_csv(hh, 'hh.csv')
 
-# Knit the visit control sheet
-rmarkdown::render('rmds/v0vcs.Rmd')
+
+# Loop through every pg and write a pdf
+if(!dir.exists('rmds/pdfs')){
+  dir.create('rmds/pdfs')
+}
+
+households <- hh
+
+# Marta changes:
+# no more community unit
+households$community_unit <- NULL
+
+pages <- sort(unique(households$pg))
+
+for(i in 1:length(pages)){
+  message(i)
+  this_page <- pages[i]
+  this_data <- households %>%
+    filter(pg == this_page) %>%
+    # filter(cluster == this_cluster) %>%
+    arrange(map_recon_HHID) #%>%
+    # dplyr::rename(`Map recon HHID (Locus GIS)` = map_recon_HHID) %>%
+    # dplyr::rename(`Painted recon HHID (door)` = painted_recon_HHID)
+  this_cluster <- this_data$cluster[1]
+  this_letter <- this_data$let[1]
+  # Write a csv
+  write_csv(this_data, 'hh.csv')
+  # Knit the visit control sheet
+  rmarkdown::render('rmds/v0vcs.Rmd',
+                    output_file = paste0('pdfs/', add_zero(this_cluster, 2), '-', this_letter, '.pdf'))
+}
+
+

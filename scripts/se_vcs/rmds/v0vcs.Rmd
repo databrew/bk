@@ -62,9 +62,9 @@ for(i in 1:length(pgs)){
   # this_cluster <- clusters[i]
   this_pg <- pgs[i]
   this_data <- hh %>%
-    filter(pg == this_pg) %>%
+    filter(pg == this_pg) #%>%
     # filter(cluster == this_cluster) %>%
-    arrange(map_recon_HHID)
+    # arrange(map_recon_HHID)
   this_cluster <- this_data$cluster[1]
   this_letter <- this_data$let[1]
   # Get the number of casual laborers associated with the cluster
@@ -96,8 +96,14 @@ for(i in 1:length(pgs)){
                                        'repeat_header'
                                       ), 
                      # full_width = T, 
-                    font_size = 8) %>%
-    column_spec(8, width = "18em")
+                    font_size = 9) %>%
+    column_spec(8, width = "18em") %>%
+  add_header_above(c(" " = 2,
+                     "(Locus GIS)" = 1,
+                     "(Door)" = 1,
+                     " " = 2,
+                     "(Barcode)" = 1,
+                     " " = 1))
   cat(paste0('# Cluster ', this_cluster, ' - ', this_letter,  '\n\n'))
   # k <- paste0(paste0('Cluster ', this_cluster, '\\', k))
   print(k)
