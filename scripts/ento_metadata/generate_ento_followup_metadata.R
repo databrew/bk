@@ -29,7 +29,7 @@ tryCatch({
 
 
 # Define datasets for which I'm retrieving data
-datasets <- c('entoscreeningke')
+datasets <- c('entohhfirstvisit', 'entolefirstvisit')
 
 # Loop through each dataset and retrieve
 # bucket <- 'databrew.org'
@@ -54,7 +54,13 @@ for(i in 1:length(datasets)){
   )
 }
 
-entoscreeningke <- read_csv('kwale/clean-form/entoscreeningke/entoscreeningke.csv')
+entohhfirstvisit <- read_csv('kwale/clean-form/entohhfirstvisit/')
+# entoscreeningke <- read_csv('kwale/clean-form/entoscreeningke/entoscreeningke.csv')
+
+# New instructions, 2023-05-25
+# Please generate a list of Ento households and livestock enclosures from entohhfirstvisit and entolefirstvisit
+
+
 
   # A dynamic list of ‘active’ Ento households and livestock enclosures from entoscreeningke will need to be generated to be deployed with and used in the entohhfollowupke and entolefollowupke forms.
   # 

@@ -41,8 +41,12 @@ modifications <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1i98
 entoscreeningke_modifications <- modifications %>%
   filter(Form == 'entoscreeningke')
 for(i in 1:nrow(entoscreeningke_modifications)){
-  this_modification <- entoscreeningke_modifications[i,]
-  hh[hh$instanceID == this_modification$instanceID, this_modification$Column]  <- this_modification$`Set To`
+  message(i)
+  try({
+    this_modification <- entoscreeningke_modifications[i,]
+    hh[hh$instanceID == this_modification$instanceID, this_modification$Column]  <- this_modification$`Set To`  
+  })
+  
 }
 
 library(ggplot2)
@@ -90,3 +94,6 @@ households@data <- households@data %>% dplyr::select(cluster_number = cluster_nu
                                                      hhid_barcode)
 raster::shapefile(households, 'households_after_screening.shp', overwrite = TRUE)
 setwd(owd)
+
+# Write a csv for use in entomology deliverables 7 and 8 (analyses/randomization)
+write_csv(hh, '../../analyses/randomization/inputs/entoscreening_households_cleaned.csv')

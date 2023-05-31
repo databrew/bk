@@ -153,6 +153,16 @@ hhsp <- hhsp[!is.na(hhsp@data$core_buffer),]
 set.seed(18)
 if('table_1_ento_clusters.csv' %in% dir('outputs/')){
   ento_clusters <- read_csv('outputs/table_1_ento_clusters.csv')
+  if(FALSE){
+    # Manual replacement of cluster 47 as per project request, May 31 2023
+    # Options are 
+    #  2  3  4  9 10 12 15 18 20 24 25 27 28 30 31 34 35 38 41 47 48 52 55
+    # sample(c(2, 3, 4, 9, 10, 12, 15, 18, 20, 24, 25, 27, 28, 30, 31, 34, 
+    #          35, 38, 41, 47, 48, 52, 55), 1)
+    # 52
+    ento_clusters$cluster_number[ento_clusters$cluster_number == 47] <- 52
+    write_csv(ento_clusters, 'outputs/table_1_ento_clusters.csv')
+  }
 } else {
   # Get the number of households per core
   hh_per_core <- hhsp@data %>%
@@ -221,7 +231,8 @@ if(FALSE){
   plot(cores)
   plot(ento_sp, add = T, col = 'red')
   plot(buffers, add = T)
-  text(ento_sp@data$cluster_number)
+  library(sp)
+  raster::text(x = (ento_sp), ento_sp@data$cluster_number)
 }
 
 
@@ -283,6 +294,10 @@ write_csv(xing, '/tmp/ento_recon_clean_ids.csv')
 set.seed(17)
 if('table_2_cdc_resting_households_core.csv' %in% dir('outputs/')){
   cdc_resting_households_core <- read_csv('outputs/table_2_cdc_resting_households_core.csv')
+  if(FALSE){
+    # Replacement of cluster 47 by 52 as per entomology team's may 2023 request
+    # Done via interactive scripting
+  }
 } else {
   cdc_resting_households_core <- hhsp@data %>%
     mutate(dummy = 1) %>%
@@ -535,7 +550,98 @@ if('intervention_assignment.csv' %in% dir('outputs')){
 # Wall type
 # Roof type
 
-
+# Read in the cleaned ento screening results (generated in scripts/ento_screening)
+es <- read_csv('inputs/entoscreening_households_cleaned.csv')
+if(!file.exists('outputs/table_7_ento_enrolled_households.csv')){
+  out <- es %>%
+    mutate(longitude = `hh_geolocation-Longitude`,
+           latitude = `hh_geolocation-Latitude`) %>%
+    mutate(x = longitude, y = latitude)
+  coordinates(out) <- ~x+y
+  proj4string(out) <- proj4string(clusters)
+  o <- sp::over(out, polygons(clusters))
+  out@data$cluster <- clusters@data$cluster_number[o]
+  # Examine those not in cluster
+  if(FALSE){
+    bad <- out[is.na(out@data$cluster),]
+    right <- recon[recon$hh_id %in% bad$recon_hhid_map,]
+    combined <- bind_rows(
+      bad@data %>%
+        dplyr::rename(new_hhid = hhid) %>%
+        dplyr::select(hhid = recon_hhid_map, longitude, latitude) %>% mutate(type = 'Ento screening'),
+      right %>% dplyr::select(hhid = hh_id, longitude = Longitude,
+                              latitude = Latitude) %>% mutate(type = 'Recon')
+    ) %>%
+      mutate(color_number = as.numeric(factor(hhid)))
+    cols <- rainbow(length(unique(combined$color_number)))
+    combined$col <- cols[combined$color_number]
+    leaflet() %>%
+      addTiles() %>%
+      addPolygons(data = clusters, label = clusters$cluster_number) %>%
+      addCircleMarkers(data = combined, col = combined$col, 
+                       popup = combined$hhid,
+                       label = combined$hhid)
+    library(ggplot2)
+    clusters_fortified <- fortify(clusters[clusters$cluster_number %in% c(43,47),], id = clusters$cluster_number)
+    
+    ggplot() +
+      geom_polygon(data = clusters_fortified,
+                   aes(x = long,
+                       y =lat,
+                       group = group),
+                   color = 'black',
+                   alpha = 0.5) +
+      geom_point(data = combined,
+                 aes(x = longitude,
+                     y = latitude,
+                     group = hhid,
+                     color = hhid),
+                 size = 3) +
+      geom_path(data = combined,
+                 aes(x = longitude,
+                     y = latitude,
+                     group = hhid,
+                     color = hhid)) +
+      theme_bw() +
+      theme(legend.position = 'bottom')
+  }
+  # REMOVE THOSE NOT IN A CLUSTER
+  outside <- out[is.na(out@data$cluster),]
+  plot(outside, pch = 2, cex = 2, col = 'blue')
+  plot(clusters, add = T, col = 'red')
+  text(coordinates(clusters), label = clusters@data$cluster_number)
+  text(coordinates(outside), label = outside@data$hhid)
+  outside@data %>% dplyr::select(recon_hhid_map, hhid, wid) %>% arrange(hhid)
+  out <- out[!is.na(out@data$cluster),]
+  # See whether in core or buffer
+  o <- sp::over(out, polygons(cores))
+  out@data$in_core <- !is.na(o)
+  out@data$core_or_buffer <- ifelse(out@data$in_core, 'Core', 'Buffer')
+  # Create the requested columns
+  ento_enrolled_households <- out@data %>%
+    dplyr::select(cluster,
+                  hhid,
+                  collection_method = hh_collection,
+                  hh_id = recon_hhid_map,
+                  core_or_buffer,
+                  ward,
+                  community_health_unit,
+                  village,
+                  longitude,
+                  latitude) %>%
+    left_join(recon %>% dplyr::select(hh_id,
+                                      wall_type = house_wall_material,
+                                      roof_type)) %>%
+    # remove the recon id
+    dplyr::rename(recon_id = hh_id) %>%
+    arrange(cluster, hhid)
+  # Remove (invalid) cluster 47
+  ento_enrolled_households <- ento_enrolled_households %>%
+    filter(cluster != 47)
+  write_csv(ento_enrolled_households, 'outputs/table_7_ento_enrolled_households.csv')
+} else {
+  ento_enrolled_households <- read_csv('outputs/table_7_ento_enrolled_households.csv')
+}
 
 
 ##########################
