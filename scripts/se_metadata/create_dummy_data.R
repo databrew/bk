@@ -238,6 +238,30 @@ right <- individuals %>%
             roster = paste0(sort(unique(fullname_id)), collapse = ', '))
 households <- left_join(households, right)
 
+# Add missing variables (June 6 2023)
+individuals <- left_join(
+  individuals,
+  households %>%
+    dplyr::select(hhid,
+                  village, 
+                  ward,
+                  cluster)
+)
+individuals <- individuals %>%
+  mutate(efficacy_most_recent_visit_present = ifelse(efficacy_preselected == 0, NA, sample(1:7, nrow(individuals), replace = T)))
+
+individuals <- individuals %>%
+  mutate(pregnancy_consecutive_absences = 
+           ifelse(starting_pregnancy_status == 'out', 0, sample(c(NA, 0, 1, 2, 3, 4), nrow(.), replace = T)))
+
+# Get pfu_members: a comma-separated list of all members of the household whose `starting_pregnancy_status` contains the value "in"
+pfu <- individuals %>%
+  ungroup %>%
+  group_by(hhid) %>%
+  summarise(pfu_members = paste0(sort(unique(fullname_id[starting_pregnancy_status == 'in'])), collapse = ','))
+households <- households %>%
+  left_join(pfu)
+
 # # Inject NAs
 # households$household_head[sample(1:nrow(households), (round(0.2 * nrow(households))))] <- NA
 # na_columns <- c('starting_safety_status', 'starting_pregnancy_status', 'starting_weight', 'pk_preselected', 'efficacy_preselected', 'migrated', 'pregnancy_absences', 'efficacy_absences')
@@ -245,6 +269,8 @@ households <- left_join(households, right)
 #   this_column <- na_columns[j]
 #   individuals[sample(1:nrow(individuals), (round(0.2 * nrow(households)))),this_column] <- NA
 # }
+
+
 
 if(!dir.exists('dummy_metadata')){
   dir.create('dummy_metadata')
