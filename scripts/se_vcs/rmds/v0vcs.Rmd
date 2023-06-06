@@ -90,7 +90,8 @@ for(i in 1:length(pgs)){
               longtable = TRUE,
               booktabs = TRUE,
               #align = "c", 
-          row.names = FALSE) %>%
+          row.names = FALSE,
+          align=rep('c', ncol(this_data))) %>%
       kable_styling(latex_options = c(#"scale_down",
                                        "striped",
                                        'repeat_header'
@@ -103,7 +104,9 @@ for(i in 1:length(pgs)){
                      "(Door)" = 1,
                      " " = 2,
                      "(Barcode)" = 1,
-                     " " = 1))
+                     " " = 1),
+                   underline = FALSE,
+                   line = FALSE)
   cat(paste0('# Cluster ', this_cluster, ' - ', this_letter,  '\n\n'))
   # k <- paste0(paste0('Cluster ', this_cluster, '\\', k))
   print(k)
