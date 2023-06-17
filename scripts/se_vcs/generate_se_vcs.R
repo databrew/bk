@@ -181,3 +181,8 @@ for(i in 1:length(pages)){
 }
 
 
+# # Use pdftk to combine into one
+# owd <- getwd()
+# setwd('rmds/pdfs')
+# pdftk_code <- 'pdftk *.pdf cat output v0vcs.pdf'
+

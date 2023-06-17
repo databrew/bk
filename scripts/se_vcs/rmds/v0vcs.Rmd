@@ -107,8 +107,12 @@ for(i in 1:length(pgs)){
                      " " = 1),
                    underline = FALSE,
                    line = FALSE)
-  cat(paste0('# Cluster ', this_cluster, ' - ', this_letter,  '\n\n'))
+  cat(paste0('# VISIT CONTROL SHEET - BOHEMIA Demography visit\n\n'))
+  cat(paste0('## Cluster ', this_cluster, ' - ', this_letter,  '\n\n'))
   # k <- paste0(paste0('Cluster ', this_cluster, '\\', k))
   print(k)
+  cat(paste0('\n\nThis is a transitory document to assist the fieldworkers with household identification. This document will not be retained in the study investigator site file (ISF).\n\n'))
+  cat(paste0('\\vfill\n\n'))
+  cat(paste0(this_pg, '\n'))
   cat('\\newpage')
 }
