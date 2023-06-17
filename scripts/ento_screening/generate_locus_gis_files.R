@@ -19,6 +19,7 @@ hh <- hh %>% filter(hh_head_sub_agree == 'yes')
 # Keep only those with a new barcode (should be everyone by now)
 hh <- hh %>% filter(!is.na(hhid))
 
+
 # Identify duplicates
 dups <- hh %>%
   mutate(dummy = 1) %>%
@@ -31,9 +32,8 @@ dups <- hh %>%
   arrange(recon_hhid_manual) %>%
   mutate(label = paste0(recon_hhid_map, '-', cs, '-'))
 
-# View the duplicates and mark as invalid
-
-dups %>% dplyr::select(instanceID, start_time, hhid, recon_hhid_map, recon_hhid_painted, hh_collection) %>% arrange(recon_hhid_map, start_time) %>% View
+# # View the duplicates and mark as invalid
+# dups %>% dplyr::select(instanceID, start_time, hhid, recon_hhid_map, recon_hhid_painted, hh_collection) %>% arrange(recon_hhid_map, start_time) %>% View
 
 # TEMPORARY read in the google sheet with modifications so as to "fix" the raw data
 # This assumes everything is a SET
@@ -44,7 +44,12 @@ for(i in 1:nrow(entoscreeningke_modifications)){
   message(i)
   try({
     this_modification <- entoscreeningke_modifications[i,]
-    hh[hh$instanceID == this_modification$instanceID, this_modification$Column]  <- this_modification$`Set To`  
+    if(this_modification$Operation == 'DELETE'){
+      hh <- hh %>% filter(instanceID != this_modification$instanceID)
+    } else {
+      hh[hh$instanceID == this_modification$instanceID, this_modification$Column]  <- this_modification$`Set To`  
+    }
+    
   })
   
 }
@@ -65,7 +70,7 @@ ggplot(data = dups,
 
 # # Load up original ento households from google drive
 # https://drive.google.com/drive/u/0/folders/1PK4cBCCqiqtNZhY4vn0E0wXI0u2W1Yk2
-ento_households <- rgdal::readOGR('ento_households_shp/', 'households')
+ento_households <- rgdal::readOGR('../../analyses/randomization/outputs/ento_households_shp/', 'households')
 
 # Get non-spatial versions
 ento_households_flat <- ento_households@data

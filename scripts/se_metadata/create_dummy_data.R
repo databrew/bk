@@ -262,6 +262,9 @@ pfu <- individuals %>%
 households <- households %>%
   left_join(pfu)
 
+# Remove "healthecon_preselected"
+households$healthecon_preselected <- NULL
+
 # # Inject NAs
 # households$household_head[sample(1:nrow(households), (round(0.2 * nrow(households))))] <- NA
 # na_columns <- c('starting_safety_status', 'starting_pregnancy_status', 'starting_weight', 'pk_preselected', 'efficacy_preselected', 'migrated', 'pregnancy_absences', 'efficacy_absences')
@@ -279,3 +282,9 @@ write_csv(households, 'dummy_metadata/households.csv')
 write_csv(individuals, 'dummy_metadata/individuals.csv')
 
 
+all_names <- c(names(households), names(individuals))
+for(i in 1:length(x)){
+  print(i)
+  z <- x[i] %in% all_names
+  message(i, '. ', z)
+}
