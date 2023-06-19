@@ -111,8 +111,8 @@ for(i in 1:length(pgs)){
   cat(paste0('## Cluster ', this_cluster, ' - ', this_letter,  '\n\n'))
   # k <- paste0(paste0('Cluster ', this_cluster, '\\', k))
   print(k)
-  cat(paste0('\n\nThis is a transitory document to assist the fieldworkers with household identification. This document will not be retained in the study investigator site file (ISF).\n\n'))
+  cat(paste0('\n\nThis is a transitory document to assist the casual labourers with household identification. This document will not be retained in the study investigator site file (ISF).\n\n'))
   cat(paste0('\\vfill\n\n'))
-  cat(paste0(this_pg, '\n'))
+  cat(paste0(this_pg, ' of 239\n'))
   cat('\\newpage')
 }
