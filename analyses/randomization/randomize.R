@@ -670,8 +670,8 @@ if(file.exists('outputs/table_8_entomology_enrolled_livestock_enclosures.csv')){
   out <- entoscreeningke %>%
     filter(site == 'Livestock enclosure',
            le_owner_consent == 'yes') %>%
-    mutate(longitude = `hh_geolocation-Longitude`,
-           latitude = `hh_geolocation-Latitude`) %>%
+    mutate(longitude = `Longitude`,
+           latitude = `Latitude`) %>%
     mutate(x = longitude, y = latitude)
   # Get which cluster each is in
   out_sp <- out
