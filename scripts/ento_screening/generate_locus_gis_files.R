@@ -4,10 +4,62 @@ library(rgdal)
 library(sp)
 library(cloudbrewr)
 
+
+library(readr)
+
+# Define production
+Sys.setenv(PIPELINE_STAGE = 'production') # change to production
+env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
+
+# Log in
+tryCatch({
+  logger::log_info('Attempt AWS login')
+  # login to AWS - this will be bypassed if executed in CI/CD environment
+  cloudbrewr::aws_login(
+    role_name = 'cloudbrewr-aws-role',
+    profile_name =  'cloudbrewr-aws-role',
+    pipeline_stage = env_pipeline_stage)
+  
+}, error = function(e){
+  logger::log_error('AWS Login Failed')
+  stop(e$message)
+})
+
+# Define datasets for which I'm retrieving data
+datasets <- c('entoscreeningke')
+
+# Loop through each dataset and retrieve
+# bucket <- 'databrew.org'
+# folder <- 'kwale'
+bucket <- 'databrew.org'
+folder <- 'kwale'
+
+for(i in 1:length(datasets)){
+  this_dataset <- datasets[i]
+  object_keys <- glue::glue('/{folder}/clean-form/{this_dataset}',
+                            folder = folder,
+                            this_dataset = this_dataset)
+  output_dir <- glue::glue('{folder}/clean-form/{this_dataset}',
+                           folder = folder,
+                           this_dataset = this_dataset)
+  dir.create(object_keys, recursive = TRUE, showWarnings = FALSE)
+  print(object_keys)
+  cloudbrewr::aws_s3_bulk_get(
+    bucket = bucket,
+    prefix = as.character(object_keys),
+    output_dir = output_dir
+  )
+}
+entoscreeningke <- read_csv('kwale/clean-form/entoscreeningke/entoscreeningke.csv')
+
+# OLD WAY
 # Download entoscreeningke.zip from databrew.org
 # unzip('entoscreeningke.zip')
 # Read
-entoscreeningke <- read_csv('entoscreeningke.csv')
+# entoscreeningke <- read_csv('entoscreeningke.csv')
+
+
+
 # Keep only household
 hh <- entoscreeningke %>% filter(site == 'Household')
 # Keep only those with an appropriate respondent
@@ -35,33 +87,34 @@ dups <- hh %>%
 # # View the duplicates and mark as invalid
 # dups %>% dplyr::select(instanceID, start_time, hhid, recon_hhid_map, recon_hhid_painted, hh_collection) %>% arrange(recon_hhid_map, start_time) %>% View
 
-# TEMPORARY read in the google sheet with modifications so as to "fix" the raw data
-# This assumes everything is a SET
-modifications <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1i98uVuSj3qETbrH7beC8BkFmKV80rcImGobBvUGuqbU/edit#gid=0')
-entoscreeningke_modifications <- modifications %>%
-  filter(Form == 'entoscreeningke')
-for(i in 1:nrow(entoscreeningke_modifications)){
-  message(i)
-  try({
-    this_modification <- entoscreeningke_modifications[i,]
-    if(this_modification$Operation == 'DELETE'){
-      hh <- hh %>% filter(instanceID != this_modification$instanceID)
-    } else {
-      hh[hh$instanceID == this_modification$instanceID, this_modification$Column]  <- this_modification$`Set To`  
-    }
-    
-  })
-  
+if(FALSE){
+  # TEMPORARY read in the google sheet with modifications so as to "fix" the raw data
+  # This assumes everything is a SET
+  modifications <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1i98uVuSj3qETbrH7beC8BkFmKV80rcImGobBvUGuqbU/edit#gid=0')
+  entoscreeningke_modifications <- modifications %>%
+    filter(Form == 'entoscreeningke')
+  for(i in 1:nrow(entoscreeningke_modifications)){
+    message(i)
+    try({
+      this_modification <- entoscreeningke_modifications[i,]
+      if(this_modification$Operation == 'DELETE'){
+        hh <- hh %>% filter(instanceID != this_modification$instanceID)
+      } else {
+        hh[hh$instanceID == this_modification$instanceID, this_modification$Column]  <- this_modification$`Set To`  
+      }
+    })
+  }
+  library(ggplot2)
+  library(ggrepel)
+  ggplot(data = dups,
+         aes(x = `hh_geolocation-Longitude`,
+             y = `hh_geolocation-Latitude`,
+             color = recon_hhid_map)) +
+    geom_jitter() +
+    geom_label_repel(aes(label = label))
 }
 
-library(ggplot2)
-library(ggrepel)
-ggplot(data = dups,
-       aes(x = `hh_geolocation-Longitude`,
-           y = `hh_geolocation-Latitude`,
-           color = recon_hhid_map)) +
-  geom_jitter() +
-  geom_label_repel(aes(label = label))
+
 
 # # Remove duplicates aribrarily
 # hh <- hh %>%

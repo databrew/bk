@@ -664,6 +664,9 @@ if(!file.exists('outputs/table_7_ento_enrolled_households.csv')){
 if(file.exists('outputs/table_8_entomology_enrolled_livestock_enclosures.csv')){
   le <- read_csv('outputs/table_8_entomology_enrolled_livestock_enclosures.csv')
 } else {
+  # entoscreeningke <- read_csv('../../scripts/ento_screening/entoscreeningke.csv')
+  entoscreeningke <- read_csv('../../scripts/ento_screening/kwale/clean-form/entoscreeningke/entoscreeningke.csv')
+  
   out <- entoscreeningke %>%
     filter(site == 'Livestock enclosure',
            le_owner_consent == 'yes') %>%
