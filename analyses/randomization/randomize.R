@@ -554,8 +554,8 @@ if('intervention_assignment.csv' %in% dir('outputs')){
 es <- read_csv('inputs/entoscreening_households_cleaned.csv')
 if(!file.exists('outputs/table_7_ento_enrolled_households.csv')){
   out <- es %>%
-    mutate(longitude = `hh_geolocation-Longitude`,
-           latitude = `hh_geolocation-Latitude`) %>%
+    mutate(longitude = Longitude,
+           latitude = Latitude) %>%
     mutate(x = longitude, y = latitude)
   coordinates(out) <- ~x+y
   proj4string(out) <- proj4string(clusters)
