@@ -34,7 +34,7 @@ tryCatch({
 
 
 # Define datasets for which I'm retrieving data
-datasets <- c('v0demography', 'demography_icf_verification', 'demography_icf_resolution')
+datasets <- c('v0demography', 'demography_icf_verification', 'demography_icf_resolutions')
 datasets_names <- datasets
 # Loop through each dataset and retrieve
 # bucket <- 'databrew.org'
@@ -74,7 +74,14 @@ error = {
                                                      hhid = '00000')
 })
 tryCatch({
-  demography_icf_resolution <- read_csv(paste0(folder, '/', form, '/demography_icf_resolution')) # not finished
+  file_path <- paste0(folder, '/', form, '/demography_icf_resolutions/demography_icf_resolutions.csv')
+  if(file.exists(file_path)){
+    demography_icf_resolution <- read_csv(file_path) # not finished  
+  } else {
+    demography_icf_resolution <- tibble()  %>% mutate(todays_date = Sys.Date(),
+                                                      hhid = '00000')
+  }
+  
 },
 error = {
   demography_icf_resolution <- tibble()  %>% mutate(todays_date = Sys.Date(),
@@ -198,7 +205,7 @@ if(nrow(demography_icf_verification) > 0){
 if(nrow(demography_icf_resolution) > 0 & nrow(div) > 0){
   for(i in 1:nrow(demography_icf_resolution)){
     this_hhid <- demography_icf_resolution$hhid[i]
-    this_icf_status <- demography_icf_resolution$hh_icf_stat[i]
+    this_icf_status <- demography_icf_resolution$hh_icf_status[i]
     if(this_hhid %in% div$hhid){
       this_div_date <- div %>% filter(hhid == this_hhid) %>% pull(verification_date)
       this_res_date <- demography_icf_resolution$todays_date[i]
