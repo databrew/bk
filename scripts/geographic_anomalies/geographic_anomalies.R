@@ -91,10 +91,12 @@ o <- sp::over(v0_projected, polygons(clusters_projected_buffered))
 o_strict <- sp::over(v0_projected, polygons(clusters_projected))
 anom <- v0_projected@data
 anom$outside_cluster <- is.na(o_strict)
+anom$outside_cluster_number <- clusters_projected@data$cluster_nu[o]
 anom$outside_cluster_by_more_than_100_m <- is.na(o)
+anom$outside_cluster_by_more_than_100_m_number <- clusters_projected_buffered@data$cluster_nu[o]
 
-anom <- anom %>% filter(outside_cluster_by_more_than_100_m | outside_cluster)
 anom <- anom %>% dplyr::select(
+  cluster,
   instanceID,
   SubmissionDate,
   start_time,
@@ -103,6 +105,13 @@ anom <- anom %>% dplyr::select(
   # Latitude, Longitude,
   recon_hhid_map, hhid,
   outside_cluster_by_more_than_100_m,
-  outside_cluster)
+  outside_cluster,
+  outside_cluster_number,
+  outside_cluster_by_more_than_100_m_number) %>%
+  mutate(cluster = as.character(cluster)) %>%
+  mutate(cluster_number_mismatch = outside_cluster_number != cluster)
+
+anom <- anom %>% filter(outside_cluster_by_more_than_100_m | outside_cluster | cluster_number_mismatch)
+
 write_csv(anom, 'anom_households.csv')
 
