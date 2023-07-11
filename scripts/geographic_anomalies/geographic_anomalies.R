@@ -93,5 +93,16 @@ anom <- v0_projected@data
 anom$outside_cluster <- is.na(o_strict)
 anom$outside_cluster_by_more_than_100_m <- is.na(o)
 
-anom <- anom %>% filter(outside_cluster_by_more_than_100_m | outside_cluster_by_more_than_100_m)
+anom <- anom %>% filter(outside_cluster_by_more_than_100_m | outside_cluster)
+anom <- anom %>% dplyr::select(
+  instanceID,
+  SubmissionDate,
+  start_time,
+  todays_date,
+  wid, fa_id, cluster,
+  # Latitude, Longitude,
+  recon_hhid_map, hhid,
+  outside_cluster_by_more_than_100_m,
+  outside_cluster)
+write_csv(anom, 'anom_households.csv')
 
