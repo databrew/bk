@@ -32,4 +32,13 @@ Now you need to associate your device with the project's server. In order to do 
 - The form will be submitted as soon as you have an internet connection
 
 
+## ODK Form Testing / Review
+
+- Each of the data collection forms used by the BOHEMIA project will need to be tested internally (by Databrew) and tested/accepted by the sponsors prior to being used in production
+- Forms are digitized based on instructions provided by the sponsors in a "paper form" (a google doc) 
+- Form testers should confirm that the digitized version matches the content and structure of the paper form provided  
+- Changes and fixes required should be noted in a 'Feedback Sheet' (a google sheet) provided by the form developer
+- Forms will only be deployed for production once accepted by the sponsors as finalized/locked. 
+
+
 For more details see, [the official ODK Collect documentation](https://docs.getodk.org/collect-install/).
