@@ -91,7 +91,7 @@ o <- sp::over(v0_projected, polygons(clusters_projected_buffered))
 o_strict <- sp::over(v0_projected, polygons(clusters_projected))
 anom <- v0_projected@data
 anom$outside_cluster <- is.na(o_strict)
-anom$outside_cluster_number <- clusters_projected@data$cluster_nu[o]
+anom$outside_cluster_number <- clusters_projected@data$cluster_nu[o_strict]
 anom$outside_cluster_by_more_than_100_m <- is.na(o)
 anom$outside_cluster_by_more_than_100_m_number <- clusters_projected_buffered@data$cluster_nu[o]
 
@@ -115,3 +115,10 @@ anom <- anom %>% filter(outside_cluster_by_more_than_100_m | outside_cluster | c
 
 write_csv(anom, 'anom_households.csv')
 
+# # Little investigation https://bohemiakenya.slack.com/archives/C04E6P97SJU/p1689776370337289?thread_ts=1689767672.659229&cid=C04E6P97SJU
+# esther_ids <- c(88021, 88505, 88245, 88325, 88234, 88014)
+# esther <- v0[v0@data$hhid %in% (esther_ids),]
+# plot(esther)
+# plot(clusters, add = T, col = adjustcolor('green', alpha.f = 0.2))
+# text(esther, label = esther@data$hhid,
+#      col = adjustcolor('black', alpha.f = 0.3))
