@@ -74,14 +74,14 @@ if(FALSE){
     addPolygons(data = buffers, fillColor = 'grey', color = 'grey', fillOpacity = 0.5, weight = 0,
                 label = buffers@data$cluster_number) %>%
     addPolygons(data = cores[cores@data$assignment == 1,],
-                label = cores@data$cluster_number[cores@data$assignment == 1],
+                label = paste0('Cluster ', cores@data$cluster_number[cores@data$assignment == 1], '. Assignment = 1'),
                 weight = 1,
                 # labelOptions = list('permanent' = TRUE,
                 #                     'autclose' = FALSE),
                 fillColor = 'blue', color = 'blue'
     ) %>%
     addPolygons(data = cores[cores@data$assignment == 2,],
-                label = cores@data$cluster_number[cores@data$assignment == 2],
+                label = paste0('Cluster ', cores@data$cluster_number[cores@data$assignment == 1], '. Assignment = 2'),
                 weight = 1,
                 # labelOptions = list('permanent' = TRUE,
                 #                     'autclose' = FALSE),
@@ -95,6 +95,17 @@ if(FALSE){
   #   addCircleMarkers(data = inclusion, radius = 1, col = 'orange')
   # load('../../analyses/recon_clustering/inclusion.RData')
 }
+
+
+
+# Spatial file for Almu
+if(FALSE){
+  load('../recon_clustering/final/clusters.RData')
+  almu <- clusters 
+  almu@data <- left_join(almu@data, assignments)
+  raster::shapefile(x = almu, file = "clusters_with_assignment.shp", overwrite = TRUE)
+}
+
 
 ###########################
 # ENTOMOLOGY

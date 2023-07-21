@@ -12,7 +12,14 @@ library(lubridate)
 library(readr)
 
 # Define production
-Sys.setenv(PIPELINE_STAGE = 'develop') # change to production
+is_production <- TRUE
+if(is_production){
+  Sys.setenv(PIPELINE_STAGE = 'production') 
+  raw_or_clean <- 'clean'
+} else {
+  Sys.setenv(PIPELINE_STAGE = 'develop')
+  raw_or_clean <- 'raw'
+}
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 
 # Log in
@@ -44,14 +51,18 @@ datasets_names <- c(#'Ento Light trap collection field form',
 # bucket <- 'databrew.org'
 # folder <- 'kwale'
 bucket <- 'databrew.org'
-folder <- 'kwale_ento_testing'
+if(is_production){
+  folder <- 'kwale'
+} else {
+  folder <- 'kwale_ento_testing'
+}
 
 for(i in 1:length(datasets)){
   this_dataset <- datasets[i]
-  object_keys <- glue::glue('/{folder}/raw-form/{this_dataset}',
+  object_keys <- glue::glue('/{folder}/{raw_or_clean}-form/{this_dataset}',
                             folder = folder,
                             this_dataset = this_dataset)
-  output_dir <- glue::glue('{folder}/raw-form/{this_dataset}',
+  output_dir <- glue::glue('{folder}/{raw_or_clean}-form/{this_dataset}',
                            folder = folder,
                            this_dataset = this_dataset)
   dir.create(object_keys, recursive = TRUE, showWarnings = FALSE)
@@ -70,11 +81,20 @@ for(i in 1:length(datasets)){
 # entorcmorphid-repeat_tube_funestus_gonotrophic.csv
 # entorcmorphid-repeat_tube_gambiae_gonotrophic.csv
 # and in the collection_type column: "LT" if the QR is from the entoltmorphid form and "RC" if the QR is from entorcmorphid form.
+library(readr)
+e1 <- read_csv('kwale/clean-form/entoltmorphid/entoltmorphid-repeat_tubes_dissected_unfed_funestus.csv')
+e2 <- read_csv('kwale/clean-form/entoltmorphid/entoltmorphid-repeat_tubes_dissected_unfed_gambiae.csv')
+e3 <- read_csv('kwale/clean-form/entorcmorphid/entorcmorphid-repeat_tube_funestus_gonotrophic.csv')
+e4 <- read_csv('kwale/clean-form/entorcmorphid/entorcmorphid-repeat_tube_gambiae_gonotrophic.csv')
 
-e1 <- read_csv('kwale_ento_testing/raw-form/entoltmorphid/entoltmorphid-repeat_tubes_dissected_unfed_funestus.csv')
-e2 <- read_csv('kwale_ento_testing/raw-form/entoltmorphid/entoltmorphid-repeat_tubes_dissected_unfed_gambiae.csv')
-e3 <- read_csv('kwale_ento_testing/raw-form/entorcmorphid/entorcmorphid-repeat_tube_funestus_gonotrophic.csv')
-e4 <- read_csv('kwale_ento_testing/raw-form/entorcmorphid/entorcmorphid-repeat_tube_gambiae_gonotrophic.csv')
+# Temp, remove bad instances
+remove_bad <- function(z){z %>% filter(!PARENT_KEY %in% c("uuid:6ac0451a-4337-43ca-8e46-b2ed4e056e72", "uuid:8622a054-f295-4e53-af02-9e1d2d4fdb38", 
+                                                          "uuid:cd616e21-8566-4d88-8ecf-5cf246a1e240"))}
+e1 <- e1 %>% remove_bad()
+e2 <- e2 %>% remove_bad()
+e3 <- e3 %>% remove_bad()
+e4 <- e4 %>% remove_bad()
+
 
 out <- 
   bind_rows(
@@ -82,9 +102,11 @@ out <-
       mutate(collection_type = 'LT', tube_id = as.character(tube_id)),
     e2 %>% dplyr::select(tube_id = tubes_dissected_unfed_gambiae_qr) %>%
       mutate(collection_type = 'LT', tube_id = as.character(tube_id)),
-    e3 %>% dplyr::select(tube_id = tubes_funestus_gonotrophic) %>%
+    e3 %>% dplyr::select(tube_id = tubes_funestus_gonotrophic_qr) %>%
       mutate(collection_type = 'RC', tube_id = as.character(tube_id)),
-    e4 %>% dplyr::select(tube_id = tubes_gambiae_gonotrophic) %>%
+    e4 %>% dplyr::select(tube_id = tubes_gambiae_gonotrophic_qr) %>%
       mutate(collection_type = 'RC', tube_id = as.character(tube_id))
-  )
+  ) %>%
+  dplyr::distinct(tube_id, .keep_all = TRUE) %>%
+  arrange(tube_id)
 write_csv(out, 'metadata.csv')
