@@ -787,6 +787,21 @@ htmlwidgets::saveWidget(widget = map,
 study <- list()
 remove_clusters <- c(70, 68, 81, 114, 78, 55, 22, 94, 66, 61, 95, 2, 104, 112, 76, 52, 89, 102, 20, 16, 13)
 
+
+
+
+
+# July 21 2023, adding some of these back
+if(FALSE){
+  new_cluster_numbers <- remove_clusters
+  new_clusters <- buffers_ll[buffers_ll@data$cluster_number %in% new_cluster_numbers,]
+  plot(buffers_ll)
+  # Renumber
+  new_clusters$new_number <- new_clusters$cluster_number + 500
+  plot(new_clusters, col = 'red', add = TRUE)
+  text(coordinates(new_clusters), labels = new_clusters@data$new_number, cex = 0.8)
+}
+
 remove_buffers <- buffers_ll[buffers_ll@data$cluster_number %in% remove_clusters,]
 plot(buffers_ll)
 plot(remove_buffers, add = T, col = 'red')

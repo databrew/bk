@@ -9,66 +9,214 @@ library(sf)
 library(sp)
 library(lubridate)
 library(readr)
+library(ggplot2)
+library(rgdal)
+library(sp)
+library(ggthemes)
 
 # Define production
 is_production <- TRUE
 Sys.setenv(PIPELINE_STAGE = ifelse(is_production, 'production', 'develop')) # change to production
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
+start_fresh <- TRUE
 
-# Log in
-tryCatch({
-  logger::log_info('Attempt AWS login')
-  # login to AWS - this will be bypassed if executed in CI/CD environment
-  cloudbrewr::aws_login(
-    role_name = 'cloudbrewr-aws-role',
-    profile_name =  'cloudbrewr-aws-role',
-    pipeline_stage = env_pipeline_stage)
+if(start_fresh){
+  # Log in
+  tryCatch({
+    logger::log_info('Attempt AWS login')
+    # login to AWS - this will be bypassed if executed in CI/CD environment
+    cloudbrewr::aws_login(
+      role_name = 'cloudbrewr-aws-role',
+      profile_name =  'cloudbrewr-aws-role',
+      pipeline_stage = env_pipeline_stage)
+    
+  }, error = function(e){
+    logger::log_error('AWS Login Failed')
+    stop(e$message)
+  })
   
-}, error = function(e){
-  logger::log_error('AWS Login Failed')
-  stop(e$message)
-})
-
-
-# Define datasets for which I'm retrieving data
-datasets <- c('v0demography', 'sev0rab', 'sev0ra')
-datasets_names <- datasets
-# Loop through each dataset and retrieve
-# bucket <- 'databrew.org'
-# folder <- 'kwale'
-bucket <- 'databrew.org'
-if(is_production){
-  folder <- 'kwale'
+  
+  # Define datasets for which I'm retrieving data
+  datasets <- c('v0demography', 'sev0rab', 'sev0ra')
+  datasets_names <- datasets
+  # Loop through each dataset and retrieve
+  # bucket <- 'databrew.org'
+  # folder <- 'kwale'
+  bucket <- 'databrew.org'
+  if(is_production){
+    folder <- 'kwale'
+  } else {
+    folder <- 'kwale_testing'
+  }
+  
+  for(i in 1:length(datasets)){
+    this_dataset <- datasets[i]
+    object_keys <- glue::glue('/{folder}/clean-form/{this_dataset}',
+                              folder = folder,
+                              this_dataset = this_dataset)
+    output_dir <- glue::glue('{folder}/clean-form/{this_dataset}',
+                             folder = folder,
+                             this_dataset = this_dataset)
+    dir.create(object_keys, recursive = TRUE, showWarnings = FALSE)
+    print(object_keys)
+    cloudbrewr::aws_s3_bulk_get(
+      bucket = bucket,
+      prefix = as.character(object_keys),
+      output_dir = output_dir
+    )
+  }
+  
+  v0demography <- read_csv('kwale/clean-form/v0demography/v0demography.csv')
+  v0demography_repeat_individual <- read_csv('kwale/clean-form/v0demography/v0demography-repeat_individual.csv')
+  ra <- read_csv('kwale/clean-form/sev0ra/sev0ra.csv') %>% dplyr::select(todays_date, Longitude, Latitude, cluster, refusal_or_absence, form_version = FormVersion, hhid, recon_hhid_map_manual, recon_hhid_painted_manual) %>% mutate(version = 'a')
+  rab <- read_csv('kwale/clean-form/sev0rab/sev0rab.csv') %>% dplyr::select(todays_date, Longitude, Latitude, cluster, refusal_or_absence, form_version = FormVersion, hhid, recon_hhid_map_manual, recon_hhid_painted_manual) %>% mutate(version = 'b')
+  rx <- bind_rows(ra, rab) %>%
+    mutate(id = ifelse(is.na(hhid), recon_hhid_map_manual, hhid)) %>%
+    mutate(id = ifelse(is.na(id), recon_hhid_painted_manual, id)) %>%
+    mutate(recon_id = ifelse(!is.na(recon_hhid_map_manual), recon_hhid_map_manual, recon_hhid_painted_manual))
+  save(ra, rab, rx, v0demography, v0demography_repeat_individual, file = 'data.RData')
 } else {
-  folder <- 'kwale_testing'
+  load('data.RData')
 }
-
-for(i in 1:length(datasets)){
-  this_dataset <- datasets[i]
-  object_keys <- glue::glue('/{folder}/clean-form/{this_dataset}',
-                            folder = folder,
-                            this_dataset = this_dataset)
-  output_dir <- glue::glue('{folder}/clean-form/{this_dataset}',
-                           folder = folder,
-                           this_dataset = this_dataset)
-  dir.create(object_keys, recursive = TRUE, showWarnings = FALSE)
-  print(object_keys)
-  cloudbrewr::aws_s3_bulk_get(
-    bucket = bucket,
-    prefix = as.character(object_keys),
-    output_dir = output_dir
-  )
-}
-
-v0demography <- read_csv('kwale/clean-form/v0demography/v0demography.csv')
-v0demography_repeat_individual <- read_csv('kwale/clean-form/v0demography/v0demography-repeat_individual.csv')
-ra <- read_csv('kwale/clean-form/sev0ra/sev0ra.csv') %>% dplyr::select(todays_date, Longitude, Latitude, cluster, refusal_or_absence, form_version = FormVersion, hhid, recon_hhid_map_manual, recon_hhid_painted_manual) %>% mutate(version = 'a')
-rab <- read_csv('kwale/clean-form/sev0rab/sev0rab.csv') %>% dplyr::select(todays_date, Longitude, Latitude, cluster, refusal_or_absence, form_version = FormVersion, hhid, recon_hhid_map_manual, recon_hhid_painted_manual) %>% mutate(version = 'b')
-rx <- bind_rows(ra, rab) %>%
-  mutate(id = ifelse(is.na(hhid), recon_hhid_map_manual, hhid)) %>%
-  mutate(id = ifelse(is.na(id), recon_hhid_painted_manual, id)) %>%
-  mutate(recon_id = ifelse(!is.na(recon_hhid_map_manual), recon_hhid_map_manual, recon_hhid_painted_manual))
   
+# Load in spatial data
+clusters <- rgdal::readOGR('../../data_public/spatial/clusters/', 'clusters')
+clusters_fortified <- fortify(clusters, id = 'cluster_nu')
+load('../../data_public/spatial/pongwe_kikoneni_ramisi.RData')
+pongwe_kikoneni_ramisi_fortified <- fortify(pongwe_kikoneni_ramisi, id = 'NAME_3')
+cluster_coordinates <- data.frame(coordinates(clusters))
+names(cluster_coordinates) <- c('x', 'y')
+cluster_coordinates$cluster <- clusters@data$cluster_nu
+cores <- rgdal::readOGR('../../data_public/spatial/cores/', 'cores')
+buffers <- rgdal::readOGR('../../data_public/spatial/buffers/', 'buffers')
+# Make a spatial version of households
+v0demography_spatial <- v0demography %>% mutate(x = Longitude, y = Latitude)
+coordinates(v0demography_spatial) <- ~x+y
+proj4string(v0demography_spatial) <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+p4s <- "+proj=utm +zone=37 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+crs <- CRS(p4s)
+v0demography_spatial_projected <- spTransform(v0demography_spatial, crs)
+cores_projected <- spTransform(cores, crs)
+cores_projected_buffered <- rgeos::gBuffer(cores_projected, byid = TRUE, width = 50)
+clusters_projected <- spTransform(clusters, crs)
+clusters_projected_buffered <- rgeos::gBuffer(clusters_projected, byid = TRUE, width = 50)
+
+o <- sp::over(v0demography_spatial_projected, polygons(cores_projected_buffered))
+v0demography_spatial@data$in_core <- !is.na(o)
+v0demography_spatial$core_cluster_number <- as.numeric(cores@data$cluster_nu[o])
+
+o <- sp::over(v0demography_spatial_projected, polygons(clusters_projected_buffered))
+v0demography_spatial@data$in_cluster <- !is.na(o)
+v0demography_spatial$cluster_cluster_number <- as.numeric(clusters@data$cluster_nu[o])
+
+people <- v0demography_repeat_individual %>%
+  left_join(v0demography_spatial@data %>%
+              dplyr::select(KEY,
+                            lng = Longitude,
+                            lat = Latitude,
+                            cluster,
+                            in_core,
+                            in_cluster,
+                            cluster_cluster_number,
+                            core_cluster_number),
+            by = c('PARENT_KEY' = 'KEY'))
+date_of_enrollment <- as.Date('2023-10-01')
+# See who is eligible or not
+people <- people %>%
+  mutate(age_at_enrollment  = date_of_enrollment - dob) %>%
+  mutate(age_at_enrollment = age_at_enrollment / 365.25) %>%
+  mutate(efficacy_eligible = age_at_enrollment >= 5.0 & age_at_enrollment < 15.0)
+# Get a dataframe of only efficacy eligible children
+eligibles <- people %>% filter(efficacy_eligible) %>%
+  filter(in_cluster)
+pd <- eligibles %>% group_by(cluster) %>% tally
+# Make spatial and project
+eligibles_sp <- eligibles %>% mutate(x = lng, y = lat)
+coordinates(eligibles_sp) <- ~x+y
+proj4string(eligibles_sp) <- proj4string(clusters)
+eligibles_sp_projected <- spTransform(eligibles_sp, crs)
+
+
+# July 24 2023, cluster cores do not have enough efficacy-eligible children
+# We need to expand outwards until enough are reached
+# This means making the cluster grow all the way out to 400 meters (buffer) or less until 35 are reached
+cluster_numbers <- sort(unique(clusters$cluster_nu))
+out_list <- list()
+if(!dir.exists('expansion_charts')){
+  dir.create('expansion_charts')
+}
+for(i in 1:length(cluster_numbers)){
+  this_cluster_number <- cluster_numbers[i]
+  this_core_projected <- cores_projected[cores_projected@data$cluster_nu == this_cluster_number, ]
+  this_cluster_projected <- clusters_projected[clusters_projected@data$cluster_nu == this_cluster_number,]
+  expanded_core <- this_core_projected
+  ok <- FALSE
+  expansion_meters <- 0
+  in_cluster_kids <- eligibles_sp_projected[eligibles_sp_projected@data$cluster_cluster_number == this_cluster_number,]
+  n_original_core <- length(which(!is.na(sp::over(in_cluster_kids, polygons(expanded_core)))))
+  n_eligibles_full_cluster <- length(which(!is.na(sp::over(in_cluster_kids, polygons(clusters_projected_buffered[clusters_projected_buffered@data$cluster_nu == this_cluster_number,])))))
+  
+  while(!ok){
+    n_eligibles <- length(which(!is.na(sp::over(in_cluster_kids, polygons(expanded_core)))))
+    if(n_eligibles >= 35 | expansion_meters >= 400){
+      ok <- TRUE
+      message('Cluster ', this_cluster_number, ' got ', n_eligibles, ' kids at an expansion of ', 
+              expansion_meters)
+      out_list[[i]] <- tibble(cluster_number = this_cluster_number,
+                              n_original_core,
+                              n_eligibles,
+                              n_eligibles_full_cluster,
+                              expansion_meters)
+      png(filename = paste0('expansion_charts/', this_cluster_number, '.png'))
+      xlims <- bbox(expanded_core)[1,] * c(0.9999, 1.0001)
+      ylims <- bbox(expanded_core)[2,] * c(0.9999, 1.0001)
+      plot(this_cluster_projected,
+           xlim = xlims, ylim = ylims)
+      title(main = this_cluster_number, sub = paste0('From ', n_original_core, ' to ', n_eligibles, ' efficacy-aged children with a ',expansion_meters, ' meters expansion of the core'))
+
+      
+      plot(expanded_core, add = T, col = adjustcolor('red', alpha.f = 0.6), lty = 2)
+      plot(this_core_projected, add = T, col = adjustcolor('red', alpha.f = 0.7))
+      points(eligibles_sp_projected, pch = 16, cex = 0.3)
+      other_clusters <- clusters_projected[clusters_projected@data$cluster_nu != this_cluster_number,]
+      plot(other_clusters, add = T, lty = 3)
+      text(coordinates(other_clusters), labels = other_clusters@data$cluster_nu)
+      # plot(clusters_projected_buffered, add = T, lty = 2)
+      dev.off()
+      
+    } else {
+      expansion_meters <- expansion_meters + 1
+      # message('Adding a meter because only ', n_eligibles, ' kids: ', expansion_meters)
+      expanded_core <- rgeos::gBuffer(this_core_projected, width = expansion_meters)
+      n_eligibles <- length(which(!is.na(sp::over(in_cluster_kids, polygons(expanded_core)))))
+      
+    }
+  }
+}
+out <- bind_rows(out_list)
+write_csv(out, '~/Desktop/slack/table_of_results.csv')
+# the above is a dataframe of the necessary expansion to reach X kids
+summary(out$expansion_meters)
+table(out$n_eligibles >= 35)
+table(out$n_eligibles >= 25)
+
+library(ggrepel)
+ggplot(data = out,
+       aes(x = expansion_meters,
+           y = n_eligibles)) +
+  geom_hline(yintercept = 35, lty = 2, col = 'red') +
+  geom_hline(yintercept = 25, lty = 2, col = 'blue') +
+  
+  geom_point(size = 3, alpha = 0.7) +
+  geom_text_repel(aes(label = cluster_number), 
+                  max.overlaps = 10,
+                  size = 3) +
+  labs(x = 'Expansion of core (in meters)',
+       y = 'Number of efficacy-eligible kids in expanded core')
+
+
+
+
 library(ggplot2)
 # refusal type of form by day
 pd <- rx %>%
@@ -122,17 +270,7 @@ if(FALSE){
 
 
 # Load in clusters
-library(ggplot2)
-library(rgdal)
-library(sp)
-library(ggthemes)
-clusters <- rgdal::readOGR('../../data_public/spatial/clusters/', 'clusters')
-clusters_fortified <- fortify(clusters, id = 'cluster_nu')
-load('../../data_public/spatial/pongwe_kikoneni_ramisi.RData')
-pongwe_kikoneni_ramisi_fortified <- fortify(pongwe_kikoneni_ramisi, id = 'NAME_3')
-cluster_coordinates <- data.frame(coordinates(clusters))
-names(cluster_coordinates) <- c('x', 'y')
-cluster_coordinates$cluster <- clusters@data$cluster_nu
+
 ggplot() +
   geom_polygon(data = pongwe_kikoneni_ramisi_fortified,
                aes(x = long, y = lat, group = group),
@@ -259,11 +397,44 @@ pd <- people %>%
   tally %>%
   ungroup %>%
   filter(in_core, efficacy_eligible)
+right <- people %>%
+  group_by(cluster, efficacy_eligible) %>%
+  summarise(full_area = n()) %>%
+  ungroup %>%
+  filter(efficacy_eligible)
+pd <- pd %>% dplyr::select(-in_core) %>%
+  dplyr::mutate(in_core = n) %>% dplyr::select(-in_core) %>%
+  left_join(right)
+write_csv(pd, '~/Desktop/carlos.csv')
 
+pd$problematic <- pd$n < 35
+x <- clusters
+x@data$cluster <- as.numeric(x@data$cluster_nu)
+x@data <- left_join(x@data, pd)
+x@data$problematic <- ifelse(is.na(x@data$problematic), TRUE, x@data$problematic)
+plot(x)
+assignments <- read_csv('../randomization/outputs/assignments.csv')
+x@data <- left_join(x@data, assignments, by = c('cluster' = 'cluster_number'))
+plot(x)
+x35 <- x
+plot(x[x@data$assignment == 1,], col = 'green', add = T)
+plot(x[x@data$assignment == 2,], col = 'orange', add = T)
+text(coordinates(x), labels = x@data$cluster)
+# plot(x[x@data$problematic, ], col = adjustcolor('red', alpha.f = 0.5), add = T)
+points(coordinates(x[x@data$problematic, ]), cex = 4, col = adjustcolor('red', alpha.f = 0.9), pch = 12)
+# Read in ento clusters
+ento <- read_csv('../randomization/outputs/table_1_ento_clusters.csv') %>% mutate(ento = TRUE)
+x@data$cluster_number <- x@data$cluster
+x@data <- left_join(x@data, ento)
+x@data$ento <- ifelse(is.na(x@data$ento), FALSE, x@data$ento)
+x@data[x@data$problematic & x@data$ento,]
 summary(pd$n)
 table(pd$n >= 35)
+table(pd$n >= 30)
 table(pd$n >= 25)
 table(pd$n >= 15)
+hh <- rgdal::readOGR('../../data_public/spatial/households/', 'households')
+points(hh, pch = '.')
 
 # Recruitment from entire cluster (including buffers)
 pd <- people %>%
@@ -273,8 +444,62 @@ pd <- people %>%
   ungroup %>%
   filter(in_cluster, efficacy_eligible)
 
+pd %>% filter(cluster %in% x@data$cluster[x@data$problematic]) %>% View
+
+# Get distance to any line
+kids <- people %>% filter(efficacy_eligible, in_cluster) %>%
+  left_join(v0demography %>% dplyr::select(KEY, lng = Longitude, lat = Latitude),
+            by = c('PARENT_KEY' = 'KEY')) %>%
+  mutate(x = lng, y = lat)
+coordinates(kids) <- ~x+y
+proj4string(kids) <- proj4string(clusters)
+kids_projected <- spTransform(kids, crs)
+
+# convert SPDF to SLDF
+bound <- as(clusters, 'SpatialLinesDataFrame')
+bound <- raster::intersect(bound, clusters)
+# # remove 'self' overlays (polygon boundary over the same polygon)
+# bound <- bound[bound@data$ID_poly.1!=bound@data$ID_poly.2,]
+# remove 'duplicated' results (as each boundary occurs twice after the overlay)
+bound@data$key <- apply(bound@data, 1, function(s) paste0(sort(s), collapse=''))
+bound <- bound[!duplicated(bound@data$key),]
+bound_projected <- spTransform(bound, crs)
+
+# Get distance to nearest line for each kid
+distances <- rgeos::gDistance(kids_projected, bound_projected, byid = TRUE)
+d <- as.numeric(apply(distances, 2, min))
+kids$distance_to_contamination <- d
+
+# Number each kid in the cluster
+out <- kids@data %>%
+  arrange(desc(distance_to_contamination)) %>%
+  mutate(dummy = 1) %>%
+  group_by(cluster) %>%
+  mutate(randomization_number = cumsum(dummy)) %>%
+  ungroup
+kids@data <- left_join(kids@data,
+                       out %>% dplyr::select(KEY, randomization_number))
+
+dir.create('outy')
+cluster_numbers <- sort(unique(clusters@data$cluster_nu))
+for(i in 1:length(cluster_numbers)){
+  cn <- cluster_numbers[i]
+  png(paste0('outy/', i, '.png'))
+  plot(clusters[clusters@data$cluster_nu == cn,])
+  plot(cores[cores@data$cluster_nu == cn,],
+       col = adjustcolor('red', alpha.f = 0.6), add = TRUE)
+  # points(kids[kids@data$cluster == cn,])
+  text(coordinates(kids[kids@data$cluster == cn,]), labels = kids@data$randomization_number[kids@data$cluster == cn], cex = 0.7)
+  dev.off()
+}
+# cn <- 44
+# plot(clusters[clusters@data$cluster_nu == cn,])
+# points(kids[kids@data$cluster == cn,])
+# text(coordinates(kids[kids@data$cluster == cn,]), labels = kids@data$randomization_number[kids@data$cluster == cn])
+# 
 summary(pd$n)
 table(pd$n >= 35)
+table(pd$n >= 30)
 table(pd$n >= 25)
 table(pd$n >= 15)
 
@@ -294,3 +519,151 @@ ggplot(data = out,
        y = 'Number of clusters which have X children or more') +
   geom_vline(xintercept = 35, lty = 2) +
   geom_hline(yintercept = out$clusters[out$n == 35], lty = 2)
+
+
+# Tesselation ############################################################
+# convert SPDF to SLDF
+plot(cores)
+text(coordinates(cores), labels = cores@data$cluster_nu, cex = 0.5)
+bound <- as(cores, 'SpatialLinesDataFrame')
+bound <- raster::intersect(bound, cores)
+# # remove 'self' overlays (polygon boundary over the same polygon)
+# bound <- bound[bound@data$ID_poly.1!=bound@data$ID_poly.2,]
+# remove 'duplicated' results (as each boundary occurs twice after the overlay)
+bound@data$key <- apply(bound@data, 1, function(s) paste0(sort(s), collapse=''))
+bound <- bound[!duplicated(bound@data$key),]
+# bound <- spTransform(bound, crs)
+# bound <- gBuffer(bound, byid = TRUE, id = bound@data$cluster_nu, width = 0.00001)
+
+# Turn clusters into a points dataframe
+out_list <- list()
+for(i in 1:nrow((bound))){
+  this_data <- coordinates(bound)[[i]]
+  this_data <- bind_rows(lapply(this_data, data.frame))
+  this_data$cluster <- bound@data$cluster_nu[i]
+  out_list[[i]] <- this_data
+}
+cluster_points <- bind_rows(out_list)
+# names(cluster_points)[1:2] <- c('x',)
+cluster_points <- cluster_points %>% dplyr::distinct(x,y,cluster)  #%>%
+  # arrange((cluster))
+coordinates(cluster_points) <- ~x+y
+proj4string(cluster_points) <- proj4string(clusters)
+row.names(cluster_points) <- 1:nrow(cluster_points)
+
+plot(cluster_points$x, cluster_points$y, pch = '.')
+setScale(70000)
+v <- dismo::voronoi(cluster_points)
+x = gUnaryUnion(v, id = v$cluster, checkValidity = 2)
+plot(x)
+# # Match row names
+row.names(cores) <- as.character(cores@data$cluster_nu)
+# o <- sp::over(cores, polygons(x))
+# row.names(cores@data) <- 1:nrow(cores@data)
+# row.names(x) <- as.character(o)
+# row.names(x) <- bound@data$cluster_nu;# row.names(bound@data) <- bound@data$cluster_nu
+cn <- 25
+dfv <- SpatialPolygonsDataFrame(Sr = x, data = cores@data, match.ID = TRUE)
+plot(dfv); plot(dfv[dfv@data$cluster_nu == cn,], col = 'red', add = T); plot(cores[cores@data$cluster_nu == cn, ], col = adjustcolor('blue', alpha.f = 0.6), add = TRUE)
+
+plot(buffers[buffers@data$cluster_nu == cn,])
+plot(clusters)
+text(coordinates(clusters), labels = clusters@data$cluster_nu, cex =0.7)
+plot(clusters[clusters@data$cluster_nu == cn,], add = TRUE, col = 'red')
+
+cols <- sample(rainbow(96), 96)
+cols_df <- tibble(cluster_nu = dfv@data$cluster_nu, col = cols)
+dfv@data <- left_join(dfv@data, cols_df)
+row.names(clusters) <- clusters@data$cluster_nu
+clusters@data <- left_join(clusters@data, cols_df)
+plot(dfv, col = adjustcolor(dfv$col, alpha.f = 0.7))
+plot(clusters, col = clusters$col, add = T)
+# plot(buffers[buffers@data$cluster_nu == cn,])
+plot(clusters[clusters@data$cluster_nu == cn,], add = T, col = 'red')
+plot(dfv[dfv@data$cluster_nu == cn,], add = T, col = adjustcolor('blue', alpha.f = 0.4))
+text(coordinates(clusters), labels = clusters@data$cluster_nu, cex =0.7)
+
+# Narrow down so as to only keep those areas which are IN Magude
+clusters@data$x <- 1
+boundaries <- gConvexHull(clusters)
+ll_proj <- proj4string(boundaries)
+boundaries_projected <- spTransform(boundaries, crs)
+boundaries_projected_buffered <- gBuffer(boundaries_projected, width = 400)
+boundaries <- spTransform(boundaries_projected_buffered, ll_proj)
+
+out <- gIntersection(dfv, boundaries, byid=TRUE)
+
+
+##################
+row.names(out) <- row.names(dfv@data)
+out <- SpatialPolygonsDataFrame(Sr = out, data = dfv@data)
+plot(out)
+text(coordinates(out), labels = out@data$cluster_nu)
+
+plot(out, col = out@data$col)
+plot(clusters, add = T, col = 'grey')
+text(coordinates(out), labels = out@data$cluster_nu)
+hh <- rgdal::readOGR('../../data_public/spatial/households/', 'households')
+o <- sp::over(hh, polygons(clusters))
+hhx <- hh[is.na(o),]
+o2 <- sp::over(hhx, polygons(out))
+hhx <- hhx[!is.na(o2),]
+points(hhx, col = 'red', pch = '.')
+
+o3 <- sp::over(hh, polygons(clusters))
+hhz <- hh[!is.na(o3),]
+
+
+x35 <- x35[order(x35@data$cluster_nu),]
+out <- out[order(out@data$cluster_nu),]
+
+row.names(x35) <- x35@data$cluster_nu
+row.names(out) <- out@data$cluster_nu
+
+
+
+hybrid_list <- list()
+for(i in 1:nrow(x35)){
+  this_cluster <- x35@data$cluster[i]
+  is_problematic <- x35@data$problematic[i]
+  message(is_problematic, ' ', this_cluster)
+  if(is_problematic){
+    out_poly <- out[out@data$cluster_nu == this_cluster,]
+  } else {
+    out_poly <- x35[x35@data$cluster == this_cluster,]
+  }
+  out_poly@data <- tibble(cluster = this_cluster)
+  hybrid_list[[i]] <- out_poly
+}
+hybrid <- rbind(hybrid_list[[1]], 
+                hybrid_list[[2]],
+                makeUniqueIDs = TRUE)
+for(i in 3:length(hybrid_list)){
+  hybrid <- rbind(hybrid, hybrid_list[[i]], makeUniqueIDs = TRUE)
+}
+save(hybrid, file = 'hybrid.RData')
+plot(hybrid, col = 'darkorange')
+plot(clusters, col = adjustcolor('green', alpha.f = 0.5), add = T)
+text(coordinates(hybrid), labels = hybrid@data$cluster, cex = 0.5)
+
+# See how many houses are in hybrid
+o <- sp::over(hh, polygons(hybrid))
+o2 <- sp::over(hh, polygons(clusters))
+hhx <- hh[!is.na(o) & is.na(o2),]
+points(hhx, pch = '.')
+
+# Plot again
+plot(mag2, col = adjustcolor('red', alpha.f = 0.2))
+plot(out, add = T, lwd = 0.2)
+
+# Join in info on bairros
+dict$full_name <- paste0(dict$posto_administrativo,
+                         ': ',
+                         dict$bairro_name)
+out@data <- left_join(out@data,
+                      dict,
+                      by = 'bairro_number')
+bairros <- left_join(bairros,
+                     dict, 
+                     by = 'bairro_number')
+
