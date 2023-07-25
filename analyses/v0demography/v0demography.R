@@ -18,7 +18,7 @@ library(ggthemes)
 is_production <- TRUE
 Sys.setenv(PIPELINE_STAGE = ifelse(is_production, 'production', 'develop')) # change to production
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
-start_fresh <- TRUE
+start_fresh <- FALSE
 
 if(start_fresh){
   # Log in
@@ -215,7 +215,68 @@ ggplot(data = out,
        y = 'Number of efficacy-eligible kids in expanded core')
 
 
+# Expand the buffers by expansion_meters
+cores_projected@data <- left_join(cores_projected@data,
+                                  out %>% dplyr::select(cluster_nu = cluster_number,
+                                                        expansion_meters) %>%
+                                    mutate(expand_by = expansion_meters + 20) %>%
+                                    mutate(expand_by = ifelse(expand_by >= 400, 400, expand_by)))
+new_cores_projected <- rgeos::gBuffer(cores_projected, byid = TRUE, id = cores_projected@data$cluster_nu,
+                              width = cores_projected@data$expand_by)
+plot(clusters_projected, col = adjustcolor('red', alpha.f = 0.3), lwd = 0.2, lty = 3)
+plot(cores_projected, lty = 1, add = T)
+plot(new_cores_projected, lty = 2, add = T)
+text(coordinates(new_cores_projected), labels = new_cores_projected@data$cluster_nu, cex = 1,
+     col = adjustcolor('black', alpha.f = 0.5))
+points(eligibles_sp_projected, pch = '.')
 
+# Get aggregate statistics using 20 meter additional buffer, etc.
+o <- sp::over(eligibles_sp_projected, polygons(new_cores_projected))
+eligibles_sp_projected@data$in_expanded_core <- !is.na(o)
+eligibles_sp_projected@data$expanded_core_number <- new_cores_projected@data$cluster_nu[o]
+
+# Assign each child a priority number based on location within cluster
+st_eligibles <- sf::st_as_sf(eligibles_sp_projected)
+st_new_cores_projected <- sf::st_as_sf(new_cores_projected)
+st_clusters_projected <- sf::st_as_sf(clusters_projected)
+
+dist_for_edge <- st_geometry(obj = st_clusters_projected) %>%
+  st_cast(to = 'MULTILINESTRING') %>%
+  st_distance(y=st_eligibles)
+distances <- apply(dist_for_edge, 2, min)
+st_eligibles$distance_to_edge <- distances
+eligibles_sp_projected@data$distance_to_edge <- distances
+plot(clusters_projected)
+points(eligibles_sp_projected, add = T, pch = '.')
+ggplot(data = eligibles_sp_projected@data,
+       aes(x = lng,
+           y = lat,
+           color = distance_to_edge)) +
+  geom_point(size = 0.6, alpha = 0.6) +
+  theme_bw() +
+  scale_color_gradient(name = 'Distance\nto edge', low = 'yellow',
+                       high = 'black')
+
+# Assign number to each child
+priority_numbers <- eligibles_sp_projected@data %>%
+  # filter(!is.na(expanded_core_number)) %>%
+  arrange(desc(distance_to_edge)) %>%
+  mutate(dummy = 1) %>%
+  group_by(cluster_cluster_number) %>%
+  mutate(cs = cumsum(dummy)) %>%
+  ungroup %>%
+  dplyr::select(KEY, priority_number = cs)
+eligibles_sp_projected@data <- 
+  left_join(eligibles_sp_projected@data,
+            priority_numbers)
+
+# Plot relationship between priority number and distance to contamination
+ggplot(data = eligibles_sp_projected@data,
+       aes(x = priority_number,
+           y = distance_to_edge)) +
+  geom_point(alpha = 0.2, size = 2) +
+  labs(x = 'Priority number',
+       y = 'Distance to edge of cluster') 
 
 library(ggplot2)
 # refusal type of form by day
