@@ -126,6 +126,13 @@ people <- people %>%
   mutate(age_at_enrollment  = date_of_enrollment - dob) %>%
   mutate(age_at_enrollment = age_at_enrollment / 365.25) %>%
   mutate(efficacy_eligible = age_at_enrollment >= 5.0 & age_at_enrollment < 15.0)
+# Get amount in original core
+x <- people %>%
+  filter(efficacy_eligible) %>%
+  filter(in_core) %>%
+  group_by(core_cluster_number) %>%
+  tally
+
 # Get a dataframe of only efficacy eligible children
 eligibles <- people %>% filter(efficacy_eligible) %>%
   filter(in_cluster)
@@ -277,6 +284,38 @@ ggplot(data = eligibles_sp_projected@data,
   geom_point(alpha = 0.2, size = 2) +
   labs(x = 'Priority number',
        y = 'Distance to edge of cluster') 
+
+# Get the distance from cluster edge for the 25th kid in each cluster
+pd <- eligibles_sp_projected@data %>% filter(priority_number == 30) %>%
+  dplyr::select(expanded_core_number, distance_to_edge)
+ento <- read_csv('../randomization/outputs/table_1_ento_clusters.csv') %>% mutate(ento = TRUE)
+
+
+carlos <- left_join(out, pd %>% dplyr::rename(cluster_number = expanded_core_number)) %>%
+  mutate(cluster_number = as.numeric(cluster_number))
+carlos <- left_join(carlos, ento) %>% mutate(ento = ifelse(is.na(ento), FALSE, ento))
+carlos$social_science <- carlos$cluster_number %in% c(10, 11, 20, 42, 44, 50, 52, 61)
+# write_csv(carlos, '~/Desktop/carlos.csv')
+ggplot(data = carlos,
+       aes(x = expansion_meters,
+           y = distance_to_edge)) +
+  geom_point(alpha = 0.8, size = 2) +
+  geom_text_repel(aes(label = cluster_number), size = 2) +
+  geom_hline(yintercept = 240, lty = 2, col = 'red') +
+  ggthemes::theme_igray() +
+  labs(x = 'How many meters core must expand to reach >=35 efficacy eligibles',
+       y = 'Distance from contamination of efficacy-eligible child who is 30th least contaminated')
+table(carlos$distance_to_edge >= 240)
+
+drops <- carlos$cluster_number[is.na(carlos$distance_to_edge)]
+dropsb <- c(carlos$cluster_number[carlos$distance_to_edge <= 240])
+dropsb <- dropsb[!is.na(dropsb)]
+dropsb <- sort(unique(dropsb))
+drops <- sort(unique(c(drops, dropsb)))
+assignments <- read_csv('../randomization/outputs/assignments.csv')
+assignments$drop <- assignments$cluster_number %in% as.numeric(drops)
+assignments %>% group_by(assignment, drop) %>% tally
+
 
 library(ggplot2)
 # refusal type of form by day
