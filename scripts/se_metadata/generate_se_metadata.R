@@ -141,7 +141,6 @@ efficacy_departures <- efficacy %>%
   dplyr::select(hhid, todays_date, firstname, lastname, dob, sex, extid) %>% mutate(type = 'Departure')
 departures <- bind_rows(safety_departures, efficacy_departures)
 
-
 events <- bind_rows(arrivals, departures) %>% arrange(todays_date)
 
 # Get the starting roster
@@ -208,10 +207,43 @@ households <- roster %>%
             num_members = n()) %>%
   # get cluster
   left_join(v0demography %>% 
-              filter(!is.na(cluster)) %>%
+              # filter(!is.na(cluster)) %>%
               dplyr::distinct(hhid, .keep_all = TRUE) %>%
-              dplyr::select(hhid, cluster)) %>%
-  # get assignments
+              dplyr::select(hhid, cluster))
+
+# Get location and filter out households which are not in a cluster
+if(FALSE){ # not currently running since no test households are in clusters
+  households_sp <- households %>%
+    left_join(v0demography %>% 
+                dplyr::filter(!is.na(Longitude)) %>%
+                dplyr::distinct(hhid, .keep_all = TRUE) %>%
+                dplyr::select(lng = Longitude,
+                              lat = Latitude,
+                              hhid) %>%
+                dplyr::mutate(x = lng,
+                              y = lat)) %>%
+    filter(!is.na(x))
+  coordinates(households_sp) <- ~x+y
+  load('../../data_public/spatial/clusters.RData')
+  # buffer clusters by 20 meters so as to 
+  p4s <- "+proj=utm +zone=37 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+  crs <- CRS(p4s)
+  llcrs <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+  clusters_projected <- spTransform(clusters, crs)
+  proj4string(households_sp) <- llcrs
+  households_sp_projected <- spTransform(households_sp, crs)
+  clusters_projected_buffered <- rgeos::gBuffer(spgeom = clusters_projected, byid = TRUE, width = 20)
+  o <- sp::over(households_sp_projected, polygons(clusters_projected_buffered))
+  households_sp_projected@data$not_in_cluster <- is.na(o)
+  households <- households %>%
+    left_join(households_sp_projected@data %>% dplyr::select(not_in_cluster, hhid)) %>%
+    filter(!not_in_cluster) %>%
+    dplyr::select(-not_in_cluster)
+}
+
+
+# get assignments
+households <- households %>%
   left_join(assignments %>% dplyr::select(cluster = cluster_number,
                                           arm = assignment)) %>%
   # get interventions
@@ -229,7 +261,7 @@ individuals <- roster %>%
   left_join(households %>% dplyr::select(hhid, intervention, village, ward, cluster))
 
 # Get starting safety status
-right <- 
+starter <- 
   bind_rows(
     v0demography_repeat_individual %>%
       left_join(v0demography %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
@@ -243,13 +275,32 @@ right <-
     efficacy %>%
       dplyr::select(todays_date, extid, safety_status) %>% mutate(form = 'efficacy')
   ) %>%
-  arrange(desc(todays_date)) %>%
+  arrange(desc(todays_date))
+right <- starter %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   filter(!is.na(extid), !is.na(safety_status)) %>%
   dplyr::select(extid, starting_safety_status = safety_status) 
 # Any individual who is not in the above gets an "out" assignation
 individuals <- left_join(individuals, right) %>%
   mutate(starting_safety_status = ifelse(is.na(starting_safety_status), 'out', starting_safety_status))
+# Double check: any individual who was ever eos is always eos
+ever_eos <- starter %>% 
+  filter(!is.na(safety_status)) %>%
+  filter(safety_status == 'eos') %>% 
+  filter(!is.na(extid)) %>%
+  dplyr::distinct(extid) %>%
+  pull(extid)
+individuals$starting_safety_status[individuals$extid %in% ever_eos] <- 'eos'
+# Double check: any individual who was ever pregnant is always safety eos
+ever_pregnant <- 
+  bind_rows(
+    safety_repeat_individual %>% filter(!is.na(pregnancy_status)) %>%
+      filter(pregnancy_status == 'in') %>%
+      dplyr::select(extid),
+    pfu %>% 
+      dplyr::select(extid)) %>%
+  pull(extid)
+individuals$starting_safety_status[individuals$extid %in% ever_pregnant] <- 'eos'
 
 # Get starting weight
 right <- 
