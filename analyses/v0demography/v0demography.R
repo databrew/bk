@@ -222,7 +222,7 @@ ggplot(data = out,
        y = 'Number of efficacy-eligible kids in expanded core')
 
 
-# Expand the buffers by expansion_meters
+# Expand the cores by expansion_meters
 cores_projected@data <- left_join(cores_projected@data,
                                   out %>% dplyr::select(cluster_nu = cluster_number,
                                                         expansion_meters) %>%
@@ -308,13 +308,41 @@ ggplot(data = carlos,
 table(carlos$distance_to_edge >= 240)
 
 drops <- carlos$cluster_number[is.na(carlos$distance_to_edge)]
+dropsa <- drops
 dropsb <- c(carlos$cluster_number[carlos$distance_to_edge <= 240])
 dropsb <- dropsb[!is.na(dropsb)]
 dropsb <- sort(unique(dropsb))
 drops <- sort(unique(c(drops, dropsb)))
 assignments <- read_csv('../randomization/outputs/assignments.csv')
 assignments$drop <- assignments$cluster_number %in% as.numeric(drops)
+assignments %>% filter(drop)
 assignments %>% group_by(assignment, drop) %>% tally
+
+plot(clusters_projected_buffered)
+x <- clusters_projected_buffered
+x@data <- x@data %>% mutate(drop = cluster_nu %in% drops)
+plot(x[x@data$drop,], col = 'red', add = T)
+x@data <- x@data %>% mutate(dropa = cluster_nu %in% dropsa)
+plot(x[x@data$dropa,], col = 'darkred', add = T)
+text(coordinates(x), labels = x$cluster_nu)
+
+# August 1 2023, project has supplied list of clusters to remove
+removals <- c(1, 52, 71, 76, 89, 4, 6, 32, 66, 86, 35, 47)
+new_clusters_projected <- clusters_projected[!clusters_projected@data$cluster_nu %in% removals,]
+new_cores_projected <- new_cores_projected[!new_cores_projected@data$cluster_nu %in% removals,]
+plot(new_clusters_projected)
+plot(new_cores_projected, add = T)
+plot(cores_projected, add = T, col = 'grey')
+new_clusters <- spTransform()
+dir.create('../../data_public/spatial/new_clusters')
+dir.create('../../data_public/spatial/new_cores')
+crs_ll <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+new_cores <- spTransform(new_cores_projected, crs_ll)
+new_clusters <- spTransform(new_clusters_projected, crs_ll)
+plot(new_clusters)
+plot(new_cores, add = T)
+raster::shapefile(x = new_cores, '../../data_public/spatial/new_cores/new_cores.shp')
+raster::shapefile(x = new_cores, '../../data_public/spatial/new_clusters/new_clusters.shp')
 
 
 library(ggplot2)

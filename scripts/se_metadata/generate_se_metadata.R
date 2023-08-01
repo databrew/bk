@@ -25,9 +25,9 @@ if(is_production){
 }
 raw_or_clean <- 'clean'
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
-start_fresh <- TRUE
+start_fresh <- FALSE
 
-if(!start_fresh){
+if(start_fresh){
   # Log in
   tryCatch({
     logger::log_info('Attempt AWS login')
@@ -113,6 +113,22 @@ if(!start_fresh){
   load('data.RData')
 }
 
+# Define a date after which to retrieve data
+start_from <- as.Date('2023-08-01')
+efficacy <- efficacy %>% filter(todays_date >= start_from)
+pfu <- pfu %>% filter(todays_date >= start_from)
+pfu_repeat_preg_symptom <- pfu_repeat_preg_symptom %>% filter(PARENT_KEY %in% pfu$KEY)
+pk_day0 <- pk_day0 %>% filter(todays_date >= start_from)
+pkdays123 <- pkdays123  %>% filter(todays_date >= start_from)
+pkfollowup <- pkfollowup %>% filter(todays_date >= start_from)
+safety <- safety %>% filter(todays_date >= start_from)
+safety_repeat_ae_symptom <- safety_repeat_ae_symptom %>% filter(PARENT_KEY %in% safety$KEY)
+safety_repeat_drug <- safety_repeat_drug %>% filter(PARENT_KEY %in% safety$KEY)
+safety_repeat_individual <- safety_repeat_individual %>% filter(PARENT_KEY %in% safety$KEY)
+safetynew <- safetynew %>% filter(todays_date >= start_from)
+safetynew_repeat_individual <- safetynew_repeat_individual %>% filter(PARENT_KEY %in% KEY)
+v0demography <- v0demography %>% filter(todays_date >= start_from)
+v0demography_repeat_individual <- v0demography_repeat_individual %>% filter(PARENT_KEY %in% v0demography$KEY)
 
 # Get arrivals
 arrivals <- safetynew_repeat_individual %>%
@@ -153,20 +169,22 @@ starting_roster <- v0demography_repeat_individual %>%
   mutate(index = 1:nrow(.))
 
 # Go through each departure and remove people
-for(i in 1:nrow(departures)){
-  this_departure <- departures[i,]
-  this_removal <- starting_roster %>%
-    filter(extid == this_departure$extid,
-           hhid == this_departure$hhid)
-  if(nrow(this_removal) > 0){
-    message('OK: Departure of ', this_departure$extid, ' from household: ', this_departure$hhid)
-    starting_roster$remove[starting_roster$index %in% this_removal$index] <- TRUE
-  } else {
-    message('NOT OK: Departure of ', this_departure$extid, ' from household: ', this_departure$hhid, '. This person was not at this house in the first place, so skipping.')
-    
+if(nrow(departures) > 0){
+  for(i in 1:nrow(departures)){
+    this_departure <- departures[i,]
+    this_removal <- starting_roster %>%
+      filter(extid == this_departure$extid,
+             hhid == this_departure$hhid)
+    if(nrow(this_removal) > 0){
+      message('OK: Departure of ', this_departure$extid, ' from household: ', this_departure$hhid)
+      starting_roster$remove[starting_roster$index %in% this_removal$index] <- TRUE
+    } else {
+      message('NOT OK: Departure of ', this_departure$extid, ' from household: ', this_departure$hhid, '. This person was not at this house in the first place, so skipping.')
+      
+    }
   }
+  starting_roster <- starting_roster %>% filter(!remove)
 }
-starting_roster <- starting_roster %>% filter(!remove)
 
 # Go through each arrival and add
 roster <- bind_rows(
@@ -265,14 +283,18 @@ starter <-
   bind_rows(
     v0demography_repeat_individual %>%
       left_join(v0demography %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
+      mutate(todays_date = as.Date(todays_date), extid = as.character(extid), safety_status = as.character(safety_status)) %>%
       dplyr::select(todays_date, extid, safety_status) %>% mutate(form = 'v0demography'),
     safety_repeat_individual %>%
       left_join(safety %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
+      mutate(todays_date = as.Date(todays_date), extid = as.character(extid), safety_status = as.character(safety_status)) %>%
       dplyr::select(todays_date, extid, safety_status) %>% mutate(form = 'safety'),
     safetynew_repeat_individual %>%
       left_join(safetynew %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
+      mutate(todays_date = as.Date(todays_date), extid = as.character(extid), safety_status = as.character(safety_status)) %>%
       dplyr::select(todays_date, extid, safety_status) %>% mutate(form = 'safetynew'),
     efficacy %>%
+      mutate(todays_date = as.Date(todays_date), extid = as.character(extid), safety_status = as.character(safety_status)) %>%
       dplyr::select(todays_date, extid, safety_status) %>% mutate(form = 'efficacy')
   ) %>%
   arrange(desc(todays_date))
@@ -292,6 +314,7 @@ ever_eos <- starter %>%
   pull(extid)
 individuals$starting_safety_status[individuals$extid %in% ever_eos] <- 'eos'
 # Double check: any individual who was ever pregnant is always safety eos
+# THIS IS MISSING SOMETHING: PREGNANCY FROM SAFETYNEW
 ever_pregnant <- 
   bind_rows(
     safety_repeat_individual %>% filter(!is.na(pregnancy_status)) %>%
@@ -307,13 +330,17 @@ right <-
   bind_rows(
     safety_repeat_individual %>% filter(!is.na(current_weight)) %>%
       left_join(safety %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
+      mutate(todays_date = as.Date(todays_date), extid = as.character(extid), current_weight = as.character(current_weight)) %>%
       dplyr::select(todays_date, extid, starting_weight = current_weight) %>% mutate(form = 'safety'),
     safetynew_repeat_individual %>% filter(!is.na(current_weight)) %>%
       left_join(safetynew %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
+      mutate(todays_date = as.Date(todays_date), extid = as.character(extid), current_weight = as.character(current_weight)) %>%
       dplyr::select(todays_date, extid, starting_weight = current_weight) %>% mutate(form = 'safetynew'),
     efficacy %>% filter(!is.na(current_weight)) %>%
+      mutate(todays_date = as.Date(todays_date), extid = as.character(extid), current_weight = as.character(current_weight)) %>%
       dplyr::select(todays_date, extid, starting_weight = current_weight) %>% mutate(form = 'efficacy'),
     pfu %>% filter(!is.na(weight)) %>%
+      mutate(todays_date = as.Date(todays_date), extid = as.character(extid), weight = as.character(weight)) %>%
       dplyr::select(todays_date, extid, starting_weight = weight) %>% mutate(form = 'pfu')
   ) %>%
   filter(!is.na(extid), !is.na(starting_weight)) %>%
@@ -329,12 +356,15 @@ right <-
       mutate(height = ifelse(is.na(height), height_short, height)) %>%
       filter(!is.na(height)) %>%
       left_join(safety %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
-      dplyr::select(todays_date, extid, starting_height = height) %>% mutate(form = 'safety'),
+      dplyr::select(todays_date, extid, starting_height = height) %>% mutate(form = 'safety') %>%
+      mutate(todays_date = as.Date(todays_date), extid = as.character(extid), starting_height = as.character(starting_height)),
     safetynew_repeat_individual %>% filter(!is.na(height)) %>%
       left_join(safetynew %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
-      dplyr::select(todays_date, extid, starting_height = height) %>% mutate(form = 'safetynew'),
+      dplyr::select(todays_date, extid, starting_height = height) %>% mutate(form = 'safetynew') %>%
+      mutate(todays_date = as.Date(todays_date), extid = as.character(extid), starting_height = as.character(starting_height)),
     efficacy %>% filter(!is.na(height)) %>%
-      dplyr::select(todays_date, extid, starting_height = height) %>% mutate(form = 'efficacy')
+      dplyr::select(todays_date, extid, starting_height = height) %>% mutate(form = 'efficacy') %>%
+      mutate(todays_date = as.Date(todays_date), extid = as.character(extid), starting_height = as.character(starting_height))
   ) %>%
   filter(!is.na(extid), !is.na(starting_height)) %>%
   arrange(desc(todays_date)) %>%
@@ -364,12 +394,12 @@ right <- bind_rows(
   filter(!is.na(pk_status), !is.na(extid)) %>%
   arrange(desc(todays_date)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
-  dplyr::select(extid, pk_status)
+  dplyr::select(extid, starting_pk_status = pk_status)
 individuals <- left_join(individuals, right) %>%
   # if one is pk pre-selected by not in any of the "right" data, she is "out"; otherwise NA
-  mutate(pk_status = ifelse(is.na(pk_status) & extid %in% pk_ids, 
+  mutate(starting_pk_status = ifelse(is.na(starting_pk_status) & extid %in% pk_ids, 
                             'out',
-                            pk_status))
+                            starting_pk_status))
 
 # Get efficacy status (placeholder) ################################################
 individuals$efficacy_preselected <- sample(c(NA, 0, 1), nrow(individuals), replace = TRUE) ############### placeholder
@@ -382,7 +412,8 @@ right <-
   filter(!is.na(efficacy_status)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::mutate(starting_efficacy_status = efficacy_status) %>%
-  dplyr::select(extid, starting_efficacy_status)
+  dplyr::select(extid, starting_efficacy_status) %>%
+  mutate(extid = as.character(extid))
 # if someone has not yet been visited in efficacy AND they are preselected, they should get
 # a starting status of "out"
 individuals <- left_join(individuals, right) %>%
@@ -412,7 +443,10 @@ right <-
   filter(person_present_continue == 1) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::mutate(efficacy_absent_most_recent_visit = as.numeric(gsub('V', '', visit))) %>%
-  dplyr::select(extid, efficacy_most_recent_visit_present)
+  dplyr::select(extid, efficacy_most_recent_visit_present,
+                efficacy_most_recent_present_date = todays_date) %>%
+  mutate(efficacy_most_recent_present_date = paste0('.', as.character(efficacy_most_recent_present_date))) %>%
+  mutate(extid = as.character(extid))
 individuals <- left_join(individuals, right) 
 
 # efficacy_visits_done
@@ -428,11 +462,16 @@ if(nrow(right) > 0){
 }
 
 # starting_pregnancy_status
+# THIS IS MISSING SOMETHING, PREGNANCY STATUS FROM SAFETYNEW
 right <-   
   bind_rows(
     safety_repeat_individual %>% filter(!is.na(pregnancy_status)) %>%
       left_join(safety %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
       dplyr::select(todays_date, extid, pregnancy_status) %>% mutate(form = 'safety'),
+    # safetynew_repeat_individual %>% filter(!is.na(pregnant_yn)) %>%
+    #   left_join(safetynew %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
+    #   dplyr::select(todays_date, extid, pregnancy_status) %>% mutate(form = 'safetynew'), #???
+    
     pfu %>% filter(!is.na(pregnancy_status)) %>%
       dplyr::select(todays_date, extid, pregnancy_status) %>% mutate(form = 'pfu')
   ) %>%
@@ -443,44 +482,12 @@ right <-
 individuals <- left_join(individuals, right)
 
 # pregnancy_consecutive_absences	 ########################## 
-individuals$pregnancy_consecutive_absences <- sample(c(NA, 0:7), nrow(individuals), replace = TRUE)
+individuals$pregnancy_consecutive_absences <- NA #sample(c(NA, 0:7), nrow(individuals), replace = TRUE)
 # See documentation at https://docs.google.com/document/d/1BVMsJE1KX0gG5Blu21HrGbuZ15x93cdRYiThyNp6jDQ/edit
-# pregnant_visits <- 
-#   bind_rows(
-#     safety_repeat_individual %>% filter(!is.na(pregnancy_status)) %>%
-#       left_join(safety %>% dplyr::select(KEY, todays_date, visit), by = c('PARENT_KEY' = 'KEY')) %>%
-#       dplyr::select(todays_date, extid, pregnancy_status, visit) %>% mutate(form = 'safety'),
-#     pfu %>% filter(!is.na(pregnancy_status)) %>%
-#       dplyr::select(todays_date, extid, pregnancy_status, visit) %>% mutate(form = 'pfu')
-#   ) %>%
-#   filter(!is.na(extid), !is.na(pregnancy_status)) %>%
-#   filter(pregnancy_status != 'out')
-# first_pregnant_observation <- pregnant_visits %>%
-#   # keep first pregnant visit
-#   arrange((todays_date)) %>%
-#   dplyr::distinct(extid, .keep_all = TRUE) %>%
-#   mutate(visit = as.numeric(gsub('V', '', visit)))
-# if(nrow(first_pregnant_observation) > 0){
-#   # get a table of all times the person should have been followed up,
-#   # ie from first pregnant observation until now
-#   out_list <- list()
-#   for(i in 1:nrow(first_pregnant_observation)){
-#     # get the first pregnancy visit
-#     pd <- first_pregnant_observation[i,] %>% dplyr::select(extid, visit) 
-#     # get a sequence from the first visit to the most recent visit
-#     # (ie, the one prior to "visit_number" variable)
-#     possible_pregnancy_visits <- seq(pd$visit, (visit_number-1))
-#     left <- tibble(extid = pd$extid,
-#                    visit = possible_pregnancy_visits) %>%
-#       left_join(pregnant_visits %>% 
-#                   dplyr::distinct(extid, visit) %>%
-#                   mutate(visit = as.numeric(gsub('V', '', visit))) %>%
-#                   mutate(absent = FALSE)) %>%
-#       mutate(absent = ifelse(is.na(absent), TRUE, absent))
-#     
-#   }
-# }
-  
+# July 31 2023: agreed with Xing to deprecate this in favor of "date of last non-absent pregnancy visit"
+
+
+
 #pregnancy_most_recent_visit_present	
 right <- 
   pfu %>% arrange(desc(todays_date)) %>%
@@ -488,7 +495,9 @@ right <-
   filter(person_present_continue == 1) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::mutate(pregnancy_most_recent_visit_present = as.numeric(gsub('V', '', visit))) %>%
-  dplyr::select(extid, pregnancy_most_recent_visit_present)
+  dplyr::select(extid, pregnancy_most_recent_visit_present,
+                pregnancy_most_recent_present_date = todays_date) %>%
+  mutate(pregnancy_most_recent_present_date = paste0('.', as.character(pregnancy_most_recent_present_date)))
 individuals <- left_join(individuals, right) 
 
 # pregnancy_visits_done
