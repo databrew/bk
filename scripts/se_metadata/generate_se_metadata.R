@@ -25,7 +25,7 @@ if(is_production){
 }
 raw_or_clean <- 'clean'
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
-start_fresh <- FALSE
+start_fresh <- TRUE
 
 if(start_fresh){
   # Log in
@@ -242,12 +242,12 @@ if(FALSE){ # not currently running since no test households are in clusters
                               y = lat)) %>%
     filter(!is.na(x))
   coordinates(households_sp) <- ~x+y
-  load('../../data_public/spatial/clusters.RData')
+  load('../../data_public/spatial/new_clusters.RData')
   # buffer clusters by 20 meters so as to 
   p4s <- "+proj=utm +zone=37 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
   crs <- CRS(p4s)
   llcrs <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
-  clusters_projected <- spTransform(clusters, crs)
+  clusters_projected <- spTransform(new_clusters, crs)
   proj4string(households_sp) <- llcrs
   households_sp_projected <- spTransform(households_sp, crs)
   clusters_projected_buffered <- rgeos::gBuffer(spgeom = clusters_projected, byid = TRUE, width = 20)

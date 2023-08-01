@@ -343,7 +343,8 @@ plot(new_clusters)
 plot(new_cores, add = T)
 raster::shapefile(x = new_cores, '../../data_public/spatial/new_cores/new_cores.shp')
 raster::shapefile(x = new_cores, '../../data_public/spatial/new_clusters/new_clusters.shp')
-
+save(new_cores, file = '../../data_public/spatial/new_cores.RData')
+save(new_clusters, file = '../../data_public/spatial/new_clusters.RData')
 
 library(ggplot2)
 # refusal type of form by day
