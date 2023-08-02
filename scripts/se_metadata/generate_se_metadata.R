@@ -1,6 +1,3 @@
-# visit for which metadata is being prepared
-visit_number <- 1
-
 # https://trello.com/c/QORpzA5d/1938-se-metadata-scripting
 # https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=389444343
 
@@ -113,6 +110,25 @@ if(start_fresh){
   load('data.RData')
 }
 
+# Make household ID 5 characters
+add_zero <- function (x, n) {
+  x <- as.character(x)
+  adders <- n - nchar(x)
+  adders <- ifelse(adders < 0, 0, adders)
+  for (i in 1:length(x)) {
+    if (!is.na(x[i])) {
+      x[i] <- paste0(paste0(rep("0", adders[i]), collapse = ""), 
+                     x[i], collapse = "")
+    }
+  }
+  return(x)
+}
+v0demography <- v0demography %>% mutate(hhid = add_zero(hhid, n = 5))
+safety <- safety %>% mutate(hhid = add_zero(hhid, n = 5))
+safetynew <- safetynew %>% mutate(hhid = add_zero(hhid, n = 5))
+efficacy <- efficacy %>% mutate(hhid = add_zero(hhid, n = 5))
+
+
 # Define a date after which to retrieve data
 start_from <- as.Date('2023-08-01')
 efficacy <- efficacy %>% filter(todays_date >= start_from)
@@ -129,6 +145,10 @@ safetynew <- safetynew %>% filter(todays_date >= start_from)
 safetynew_repeat_individual <- safetynew_repeat_individual %>% filter(PARENT_KEY %in% KEY)
 v0demography <- v0demography %>% filter(todays_date >= start_from)
 v0demography_repeat_individual <- v0demography_repeat_individual %>% filter(PARENT_KEY %in% v0demography$KEY)
+
+
+
+
 
 # Get arrivals
 arrivals <- safetynew_repeat_individual %>%
@@ -198,9 +218,27 @@ roster <- bind_rows(
                               extid, ')')) %>%
   dplyr::select(hhid, extid, firstname, lastname, sex, dob, roster_name) 
 
-# Prepare some external datasets
-assignments <- read_csv('../../analyses/randomization/outputs/assignments.csv')
-intervention_assignment <- read_csv('../../analyses/randomization/outputs/intervention_assignment.csv')
+# Prepare some external datasets # NEEDS TO BE CHANGED FOR REAL DATA COLLECTION
+if(FALSE){
+  # actual randomization status
+  assignments <- read_csv('../../analyses/randomization/outputs/assignments.csv')
+  intervention_assignment <- read_csv('../../analyses/randomization/outputs/intervention_assignment.csv')
+} else {
+  # fake randomization statuses created by paula in 
+  # https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203
+  # g <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203')
+  # g <- g %>% dplyr::distinct(cluster, intervention) %>% 
+  #   arrange(intervention)
+  intervention_assignment <- tibble(arm = 2:1, intervention = c('Control', 'Treatment'))
+  assignments <- 
+    structure(list(cluster_number = c(12, 20, 34, 35, 56, 72), 
+                   location = c("North", 
+                                "North", "North", "North", "North", "South"),
+                   assignment = c(2, 2, 1, 2, 1, 1)), 
+              row.names = c(NA, 
+                            -6L), 
+              class = c("tbl_df", "tbl", "data.frame"))
+}
 
 # Get household heads and geographic information
 heads <- v0demography_repeat_individual %>% 
@@ -374,7 +412,11 @@ individuals <- left_join(individuals, right)
 
 # Get pk_status
 # Get pk status ################################################# (placeholder)
-individuals$pk_preselected <- sample(c(NA, 0, 1), nrow(individuals), replace = TRUE) ############# placeholder
+# individuals$pk_preselected <- sample(c(NA, 0, 1), nrow(individuals), replace = TRUE) ############# placeholder
+# g <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203')
+# g$extid[g$pk_preselected == 1]
+pk_preselected_ids <- c("01000-01", "56123-01")
+individuals$pk_preselected <- ifelse(individuals$extid %in% pk_preselected_ids, 1, 0)
 pk_ids <- sort(unique(individuals$extid[individuals$pk_preselected == 1]))
 right <- bind_rows(
   safety_repeat_individual %>% 
@@ -401,8 +443,12 @@ individuals <- left_join(individuals, right) %>%
                             'out',
                             starting_pk_status))
 
-# Get efficacy status (placeholder) ################################################
-individuals$efficacy_preselected <- sample(c(NA, 0, 1), nrow(individuals), replace = TRUE) ############### placeholder
+# # Get efficacy status (placeholder) ################################################
+# g <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203')
+# g$extid[g$efficacy_preselected == 1]
+efficacy_preselected_ids <- c("01000-01", "01000-04", "12013-03", "34102-02", "34102-03", 
+                              "20001-01", "20001-02", "72034-01", "72034-02")
+individuals$efficacy_preselected <- ifelse(individuals$extid %in% efficacy_preselected_ids, 1, 0)
 efficacy_ids <- sort(unique(individuals$extid[individuals$efficacy_preselected == 1]))
 
 # Get some further efficacy status variables
