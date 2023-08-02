@@ -231,12 +231,12 @@ if(FALSE){
   #   arrange(intervention)
   intervention_assignment <- tibble(arm = 2:1, intervention = c('Control', 'Treatment'))
   assignments <- 
-    structure(list(cluster_number = c(12, 20, 34, 35, 56, 72), 
-                   location = c("North", 
+    structure(list(cluster_number = c(1, 12, 20, 34, 35, 56, 72), 
+                   location = c("North", 'North',
                                 "North", "North", "North", "North", "South"),
-                   assignment = c(2, 2, 1, 2, 1, 1)), 
+                   assignment = c(1, 2, 2, 1, 2, 1, 1)), 
               row.names = c(NA, 
-                            -6L), 
+                            -7L), 
               class = c("tbl_df", "tbl", "data.frame"))
 }
 
