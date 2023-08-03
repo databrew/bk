@@ -22,7 +22,7 @@ if(is_production){
 }
 raw_or_clean <- 'clean'
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
-start_fresh <- TRUE
+start_fresh <- FALSE
 
 if(start_fresh){
   # Log in

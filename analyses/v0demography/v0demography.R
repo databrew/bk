@@ -201,7 +201,7 @@ for(i in 1:length(cluster_numbers)){
   }
 }
 out <- bind_rows(out_list)
-write_csv(out, '~/Desktop/slack/table_of_results.csv')
+# write_csv(out, '~/Desktop/slack/table_of_results.csv')
 # the above is a dataframe of the necessary expansion to reach X kids
 summary(out$expansion_meters)
 table(out$n_eligibles >= 35)
@@ -327,24 +327,65 @@ plot(x[x@data$dropa,], col = 'darkred', add = T)
 text(coordinates(x), labels = x$cluster_nu)
 
 # August 1 2023, project has supplied list of clusters to remove
-removals <- c(1, 52, 71, 76, 89, 4, 6, 32, 66, 86, 35, 47)
-new_clusters_projected <- clusters_projected[!clusters_projected@data$cluster_nu %in% removals,]
-new_cores_projected <- new_cores_projected[!new_cores_projected@data$cluster_nu %in% removals,]
-plot(new_clusters_projected)
-plot(new_cores_projected, add = T)
-plot(cores_projected, add = T, col = 'grey')
-new_clusters <- spTransform()
-dir.create('../../data_public/spatial/new_clusters')
-dir.create('../../data_public/spatial/new_cores')
-crs_ll <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
-new_cores <- spTransform(new_cores_projected, crs_ll)
-new_clusters <- spTransform(new_clusters_projected, crs_ll)
-plot(new_clusters)
-plot(new_cores, add = T)
-raster::shapefile(x = new_cores, '../../data_public/spatial/new_cores/new_cores.shp')
-raster::shapefile(x = new_cores, '../../data_public/spatial/new_clusters/new_clusters.shp')
-save(new_cores, file = '../../data_public/spatial/new_cores.RData')
-save(new_clusters, file = '../../data_public/spatial/new_clusters.RData')
+if(FALSE){
+  removals <- c(1, 52, 71, 76, 89, 4, 6, 32, 66, 86, 35, 47)
+  new_clusters_projected <- clusters_projected[!clusters_projected@data$cluster_nu %in% removals,]
+  new_cores_projected <- new_cores_projected[!new_cores_projected@data$cluster_nu %in% removals,]
+  plot(new_clusters_projected)
+  plot(new_cores_projected, add = T)
+  plot(cores_projected, add = T, col = 'grey')
+  new_clusters <- spTransform()
+  dir.create('../../data_public/spatial/new_clusters')
+  dir.create('../../data_public/spatial/new_cores')
+  crs_ll <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+  new_cores <- spTransform(new_cores_projected, crs_ll)
+  new_clusters <- spTransform(new_clusters_projected, crs_ll)
+  plot(new_clusters)
+  plot(new_cores, add = T)
+  raster::shapefile(x = new_cores, '../../data_public/spatial/new_cores/new_cores.shp')
+  raster::shapefile(x = new_clusters, '../../data_public/spatial/new_clusters/new_clusters.shp')
+  save(new_cores, file = '../../data_public/spatial/new_cores.RData')
+  save(new_clusters, file = '../../data_public/spatial/new_clusters.RData')
+} else {
+  load('../../data_public/spatial/new_cores.RData')
+  load('../../data_public/spatial/new_clusters.RData')
+}
+
+# all total number of households recruited in each cluster minus the dropped 12 cluster
+# https://trello.com/c/dbYER2N2/1962-generate-total-number-of-households-recruited-in-each-cluster
+o <- sp::over(v0demography_spatial, polygons(new_clusters))
+pd <- v0demography_spatial@data
+pd$cluster_new <- new_clusters@data$cluster_nu[o]
+out_of_cluster <- pd %>% filter(is.na(cluster_new))
+
+new_clusters_fortified <- fortify(new_clusters, regions = new_clusters@data$cluster_nu)
+ggplot() +
+  geom_polygon(data = new_clusters_fortified,
+               aes(x = long,
+                   y = lat,
+                   group = group)) +
+  geom_point(data = out_of_cluster,
+             aes(x = Longitude,
+                 y = Latitude),
+             color = 'red',
+             size = 0.3)
+
+
+pdx <- pd %>% dplyr::select(-cluster) %>%
+  group_by(cluster = cluster_new) %>%
+  summarise(households = n(),
+            individuals = sum(num_hh_members)) %>%
+  ungroup %>%
+  mutate(cluster = as.numeric(cluster)) %>%
+  arrange(cluster)
+pdz <- tidyr::gather(pdx, key, value, households:individuals)
+ggplot(data = pdz,
+       aes(x = cluster,
+           y = value,
+           group = key,
+           fill = key)) +
+  geom_bar(stat = 'identity', position = position_dodge())
+write_csv(pdx, '~/Desktop/cluster_n_households.csv')
 
 library(ggplot2)
 # refusal type of form by day
