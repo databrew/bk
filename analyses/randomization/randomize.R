@@ -15,8 +15,17 @@ clusters <- tibble(
 
 
 # Load in spatial files
-load('../recon_clustering/final/cores.RData')
-load('../recon_clustering/final/buffers.RData')
+
+## DEPRECATED AS OF AUG 1 2023
+# load('../recon_clustering/final/cores.RData')
+# load('../recon_clustering/final/buffers.RData')
+
+load('../../data_public/spatial/new_cores.RData')
+load('../../data_public/spatial/new_clusters.RData')
+cores <- new_cores
+clusters <- new_clusters
+# buffers <- rgeos::gDifference(clusters, cores)
+
 
 # Plot to see what is above/below the highway
 if(FALSE){
@@ -59,6 +68,18 @@ if('assignments.csv' %in% dir('outputs')){
     left_join(clusters) %>%
     arrange(location) %>%
     mutate(assignment = c(assignment_options_north, assignment_options_south))
+  # Manual changes per project direction August 3, 2023
+  # https://bohemiakenya.slack.com/archives/C03DXF6SPC2/p1690899640727899
+  # ento needs to be re-assigned in paired ways
+  ento_pairs <- tibble(
+    cluster = c(2, 7, 12, 25, 34, 40, 82, 69, 74, 75, 79, 87),
+    grp =     c(2, 7, 2,  25, 25, 7,  74, 69, 74, 69, 79, 79)
+  )
+  ento_pairs <- ento_pairs %>% dplyr::sample_n(nrow(.)) %>% mutate(dummy = 1) %>% group_by(grp) %>% mutate(new_assignment = cumsum(dummy)) %>% ungroup %>% arrange(grp, new_assignment) %>% dplyr::select(cluster, new_assignment)
+  assignments <- left_join(assignments, ento_pairs %>% dplyr::rename(cluster_number = cluster)) %>%
+    mutate(assignment = ifelse(is.na(new_assignment), assignment, new_assignment))
+  assignments$new_assignment <- NULL
+  assignments <- assignments[assignments$cluster_number %in% new_clusters$cluster_nu,]
   # Write a csv
   write_csv(assignments, 'outputs/assignments.csv')
   file.copy('outputs/assignments.csv', '../../data_public/randomization/assignments.csv')
@@ -172,6 +193,8 @@ if('table_1_ento_clusters.csv' %in% dir('outputs/')){
     #          35, 38, 41, 47, 48, 52, 55), 1)
     # 52
     ento_clusters$cluster_number[ento_clusters$cluster_number == 47] <- 52
+    # Manual replacement of cluster 52 with 82, as per project request Aug 3 2023
+    ento_clusters$cluster_number[ento_clusters$cluster_number == 52] <- 82
     write_csv(ento_clusters, 'outputs/table_1_ento_clusters.csv')
   }
 } else {
