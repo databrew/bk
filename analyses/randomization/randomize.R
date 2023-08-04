@@ -89,11 +89,15 @@ if('assignments.csv' %in% dir('outputs')){
 if(FALSE){
   
   # Inspect
-  cores@data <- left_join(cores@data, assignments)
+  cores@data <- left_join(cores@data %>%
+                            mutate(cluster_number = as.numeric(cluster_nu)), 
+                          assignments)
   l <- leaflet() %>%
     addTiles() %>%
-    addPolygons(data = buffers, fillColor = 'grey', color = 'grey', fillOpacity = 0.5, weight = 0,
-                label = buffers@data$cluster_number) %>%
+    addPolygons(data = clusters, fillColor = 'grey', color = 'grey', fillOpacity = 0.5, weight = 0,
+                label = clusters@data$cluster_nu,
+                labelOptions = list('permanent' = TRUE,
+                                    'autclose' = FALSE)) %>%
     addPolygons(data = cores[cores@data$assignment == 1,],
                 label = paste0('Cluster ', cores@data$cluster_number[cores@data$assignment == 1], '. Assignment = 1'),
                 weight = 1,
@@ -108,6 +112,7 @@ if(FALSE){
                 #                     'autclose' = FALSE),
                 fillColor = 'red', color = 'red'
     )
+  htmltools::save_html(l, file = '~/Desktop/kwaleclustermap.html')
   
   # See some social science stuff
   # hh <- readOGR('../../data_public/spatial/households/', 'households')
@@ -121,9 +126,11 @@ if(FALSE){
 
 # Spatial file for Almu
 if(FALSE){
-  load('../recon_clustering/final/clusters.RData')
+  # load('../recon_clustering/final/clusters.RData')
   almu <- clusters 
-  almu@data <- left_join(almu@data, assignments)
+  almu@data <- left_join(almu@data  %>%
+                           mutate(cluster_number = as.numeric(cluster_nu)), 
+                         assignments)
   raster::shapefile(x = almu, file = "clusters_with_assignment.shp", overwrite = TRUE)
 }
 
@@ -132,48 +139,221 @@ if(FALSE){
 # ENTOMOLOGY
 ###########################
 
+clusters$cluster_number <- as.numeric(clusters@data$cluster_nu)
+cores$cluster_number <- as.numeric(cores@data$cluster_nu)
 # https://docs.google.com/document/d/1MNiDi-Jln-CrNrFMgzgReJqSGkIJ1FCSaagQbxcmjOk/edit#heading=h.vo9rz17me9hc
 
-# Start by reading in the "curated" recon data
-# https://s3.console.aws.amazon.com/s3/object/databrew.org?region=us-east-1&prefix=kwale/recon/clean-form/reconbhousehold/reconbhousehold.csv
-recon <- read_csv('inputs/reconbhousehold.csv')
-# https://s3.console.aws.amazon.com/s3/object/databrew.org?region=us-east-1&prefix=kwale/recon/clean-form/reconbhousehold/curated_recon_household_data.csv
-recon_curated <- read_csv('inputs/curated_recon_household_data.csv')
+# August 4 re-do, instead of using recon data, use v0demography data
+# Define production
+is_production <- TRUE
+Sys.setenv(PIPELINE_STAGE = ifelse(is_production, 'production', 'develop')) # change to production
+env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
+start_fresh <- TRUE
 
-# Process households for preparation for household-specific deliverables
-# Get sub-counties for use in final output
-# load('../recon_clustering/final/clusters.RData')
-load('../../data_public/spatial/clusters.RData')
+if(start_fresh){
+  # Log in
+  tryCatch({
+    logger::log_info('Attempt AWS login')
+    # login to AWS - this will be bypassed if executed in CI/CD environment
+    cloudbrewr::aws_login(
+      role_name = 'cloudbrewr-aws-role',
+      profile_name =  'cloudbrewr-aws-role',
+      pipeline_stage = env_pipeline_stage)
+    
+  }, error = function(e){
+    logger::log_error('AWS Login Failed')
+    stop(e$message)
+  })
+  
+  
+  # Define datasets for which I'm retrieving data
+  datasets <- c('v0demography', 'sev0rab', 'sev0ra')
+  datasets_names <- datasets
+  # Loop through each dataset and retrieve
+  # bucket <- 'databrew.org'
+  # folder <- 'kwale'
+  bucket <- 'databrew.org'
+  if(is_production){
+    folder <- 'kwale'
+  } else {
+    folder <- 'kwale_testing'
+  }
+  
+  for(i in 1:length(datasets)){
+    this_dataset <- datasets[i]
+    object_keys <- glue::glue('/{folder}/clean-form/{this_dataset}',
+                              folder = folder,
+                              this_dataset = this_dataset)
+    output_dir <- glue::glue('{folder}/clean-form/{this_dataset}',
+                             folder = folder,
+                             this_dataset = this_dataset)
+    dir.create(object_keys, recursive = TRUE, showWarnings = FALSE)
+    print(object_keys)
+    cloudbrewr::aws_s3_bulk_get(
+      bucket = bucket,
+      prefix = as.character(object_keys),
+      output_dir = output_dir
+    )
+  }
+  
+  v0demography <- read_csv('kwale/clean-form/v0demography/v0demography.csv')
+  v0demography_repeat_individual <- read_csv('kwale/clean-form/v0demography/v0demography-repeat_individual.csv')
+  ra <- read_csv('kwale/clean-form/sev0ra/sev0ra.csv') %>% dplyr::select(todays_date, Longitude, Latitude, cluster, refusal_or_absence, form_version = FormVersion, hhid, recon_hhid_map_manual, recon_hhid_painted_manual) %>% mutate(version = 'a')
+  rab <- read_csv('kwale/clean-form/sev0rab/sev0rab.csv') %>% dplyr::select(todays_date, Longitude, Latitude, cluster, refusal_or_absence, form_version = FormVersion, hhid, recon_hhid_map_manual, recon_hhid_painted_manual) %>% mutate(version = 'b')
+  rx <- bind_rows(ra, rab) %>%
+    mutate(id = ifelse(is.na(hhid), recon_hhid_map_manual, hhid)) %>%
+    mutate(id = ifelse(is.na(id), recon_hhid_painted_manual, id)) %>%
+    mutate(recon_id = ifelse(!is.na(recon_hhid_map_manual), recon_hhid_map_manual, recon_hhid_painted_manual))
+  save(ra, rab, rx, v0demography, v0demography_repeat_individual, file = 'data.RData')
+} else {
+  load('data.RData')
+}
 
-# Get sub-counties
-sub_counties <- recon %>%
-  group_by(ward, community_health_unit, village, sub_county) %>%
-  tally %>%
-  ungroup %>%
-  arrange(desc(n)) %>%
-  dplyr::distinct(ward, .keep_all = TRUE) %>%
-  dplyr::select(ward, sub_county) %>%
-  filter(!is.na(ward))
 
-# Read in and organize recon data
-hhsp <- readOGR('../../data_public/spatial/households/', 'households')
-hhsp@data <- left_join(hhsp@data %>% dplyr::rename(hh_id_clean = hh_id) %>% dplyr::select(-village, ward),
-                       recon_curated %>% dplyr::select(hh_id_raw, hh_id_clean,
-                                                       community_health_unit,
-                                                       village,
-                                                       ward))
+if(FALSE){
+  # DEPRECATED, USING RECON DATA
+  # Start by reading in the "curated" recon data
+  # https://s3.console.aws.amazon.com/s3/object/databrew.org?region=us-east-1&prefix=kwale/recon/clean-form/reconbhousehold/reconbhousehold.csv
+  recon <- read_csv('inputs/reconbhousehold.csv')
+  # https://s3.console.aws.amazon.com/s3/object/databrew.org?region=us-east-1&prefix=kwale/recon/clean-form/reconbhousehold/curated_recon_household_data.csv
+  recon_curated <- read_csv('inputs/curated_recon_household_data.csv')
+  
+
+  
+  # Process households for preparation for household-specific deliverables
+  # Get sub-counties for use in final output
+  # load('../recon_clustering/final/clusters.RData')
+  load('../../data_public/spatial/clusters.RData')
+  
+  # Get sub-counties
+  sub_counties <- recon %>%
+    group_by(ward, community_health_unit, village, sub_county) %>%
+    tally %>%
+    ungroup %>%
+    arrange(desc(n)) %>%
+    dplyr::distinct(ward, .keep_all = TRUE) %>%
+    dplyr::select(ward, sub_county) %>%
+    filter(!is.na(ward))
+  
+  # Read in and organize recon data
+  hhsp <- readOGR('../../data_public/spatial/households/', 'households')
+  hhsp@data <- left_join(hhsp@data %>% dplyr::rename(hh_id_clean = hh_id) %>% dplyr::select(-village, ward),
+                         recon_curated %>% dplyr::select(hh_id_raw, hh_id_clean,
+                                                         community_health_unit,
+                                                         village,
+                                                         ward))
+  
+  # Make community health unit map
+  library(dismo)
+  library(rgeos)
+  
+  data <- hhsp@data %>% mutate(lng = Longitude, lat = Latitude) %>% mutate(x = lng, y = lat)
+  cluster_points <- data %>% dplyr::select(x, y, community_health_unit)
+  coordinates(cluster_points) <- ~x+y
+  proj4string(cluster_points) <- proj4string(clusters)
+  row.names(cluster_points) <- 1:nrow(cluster_points)
+  cluster_points$median_distance <- NA
+  # Remove outliers (will take a a couple of minutes)
+  for(i in 1:nrow(cluster_points)){
+    message(i, ' of ', nrow(cluster_points))
+    this_point <- cluster_points[i,]
+    other_points_in_chu <- cluster_points[cluster_points$community_health_unit == this_point$community_health_unit,]
+    distances <- rgeos::gDistance(this_point, other_points_in_chu, byid = TRUE)
+    median_distance <- median(distances)
+    cluster_points$median_distance[i] <- median_distance
+  }
+  # Remove those with large median distance
+  cluster_points <- cluster_points[cluster_points$median_distance <= 0.04,]
+  
+  # voronoi tesselation
+  v <- dismo::voronoi(cluster_points)
+  # inspect
+  plot(v)
+  # collapse
+  library(rgeos)
+  x = gUnaryUnion(v, id = v$community_health_unit, checkValidity = 2)
+  # match row names
+  ward_table <- cluster_points@data %>% group_by(community_health_unit) %>% tally
+  ward_table <- data.frame(ward_table)
+  row.names(ward_table) <- as.character(ward_table$community_health_unit)
+  # make polygons dataframe
+  dfv <- SpatialPolygonsDataFrame(Sr = x, data = ward_table, match.ID = TRUE)
+  # inspect data
+  dfv@data
+  # reproject
+  proj4string(dfv) <- proj4string(clusters)
+  # clip
+  load('../../data_public/spatial/pongwe_kikoneni_ramisi.RData')
+  pk <- pongwe_kikoneni_ramisi
+  r <- gIntersection(pk, dfv, byid = TRUE)
+  ids <- c()
+  for(i in 1:30){
+    ids[i] <- r@polygons[[i]]@ID
+  }
+  ids <- substr(ids, 8, nchar(ids))
+  ids_table <- tibble(community_health_unit = ids)
+  ids_table <- data.frame(ids_table)
+  ids_table <- ids_table %>% mutate(dummy = 1) %>% group_by(community_health_unit) %>%
+    mutate(cs = cumsum(dummy)) %>%
+    ungroup %>% mutate(community_health_unit = paste0(community_health_unit, ' ', cs))
+  row.names(ids_table) <- ids_table$community_health_unit
+  for(i in 1:30){
+    r@polygons[[i]]@ID <- ids_table$community_health_unit[i]
+  }
+  r <- SpatialPolygonsDataFrame(Sr = r, data = ids_table, match.ID = TRUE)
+  # Fortify
+  library(ggplot2)
+  library(ggrepel)
+  rf <- fortify(r, regions = r@data$community_health_unit)
+  coords <- coordinates(r)
+  coords <- data.frame(coords)
+  names(coords) <- c('x', 'y')
+  coords$community_health_unit <- r@data$community_health_unit
+  # plot
+  ggplot() +
+    geom_polygon(data = rf,
+                 aes(x = long,
+                     y = lat,
+                     group = group,
+                     fill = id),
+                 color = 'black') +
+    ggthemes::theme_map() +
+    geom_label_repel(data = coords,
+                     aes(x = x,
+                         y = y,
+                         label = community_health_unit)) +
+    scale_fill_manual(name = '', values = rainbow(length(unique(rf$id)))) +
+    theme(legend.position = 'none')
+  
+  if(!dir.exists('../../data_public/spatial/community_health_units')){
+    dir.create('../../data_public/spatial/community_health_units')
+  }
+  owd <- getwd()
+  setwd('../../data_public/spatial/community_health_units') 
+  community_health_units <- r
+  raster::shapefile(community_health_units, 'community_health_units.shp')
+  save(community_health_units, file = 'community_health_units.RData')
+  setwd(owd)
+}
+
+hhsp <- v0demography
+hhsp$x <- hhsp$Longitude
+hhsp$y <- hhsp$Latitude
+coordinates(hhsp) <- ~x+y
+proj4string(hhsp) <- proj4string(clusters)
+
 # See if in cluster core / buffer
 o <- sp::over(hhsp, polygons(clusters))
 hhsp@data$cluster <- clusters@data$cluster_number[o]
-o <- sp::over(hhsp, polygons(buffers))
-hhsp@data$buffer <- buffers@data$cluster_number[o]
+# o <- sp::over(hhsp, polygons(buffers))
+# hhsp@data$buffer <- buffers@data$cluster_number[o]
 o <- sp::over(hhsp, polygons(cores))
 hhsp@data$core <- cores@data$cluster_number[o]
 # Keep only those which are in clusters
 hhsp <- hhsp[!is.na(hhsp@data$cluster),]
 # Define buffer / core status
 hhsp@data$core_buffer <- ifelse(!is.na(hhsp@data$core), 'Core',
-                                ifelse(!is.na(hhsp@data$buffer), 'Buffer', NA))
+                                ifelse(!is.na(hhsp@data$cluster), 'Buffer', NA))
 hhsp@data$core_buffer <- factor(hhsp@data$core_buffer, levels = c('Core', 'Buffer'))
 hhsp <- hhsp[!is.na(hhsp@data$core_buffer),]
 
@@ -192,9 +372,10 @@ if('table_1_ento_clusters.csv' %in% dir('outputs/')){
     # sample(c(2, 3, 4, 9, 10, 12, 15, 18, 20, 24, 25, 27, 28, 30, 31, 34, 
     #          35, 38, 41, 47, 48, 52, 55), 1)
     # 52
-    ento_clusters$cluster_number[ento_clusters$cluster_number == 47] <- 52
+    # ento_clusters$cluster_number[ento_clusters$cluster_number == 47] <- 52
     # Manual replacement of cluster 52 with 82, as per project request Aug 3 2023
     ento_clusters$cluster_number[ento_clusters$cluster_number == 52] <- 82
+    ento_clusters <- ento_clusters %>% arrange(cluster_number)
     write_csv(ento_clusters, 'outputs/table_1_ento_clusters.csv')
   }
 } else {
@@ -217,14 +398,14 @@ if('table_1_ento_clusters.csv' %in% dir('outputs/')){
 
 # Examine a bit
 if(FALSE){
-  ento_sp <- buffers
+  ento_sp <- clusters
   ento_sp <- ento_sp[ento_sp@data$cluster_number %in% ento_clusters$cluster_number,]
   cores@data <- left_join(cores@data, assignments)
   
   l <- leaflet() %>%
     addTiles() %>%
-    addPolygons(data = buffers, fillColor = 'grey', color = 'grey', fillOpacity = 0.2, weight = 1,
-                label = buffers@data$cluster_number) %>%
+    addPolygons(data = clusters, fillColor = 'grey', color = 'grey', fillOpacity = 0.2, weight = 1,
+                label = clusters@data$cluster_number) %>%
     addPolygons(data = cores[cores@data$assignment == 1,],
                 label = cores@data$cluster_number[cores@data$assignment == 1],
                 weight = 0,
@@ -243,8 +424,8 @@ if(FALSE){
     addPolygons(data = ento_sp,
                 label = ento_sp@data$cluster_number,
                 weight = 1,
-                # labelOptions = list('permanent' = TRUE,
-                #                     'autclose' = FALSE),
+                labelOptions = list('permanent' = TRUE,
+                                    'autclose' = FALSE),
                 fillOpacity = 0.6,
                 fillColor = 'yellow', color = 'purple'
     )
@@ -264,9 +445,10 @@ if(FALSE){
                           selfcontained = TRUE)
   plot(cores)
   plot(ento_sp, add = T, col = 'red')
-  plot(buffers, add = T)
+  plot(clusters, add = T)
+  plot(cores, add = T)
   library(sp)
-  raster::text(x = (ento_sp), ento_sp@data$cluster_number)
+  raster::text(x = (ento_sp), ento_sp@data$cluster_number, cex = 0.5)
 }
 
 
@@ -284,9 +466,11 @@ if(!file.exists('outputs/general_spatial/households.shp')){
   message('Writing shapefile')
   all_study_households <- hhsp
   all_study_households@data <- all_study_households@data %>%
+    mutate(hh_id_clean = hhid,
+           hh_id_raw = hhid) %>%
     dplyr::select(hh_id_clean, hh_id_raw,
                   cluster, Longitude, Latitude, core_buffer)
-  raster::shapefile(all_study_households, 'outputs/general_spatial/households.shp')
+  raster::shapefile(all_study_households, 'outputs/general_spatial/households.shp', overwrite = TRUE)
 } else {
   message('Shapefile already written')
 }
@@ -295,7 +479,10 @@ if(!file.exists('outputs/general_spatial/households.shp')){
 hhsp@data$cluster_number <- hhsp@data$cluster
 
 # Get list of cleaned IDs for Xing
-xing <- hhsp@data %>% dplyr::select(cluster_number, hh_id_clean,
+xing <- hhsp@data %>% 
+  mutate(hh_id_clean = hhid,
+         hh_id_raw = hhid) %>%
+  dplyr::select(cluster_number, hh_id_clean,
                                     hh_id_raw, core_buffer) %>%
   arrange(cluster_number, hh_id_clean)
 # write csv
@@ -303,7 +490,10 @@ write_csv(xing, '/tmp/recon_clean_ids.csv')
 
 # Filter down to only those in ento clusters
 hhsp <- hhsp[hhsp@data$cluster_number %in% ento_clusters$cluster_number,]
-xing <- hhsp@data %>% dplyr::select(cluster_number, hh_id_clean,
+xing <- hhsp@data %>% 
+  mutate(hh_id_clean = hhid,
+         hh_id_raw = hhid) %>%
+  dplyr::select(cluster_number, hh_id_clean,
                                     hh_id_raw, core_buffer) %>%
   arrange(cluster_number, hh_id_clean)
 
@@ -325,11 +515,23 @@ write_csv(xing, '/tmp/ento_recon_clean_ids.csv')
 # Wall type
 # Roof type
 
+hhsp@data <- hhsp@data %>%
+  mutate(hh_id_clean = hhid,
+         hh_id_raw = hhid) 
+
+# Get community health unit
+load('../../data_public/spatial/community_health_units.RData')
+# overlay
+o <- sp::over(hhsp, polygons(community_health_units))
+hhsp@data$community_health_unit <- community_health_units@data$community_health_unit[o]
+
 set.seed(17)
 if('table_2_cdc_resting_households_core.csv' %in% dir('outputs/')){
   cdc_resting_households_core <- read_csv('outputs/table_2_cdc_resting_households_core.csv')
   if(FALSE){
     # Replacement of cluster 47 by 52 as per entomology team's may 2023 request
+    # Done via interactive scripting
+    # Auygust 4 2023 Replacement of cluster 52 by 82 as per entomology team's August 2023 request
     # Done via interactive scripting
   }
 } else {
@@ -353,8 +555,8 @@ if('table_2_cdc_resting_households_core.csv' %in% dir('outputs/')){
                   village,
                   longitude = Longitude,
                   latitude  = Latitude,
-                  wall_type = house_wal0,
-                  roof_type) %>%
+                  wall_type = house_wall,
+                  roof_type = house_roof) %>%
     arrange(cluster_number, randomization_number)
   write_csv(cdc_resting_households_core, 'outputs/table_2_cdc_resting_households_core.csv')
   # Create a supporting document of entomology table 2 (ie, 1 table per cluster, formatted, etc.)
@@ -399,8 +601,8 @@ if('table_3_cdc_resting_households_buffer.csv' %in% dir('outputs/')){
                   village,
                   longitude = Longitude,
                   latitude  = Latitude,
-                  wall_type = house_wal0,
-                  roof_type) %>%
+                  wall_type = house_wall,
+                  roof_type = house_roof) %>%
     arrange(cluster_number, randomization_number)
   write_csv(cdc_resting_households_buffer, 'outputs/table_3_cdc_resting_households_buffer.csv')
   # Create a supporting document of entomology table 2 (ie, 1 table per cluster, formatted, etc.)
@@ -438,8 +640,8 @@ if('table_4_resting_household_pit_shelter.csv' %in% dir('outputs')){
                   village,
                   longitude = Longitude,
                   latitude  = Latitude,
-                  wall_type = house_wal0,
-                  roof_type) %>%
+                  wall_type = house_wall,
+                  roof_type = house_roof) %>%
     arrange(cluster_number, randomization_number)
   
   resting_household_pit_shelter_b <-  hhsp@data %>%
@@ -468,8 +670,8 @@ if('table_4_resting_household_pit_shelter.csv' %in% dir('outputs')){
                   village,
                   longitude = Longitude,
                   latitude  = Latitude,
-                  wall_type = house_wal0,
-                  roof_type) %>%
+                  wall_type = house_wall,
+                  roof_type = house_roof) %>%
     arrange(cluster_number, randomization_number)
   resting_household_pit_shelter <- resting_household_pit_shelter %>%
     bind_rows(resting_household_pit_shelter_b) %>%
@@ -508,8 +710,8 @@ if('table_5_cdc_light_trap_livestock_enclosures.csv' %in% dir('outputs')){
                   village,
                   longitude = Longitude,
                   latitude  = Latitude,
-                  wall_type = house_wal0,
-                  roof_type) %>%
+                  wall_type = house_wall,
+                  roof_type = house_roof) %>%
     arrange(cluster_number, randomization_number)
   
   write_csv(cdc_light_trap_livestock_enclosures, 'outputs/table_5_cdc_light_trap_livestock_enclosures.csv')
@@ -541,15 +743,54 @@ if(!file.exists('outputs/ento_households_shp/households.shp')){
 }
 
 if(!file.exists('outputs/buffers_shp/buffers_shp.shp')){
+  clusters <- new_clusters
+  cores <- new_cores
+  row.names(cores@data) <- cores@data$cluster_nu
+  row.names(clusters@data) <- clusters@data$cluster_nu
+  AddHoleToPolygon <-function(poly,hole){
+    # invert the coordinates for Polygons to flag it as a hole
+    coordsHole <-  hole@polygons[[1]]@Polygons[[1]]@coords
+    newHole <- Polygon(coordsHole,hole=TRUE)
+    
+    # punch the hole in the main poly
+    listPol <- poly@polygons[[1]]@Polygons
+    listPol[[length(listPol)+1]] <- newHole
+    punch <- Polygons(listPol,poly@polygons[[1]]@ID)
+    
+    # make the polygon a SpatialPolygonsDataFrame as the entry
+    new <- SpatialPolygons(list(punch),proj4string=poly@proj4string)
+    new <- SpatialPolygonsDataFrame(new,data=as(poly,"data.frame"))
+    
+    return(new)
+  }
+  cluster_numbers <- sort(unique(clusters@data$cluster_nu))
+  buffer_list <- list()
+  for(i in 1:length(cluster_numbers)){
+    this_cluster_number <- cluster_numbers[i]
+    outer <- clusters[clusters@data$cluster_nu == this_cluster_number,]
+    inner <- cores[cores@data$cluster_nu == this_cluster_number,]
+    row.names(outer) <- row.names(inner) <- this_cluster_number
+    buffers <- AddHoleToPolygon(outer, inner)
+    buffer_list[[i]] <- buffers
+  }
+  buffers <- rbind(buffer_list[[1]], buffer_list[[2]], makeUniqueIDs = TRUE)
+  for(i in 3:length(cluster_numbers)){
+    buffers <- rbind(buffers, buffer_list[[i]], makeUniqueIDs = TRUE)
+  }
+  plot(buffers)
+  buffers@data$cluster <- cluster_numbers
   message('Writing shapefile')  
   buffers_shp <- buffers[buffers@data$cluster_number %in% ento_clusters$cluster_number,]
   raster::shapefile(buffers_shp, 'outputs/buffers_shp/buffers_shp.shp', overwrite = TRUE)
+  save(buffers, file = '../../data_public/spatial/buffers.RData')
+  raster::shapefile(buffers, '../../data_public/spatial/buffers/buffers.shp', overwrite = TRUE)
 } else {
   message('Shapefile already written')
 }
 
 if(!file.exists('outputs/cores_shp/cores_shp.shp')){
   message('Writing shapefile')
+  cores$cluster_number <- as.numeric(cores$cluster_nu)
   cores_shp <- cores[cores@data$cluster_number %in% ento_clusters$cluster_number,]
   raster::shapefile(cores_shp, 'outputs/cores_shp/cores_shp.shp', overwrite = TRUE)
 } else {
