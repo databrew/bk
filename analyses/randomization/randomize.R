@@ -836,6 +836,7 @@ if(!file.exists('outputs/table_7_ento_enrolled_households.csv')){
   coordinates(out) <- ~x+y
   proj4string(out) <- proj4string(clusters)
   o <- sp::over(out, polygons(clusters))
+  clusters@data$cluster_number <- as.numeric(clusters@data$cluster_nu)
   out@data$cluster <- clusters@data$cluster_number[o]
   # Examine those not in cluster
   if(FALSE){
@@ -905,15 +906,15 @@ if(!file.exists('outputs/table_7_ento_enrolled_households.csv')){
                   village,
                   longitude,
                   latitude) %>%
-    left_join(recon %>% dplyr::select(hh_id,
-                                      wall_type = house_wall_material,
-                                      roof_type)) %>%
+    # left_join(recon %>% dplyr::select(hh_id,
+    #                                   wall_type = house_wall_material,
+    #                                   roof_type)) %>%
     # remove the recon id
     dplyr::rename(recon_id = hh_id) %>%
     arrange(cluster, hhid)
   # Remove (invalid) cluster 47
   ento_enrolled_households <- ento_enrolled_households %>%
-    filter(cluster != 47)
+    filter(cluster != 47, cluster != 52)
   write_csv(ento_enrolled_households, 'outputs/table_7_ento_enrolled_households.csv')
 } else {
   ento_enrolled_households <- read_csv('outputs/table_7_ento_enrolled_households.csv')
@@ -956,33 +957,40 @@ if(file.exists('outputs/table_8_entomology_enrolled_livestock_enclosures.csv')){
   o <- sp::over(out_sp, polygons(clusters))
   out_sp@data$cluster <- clusters@data$cluster_number[o]
   # Get nearest household
-  recon_curated_sp <- recon_curated %>%
-    left_join(recon %>% dplyr::select(instanceID, latitude = Latitude,
-                                      longitude = Longitude,
-                                      ward,
-                                      community_unit = community_health_unit,
-                                      village,
-                                      wall_type = house_wall_material,
-                                      roof_type)) %>%
-    mutate(x = longitude, y = latitude)
+  # recon_curated_sp <- recon_curated %>%
+  #   left_join(recon %>% dplyr::select(instanceID, latitude = Latitude,
+  #                                     longitude = Longitude,
+  #                                     ward,
+  #                                     community_unit = community_health_unit,
+  #                                     village,
+  #                                     wall_type = house_wall_material,
+  #                                     roof_type)) %>%
+  #   mutate(x = longitude, y = latitude)
+  recon_curated_sp <- v0demography %>%
+    mutate(x = Longitude, y = Latitude)
   coordinates(recon_curated_sp) <- ~x+y
   proj4string(recon_curated_sp) <- proj4string(hhsp)
   distances <- rgeos::gDistance(out_sp, recon_curated_sp, byid = TRUE)
   min_distances <- apply(distances, 2, which.min)
-  out_sp@data$nearest_household <- recon_curated_sp$hh_id_clean[min_distances]
+  out_sp@data$nearest_household <- recon_curated_sp$hhid[min_distances]
   out <- out_sp@data %>%
     dplyr::select(cluster,
                   hh_id = nearest_household,
                   livestock_enclosure_id = leid,
                   ward,
-                  community_unit = community_health_unit,
+                  # community_unit = community_health_unit,
                   village,
-                  longitude,
-                  latitude) %>%
-    # get wall type and roof type based on nearest household
-    left_join(recon_curated_sp@data %>% dplyr::select(hh_id = hh_id_clean,
-                                                      roof_type,
-                                                      wall_type))
+                  longitude = Longitude,
+                  latitude = Latitude) %>%
+    # # get wall type and roof type based on nearest household
+    left_join(v0demography %>% dplyr::select(hh_id = hhid,
+                                             roof_type = house_roof,
+                                             wall_type = house_wall))
+    # left_join(recon_curated_sp@data %>% dplyr::select(hh_id = hh_id_clean,
+    #                                                   roof_type,
+    #                                                   wall_type))
   le <- out
+  # Remove deprecated clusters
+  le <- le %>% filter(!is.na(cluster))
   write_csv(le, 'outputs/table_8_entomology_enrolled_livestock_enclosures.csv')
 }
