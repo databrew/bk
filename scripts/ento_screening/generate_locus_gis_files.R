@@ -127,6 +127,9 @@ ento_households <- rgdal::readOGR('../../analyses/randomization/outputs/ento_hou
 
 # Get non-spatial versions
 ento_households_flat <- ento_households@data
+ento_households_flat <- ento_households_flat %>%
+  mutate(hh_id_clea = as.character(hh_id_clea),
+         hh_id_raw = as.character(hh_id_raw))
 
 # Join the ento_households with the ento screening
 out <- left_join(ento_households_flat,

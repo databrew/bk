@@ -779,9 +779,10 @@ if(!file.exists('outputs/buffers_shp/buffers_shp.shp')){
   }
   plot(buffers)
   buffers@data$cluster <- cluster_numbers
+  buffers@data$cluster_number <- buffers@data$cluster
   message('Writing shapefile')  
   buffers_shp <- buffers[buffers@data$cluster_number %in% ento_clusters$cluster_number,]
-  raster::shapefile(buffers_shp, 'outputs/buffers_shp/buffers_shp.shp', overwrite = TRUE)
+  raster::shapefile(buffers_shp, 'outputs/buffers_shp/buffers_shp.shp')
   save(buffers, file = '../../data_public/spatial/buffers.RData')
   raster::shapefile(buffers, '../../data_public/spatial/buffers/buffers.shp', overwrite = TRUE)
 } else {
