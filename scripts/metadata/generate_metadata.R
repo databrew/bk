@@ -251,7 +251,7 @@ assignments <- read_csv('../../analyses/randomization/outputs/assignments.csv')
 intervention_assignment <- read_csv('../../analyses/randomization/outputs/intervention_assignment.csv')
 # Make fake manual modifications per project specifications
 # # NEEDS TO BE CHANGED FOR REAL DATA COLLECTION
-if(FALSE){
+if(TRUE){
   # fake randomization statuses created by paula in 
   # https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203
   # g <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203')
@@ -360,12 +360,14 @@ healthecon_departures <-
     mutate(extid = as.character(extid)) %>%
       mutate(todays_date = lubridate::as_datetime(todays_date)) %>%
       filter(!is.na(person_absent_reason)) %>%
+      filter(person_absent_reason != 'Absent') %>%
       dplyr::select(todays_date, extid, person_absent_reason),
     healtheconmonthly_repeat_individual %>% 
       left_join(healtheconmonthly %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
     mutate(extid = as.character(extid)) %>%
       mutate(todays_date = lubridate::as_datetime(todays_date)) %>%
       filter(!is.na(person_absent_reason)) %>%
+      filter(person_absent_reason != 'Absent') %>%
       dplyr::select(todays_date, extid, person_absent_reason)
   )
 healthecon_deaths <- healthecon_departures %>%
@@ -480,7 +482,8 @@ efficacy_departures <- efficacy %>%
          sex = as.character(sex), extid = as.character(extid)) %>%
   mutate(todays_date = lubridate::as_datetime(todays_date)) %>%
   mutate(dob = lubridate::as_datetime(dob)) %>%
-  filter(!is.na(person_absent_reason))
+  filter(!is.na(person_absent_reason)) %>%
+  filter(person_absent_reason != 'Absent')
 efficacy_deaths <- efficacy_departures %>%
   filter(person_absent_reason %in% c('Died')) %>%
   # filter(person_absent_reason %in% c('Died', 'Migrated')) %>%
@@ -706,9 +709,12 @@ starting_roster <- v0demography_repeat_individual %>%
 # Flag the deaths (the "efficacy_deaths" and "efficacy_deaths" object is created in the safety section)
 # Go through each departure and flag people as dead or migrated
 starting_roster$dead <- starting_roster$migrated <- 0
+
+if(nrow(efficacy_deaths) > 0){
+  starting_roster$dead[starting_roster$extid %in% efficacy_deaths$extid] <- 1
+}
 if(nrow(efficacy_departures) > 0){
-  starting_roster$dead[starting_roster$extid %in% departures$extid[departures$type == 'Died']] <- 1
-  starting_roster$migrated[starting_roster$extid %in% departures$extid[departures$type == 'Migrated']] <- 1
+  starting_roster$migrated[starting_roster$extid %in% efficacy_departures$extid[efficacy_departures$person_absent_reason == 'Migrated']] <- 1
 }
 roster <- starting_roster %>%  
   arrange(desc(todays_date)) %>%
@@ -795,73 +801,104 @@ if(!dir.exists('efficacy_metadata')){
   dir.create('efficacy_metadata')
 }
 write_csv(individuals, 'efficacy_metadata/individual_data.csv')
-
 # </Efficacy> ##############################################################################
-
-# <> ##############################################################################
-# </> ##############################################################################
-
-# <> ##############################################################################
-# </> ##############################################################################
-
-# <> ##############################################################################
-# </> ##############################################################################
+##############################################################################
+##############################################################################
+##############################################################################
 
 
 
 
+# <pfu> ##############################################################################
 
-
-
-
-################################################################################
-# LEGACY STUFF BELOW HERE
-################################################################################
-
-# starting_pregnancy_status
-# THIS IS MISSING SOMETHING, PREGNANCY STATUS FROM SAFETYNEW
-right <-   
+# Get anyone who was ever pregnant
+# no need for safetynew since they would be excluded from safety and therefore pregnancy in the first place
+pfu_in <-   
   bind_rows(
     safety_repeat_individual %>% filter(!is.na(pregnancy_status)) %>%
       left_join(safety %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
       dplyr::select(todays_date, extid, pregnancy_status) %>% mutate(form = 'safety'),
-    # safetynew_repeat_individual %>% filter(!is.na(pregnant_yn)) %>%
-    #   left_join(safetynew %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
-    #   dplyr::select(todays_date, extid, pregnancy_status) %>% mutate(form = 'safetynew'), #???
-    
     pfu %>% filter(!is.na(pregnancy_status)) %>%
       dplyr::select(todays_date, extid, pregnancy_status) %>% mutate(form = 'pfu')
   ) %>%
   arrange(desc(todays_date)) %>%
   filter(!is.na(extid), !is.na(pregnancy_status)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
-  dplyr::select(extid, pregnancy_status)
-individuals <- left_join(individuals, right)
+  dplyr::select(extid, pregnancy_status) %>%
+  filter(pregnancy_status == 'in')
 
+# Get the starting roster
+starting_roster <- v0demography_repeat_individual %>% 
+  # keep only those who are in pfu
+  filter(extid %in% pfu_in$extid) %>%
+  left_join(v0demography %>% dplyr::select(hhid, todays_date, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
+  dplyr::select(hhid, todays_date, firstname, lastname, dob, sex, extid) %>%
+  arrange(desc(todays_date)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  mutate(remove = FALSE) 
+# Go through each departure and flag people as dead or migrated
+starting_roster$dead <- starting_roster$migrated <- 0
+pfu_departures <- pfu %>%
+  filter(!is.na(person_absent_reason)) %>%
+  filter(person_absent_reason != 'Absent')
+if(nrow(pfu_departures) > 0){
+  starting_roster$dead[starting_roster$extid %in% pfu_departures$extid[pfu_departures$person_absent_reason == 'Died']] <- 1
+  starting_roster$migrated[starting_roster$extid %in% pfu_departures$extid[pfu_departures$person_absent_reason == 'Migrated']] <- 1
+}
+roster <- starting_roster %>%  
+  arrange(desc(todays_date)) %>%
+  # keep only the most recent case
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  mutate(roster_name = paste0(firstname, ' ', lastname, ' (',
+                              extid, ')')) %>%
+  dplyr::select(hhid, extid, firstname, lastname, sex, dob, roster_name, dead, migrated)
+# Add more info to individuals
+individuals <- roster %>%
+  dplyr::mutate(fullname_dob = paste0(firstname, ' ', lastname, ' | ', dob)) %>%
+  dplyr::rename(fullname_id = roster_name) #%>%
+  # # get intervention, village, ward, cluster
+  # left_join(households %>% dplyr::select(hhid, intervention, village, ward, cluster))
+# Get starting weight
+# (generated in safety section)
+individuals <- left_join(individuals, starting_weights)
+# Get starting height (generated in safety section)
+individuals <- left_join(individuals, starting_heights)
+# starting_pregnancy_status
+# (in for everybody, already filtered in the pfu)
+individuals <- individuals %>% mutate(starting_pregnancy_status = 'in')
 # pregnancy_consecutive_absences	 ########################## 
-individuals$pregnancy_consecutive_absences <- NA #sample(c(NA, 0:7), nrow(individuals), replace = TRUE)
+# individuals$pregnancy_consecutive_absences <- NA #sample(c(NA, 0:7), nrow(individuals), replace = TRUE)
 # See documentation at https://docs.google.com/document/d/1BVMsJE1KX0gG5Blu21HrGbuZ15x93cdRYiThyNp6jDQ/edit
 # July 31 2023: agreed with Xing to deprecate this in favor of "date of last non-absent pregnancy visit"
-
-
-
-#pregnancy_most_recent_visit_present	
-right <- 
-  pfu %>% arrange(desc(todays_date)) %>%
-  filter(!is.na(person_present_continue)) %>%
-  filter(person_present_continue == 1) %>%
-  dplyr::distinct(extid, .keep_all = TRUE) %>%
-  dplyr::mutate(pregnancy_most_recent_visit_present = as.numeric(gsub('V', '', visit))) %>%
-  dplyr::select(extid, pregnancy_most_recent_visit_present,
-                pregnancy_most_recent_present_date = todays_date) %>%
-  mutate(pregnancy_most_recent_present_date = paste0('.', as.character(pregnancy_most_recent_present_date)))
-individuals <- left_join(individuals, right) 
-
 # pregnancy_visits_done
 right <-  pfu %>%
   filter(!is.na(extid)) %>%
   group_by(extid) %>%
   summarise(pregnancy_visits_done = paste0(sort(unique(visit)), collapse = ', '))
 individuals <- left_join(individuals, right) 
+#pregnancy_most_recent_present_date	
+right <- 
+  pfu %>% arrange(desc(todays_date)) %>%
+  filter(!is.na(person_present_continue)) %>%
+  filter(person_present_continue == 1) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  # dplyr::mutate(pregnancy_most_recent_visit_present = as.numeric(gsub('V', '', visit))) %>%
+  dplyr::select(extid, #pregnancy_most_recent_visit_present,
+                pregnancy_most_recent_present_date = todays_date) %>%
+  mutate(pregnancy_most_recent_present_date = paste0('.', as.character(pregnancy_most_recent_present_date)))
+individuals <- left_join(individuals, right) 
+
+# Write csvs
+if(!dir.exists('pfu_metadata')){
+  dir.create('pfu_metadata')
+}
+write_csv(individuals, 'pfu_metadata/individual_data.csv')
+# </pfu> ##############################################################################
+##############################################################################
+##############################################################################
+##############################################################################
 
 
+# <pk> ##############################################################################
+# (Just use safety metadata)
+# </pk> ##############################################################################
