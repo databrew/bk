@@ -12,7 +12,7 @@ library(lubridate)
 library(readr)
 
 # Define production
-is_production <- FALSE
+is_production <- TRUE
 if(is_production){
   Sys.setenv(PIPELINE_STAGE = 'production') 
   # raw_or_clean <- 'clean'
@@ -23,6 +23,11 @@ if(is_production){
 raw_or_clean <- 'clean'
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 start_fresh <- TRUE
+save_empty_objects <- FALSE # for one-off creation of empty objects (so as to make script work in production before some forms have any submitted data)
+rr <- function(x){
+  message('removing ', nrow(x), ' rows')
+  return(head(x, 0))
+}
 
 if(start_fresh){
   # Log in
@@ -62,6 +67,9 @@ if(start_fresh){
   if(!dir.exists('kwale_testing')){
     dir.create('kwale_testing')
   }
+  if(!dir.exists('empty_objects')){
+    dir.create('empty_objects')
+  }
   
   for(i in 1:length(datasets)){
     this_dataset <- datasets[i]
@@ -82,87 +90,207 @@ if(start_fresh){
   
   # Read in the datasets
   middle_path <- glue::glue('{folder}/{raw_or_clean}-form/')
+  
   # Safety
-  safety <- read_csv(paste0(middle_path, 'safety/safety.csv'))
-  safety_repeat_drug <- read_csv(paste0(middle_path, 'safety/safety-repeat_drug.csv'))
-  safety_repeat_individual <- read_csv(paste0(middle_path, 'safety/safety-repeat_individual.csv'))
-  safety_repeat_ae_symptom <- read_csv(paste0(middle_path, 'safety/safety-repeat_ae_symptom.csv'))
+  tryCatch({
+    safety <- read_csv(paste0(middle_path, 'safety/safety.csv'))
+    safety_repeat_drug <- read_csv(paste0(middle_path, 'safety/safety-repeat_drug.csv'))
+    safety_repeat_individual <- read_csv(paste0(middle_path, 'safety/safety-repeat_individual.csv'))
+    safety_repeat_ae_symptom <- read_csv(paste0(middle_path, 'safety/safety-repeat_ae_symptom.csv'))
+    if(save_empty_objects){
+      safety <- safety %>% rr()
+      safety_repeat_drug <- safety_repeat_drug %>% rr()
+      safety_repeat_individual <- safety_repeat_individual %>% rr()
+      safety_repeat_ae_symptom <- safety_repeat_ae_symptom %>% rr()
+      save(safety,safety_repeat_drug,safety_repeat_individual, safety_repeat_ae_symptom, file = 'empty_objects/safety.RData')
+    }
+  }, error = {
+    load('empty_objects/safety.RData')
+  })
   # Safety new
-  safetynew <- read_csv(paste0(middle_path, 'safetynew/safetynew.csv'))
-  safetynew_repeat_individual <- read_csv(paste0(middle_path, 'safetynew/safetynew-repeat_individual.csv'))
+  tryCatch({
+    safetynew <- read_csv(paste0(middle_path, 'safetynew/safetynew.csv'))
+    safetynew_repeat_individual <- read_csv(paste0(middle_path, 'safetynew/safetynew-repeat_individual.csv'))
+    if(save_empty_objects){
+      safetynew <- safetynew %>% rr()
+      safetynew_repeat_individual <- safetynew_repeat_individual %>% rr()
+      save(safetynew, safetynew_repeat_individual, file = 'empty_objects/safetynew.RData')
+    }
+  }, error = {
+    load('empty_objects/safetynew.RData')
+  })
   #v0demography
-  v0demography <- read_csv(paste0(middle_path, 'v0demography/v0demography.csv'))
-  v0demography_repeat_individual <- read_csv(paste0(middle_path, 'v0demography/v0demography-repeat_individual.csv'))
+  tryCatch({
+    v0demography <- read_csv(paste0(middle_path, 'v0demography/v0demography.csv'))
+    v0demography_repeat_individual <- read_csv(paste0(middle_path, 'v0demography/v0demography-repeat_individual.csv'))
+    if(save_empty_objects){
+      v0demography <- v0demography %>% rr()
+      v0demography_repeat_individual <- v0demography_repeat_individual %>% rr()
+      save(v0demography, v0demography_repeat_individual, file = 'empty_objects/v0demography.RData')
+    }
+  },
+  error = {
+    load('empty_objects/v0demography.RData')
+  })
   # efficacy
-  efficacy <- read_csv(paste0(middle_path, 'efficacy/efficacy.csv'))
+  tryCatch({
+    efficacy <- read_csv(paste0(middle_path, 'efficacy/efficacy.csv'))
+    if(save_empty_objects){
+      efficacy <- efficacy %>% rr()
+      save(efficacy, file = 'empty_objects/efficacy.RData')
+    }
+  },
+  error = {
+    load('empty_objects/efficacy.RData')
+  })
   # pregnancy follow-up
-  pfu <- read_csv(paste0(middle_path, 'pfu/pfu.csv'))
-  pfu_repeat_preg_symptom <- read_csv(paste0(middle_path, 'pfu/pfu-repeat_preg_symptom.csv'))
+  tryCatch({
+    pfu <- read_csv(paste0(middle_path, 'pfu/pfu.csv'))
+    pfu_repeat_preg_symptom <- read_csv(paste0(middle_path, 'pfu/pfu-repeat_preg_symptom.csv'))
+    if(save_empty_objects){
+      pfu <- pfu %>% rr()
+      pfu_repeat_preg_symptom <- pfu_repeat_preg_symptom %>% rr()
+      save(pfu, pfu_repeat_preg_symptom, file = 'empty_objects/pfu.RData')
+    }
+  },
+  error = {
+    load('empty_objects/pfu.RData')
+  })
   # pkday0
-  pkday0 <- read_csv(paste0(middle_path, 'pkday0/pkday0.csv'))
+  tryCatch({
+    pkday0 <- read_csv(paste0(middle_path, 'pkday0/pkday0.csv'))
+    if(save_empty_objects){
+      pkday0 <- pkday0 %>% rr()
+      save(pkday0, file = 'empty_objects/pkday0.RData')
+    }
+  }, 
+  error = {
+    load('empty_objects/pkday0.RData')
+  })
   # pkdays123
-  pkdays123 <- read_csv(paste0(middle_path, 'pkdays123/pkdays123.csv'))
+  tryCatch({
+    pkdays123 <- read_csv(paste0(middle_path, 'pkdays123/pkdays123.csv'))
+    if(save_empty_objects){
+      pkdays123 <- pkdays123 %>% rr()
+      save(pkdays123, file = 'empty_objects/pkdays123.RData')
+    }
+  },
+  error = {
+    load('empty_objects/pkdays123.RData')
+  })
   # pkfollowup
-  pkfollowup <- read_csv(paste0(middle_path, 'pkfollowup/pkfollowup.csv'))
+  tryCatch({
+    pkfollowup <- read_csv(paste0(middle_path, 'pkfollowup/pkfollowup.csv'))
+    if(save_empty_objects){
+      pkfollowup <- pkfollowup %>% rr()
+      save(pkfollowup, file = 'empty_objects/pkfollowup.RData')
+    }
+  },
+  error = {
+    load('empty_objects/pkfollowup.RData')
+  })
   # healtheconnew
-  healtheconnew <- read_csv(paste0(middle_path, 'healtheconnew/healtheconnew.csv'))
-  healtheconnew_repeat_individual <- read_csv(paste0(middle_path, 'healtheconnew/healtheconnew-repeat_individual.csv'))
-  healtheconnew_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconnew/healtheconnew-repeat_miss_work_school.csv'))
-  healtheconnew_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconnew/healtheconnew-repeat_other_employment_details.csv'))
+  tryCatch({
+    healtheconnew <- read_csv(paste0(middle_path, 'healtheconnew/healtheconnew.csv'))
+    healtheconnew_repeat_individual <- read_csv(paste0(middle_path, 'healtheconnew/healtheconnew-repeat_individual.csv'))
+    healtheconnew_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconnew/healtheconnew-repeat_miss_work_school.csv'))
+    healtheconnew_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconnew/healtheconnew-repeat_other_employment_details.csv'))
+    if(save_empty_objects){
+      healtheconnew <- healtheconnew %>% rr()
+      healtheconnew_repeat_individual <- healtheconnew_repeat_individual %>% rr()
+      healtheconnew_repeat_miss_work_school <- healtheconnew_repeat_miss_work_school %>% rr()
+      healtheconnew_repeat_other_employment_details <- healtheconnew_repeat_other_employment_details %>% rr()
+      save(healtheconnew, healtheconnew_repeat_individual, healtheconnew_repeat_miss_work_school, healtheconnew_repeat_other_employment_details, file = 'empty_objects/healtheconnew.RData')
+    }
+  },
+  error = {
+    load('empty_objects/healtheconnew.RData')
+  })
   # healtheconbaseline
-  healtheconbaseline <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline.csv'))
-  healtheconbaseline_repeat_cattle <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_cattle.csv'))
-  healtheconbaseline_repeat_disease <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_disease.csv'))
-  healtheconbaseline_repeat_individual <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_individual.csv'))
-  healtheconbaseline_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_miss_work_school.csv'))
-  healtheconbaseline_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_other_employment_details.csv'))
+  tryCatch({
+    healtheconbaseline <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline.csv'))
+    healtheconbaseline_repeat_cattle <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_cattle.csv'))
+    healtheconbaseline_repeat_disease <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_disease.csv'))
+    healtheconbaseline_repeat_individual <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_individual.csv'))
+    healtheconbaseline_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_miss_work_school.csv'))
+    healtheconbaseline_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_other_employment_details.csv'))
+    if(save_empty_objects){
+      healtheconbaseline <- healtheconbaseline %>% rr()
+      healtheconbaseline_repeat_cattle <- healtheconbaseline_repeat_cattle %>% rr()
+      healtheconbaseline_repeat_disease <- healtheconbaseline_repeat_disease %>% rr()
+      healtheconbaseline_repeat_individual <- healtheconbaseline_repeat_individual %>% rr()
+      healtheconbaseline_repeat_miss_work_school <- healtheconbaseline_repeat_miss_work_school %>% rr()
+      healtheconbaseline_repeat_other_employment_details <- healtheconbaseline_repeat_other_employment_details %>% rr()
+      save(healtheconbaseline, healtheconbaseline_repeat_cattle, healtheconbaseline_repeat_disease,
+           healtheconbaseline_repeat_individual, healtheconbaseline_repeat_miss_work_school, healtheconbaseline_repeat_other_employment_details, file = 'empty_objects/healtheconbaseline.RData')
+    }
+  }, error = {
+    load('empty_objects/healtheconbaseline.RData')
+  })
   # healtheconmonthly
-  healtheconmonthly <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly.csv'))
-  healtheconmonthly_repeat_cattle <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_cattle.csv'))
-  healtheconmonthly_repeat_disease <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_disease.csv'))
-  healtheconmonthly_repeat_individual <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_individual.csv'))
-  healtheconmonthly_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_miss_work_school.csv'))
-  healtheconmonthly_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_other_employment_details.csv'))
-  
-  
-  save(safety, safety_repeat_drug,
-       safety_repeat_individual, safety_repeat_ae_symptom,
-       safetynew, safetynew_repeat_individual,
-       v0demography,
-       v0demography_repeat_individual, efficacy,
-       pfu, pfu_repeat_preg_symptom,
-       pkday0, pkdays123, pkfollowup,
-       healtheconnew,
-       healtheconnew_repeat_individual,
-       healtheconnew_repeat_miss_work_school,
-       healtheconnew_repeat_other_employment_details,
-       healtheconbaseline,
-       healtheconbaseline_repeat_cattle,
-       healtheconbaseline_repeat_disease,
-       healtheconbaseline_repeat_individual,
-       healtheconbaseline_repeat_miss_work_school,
-       healtheconbaseline_repeat_other_employment_details,
-       healtheconmonthly,
-       healtheconmonthly_repeat_cattle,
-       healtheconmonthly_repeat_disease ,
-       healtheconmonthly_repeat_individual,
-       healtheconmonthly_repeat_miss_work_school,
-       healtheconmonthly_repeat_other_employment_details,
-       file = 'data.RData'
-       )
+  tryCatch({
+    healtheconmonthly <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly.csv'))
+    healtheconmonthly_repeat_cattle <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_cattle.csv'))
+    healtheconmonthly_repeat_disease <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_disease.csv'))
+    healtheconmonthly_repeat_individual <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_individual.csv'))
+    healtheconmonthly_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_miss_work_school.csv'))
+    healtheconmonthly_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_other_employment_details.csv'))
+    if(save_empty_objects){
+      healtheconmonthly <- healtheconmonthly %>% rr()
+      healtheconmonthly_repeat_cattle <- healtheconmonthly_repeat_cattle %>% rr()
+      healtheconmonthly_repeat_disease <- healtheconmonthly_repeat_disease %>% rr()
+      healtheconmonthly_repeat_individual <- healtheconmonthly_repeat_individual %>% rr()
+      healtheconmonthly_repeat_miss_work_school <- healtheconmonthly_repeat_miss_work_school %>% rr()
+      healtheconmonthly_repeat_other_employment_details <- healtheconmonthly_repeat_other_employment_details %>% rr()
+      save(healtheconmonthly, healtheconmonthly_repeat_cattle, healtheconmonthly_repeat_disease,
+           healtheconmonthly_repeat_individual, healtheconmonthly_repeat_miss_work_school, healtheconmonthly_repeat_other_employment_details, file = 'empty_objects/healtheconmonthly.RData')
+    }
+  },
+  error = {
+    load('empty_objects/healtheconmonthly.RData')
+  })
+
+  # save(safety, safety_repeat_drug,
+  #      safety_repeat_individual, safety_repeat_ae_symptom,
+  #      safetynew, safetynew_repeat_individual,
+  #      v0demography,
+  #      v0demography_repeat_individual, efficacy,
+  #      pfu, pfu_repeat_preg_symptom,
+  #      pkday0, pkdays123, pkfollowup,
+  #      healtheconnew,
+  #      healtheconnew_repeat_individual,
+  #      healtheconnew_repeat_miss_work_school,
+  #      healtheconnew_repeat_other_employment_details,
+  #      healtheconbaseline,
+  #      healtheconbaseline_repeat_cattle,
+  #      healtheconbaseline_repeat_disease,
+  #      healtheconbaseline_repeat_individual,
+  #      healtheconbaseline_repeat_miss_work_school,
+  #      healtheconbaseline_repeat_other_employment_details,
+  #      healtheconmonthly,
+  #      healtheconmonthly_repeat_cattle,
+  #      healtheconmonthly_repeat_disease ,
+  #      healtheconmonthly_repeat_individual,
+  #      healtheconmonthly_repeat_miss_work_school,
+  #      healtheconmonthly_repeat_other_employment_details,
+  #      file = 'data.RData'
+  #      )
+  save.image('data.RData')
 } else {
   load('data.RData')
 }
 
 # Make household ID 5 characters
 add_zero <- function (x, n) {
-  x <- as.character(x)
-  adders <- n - nchar(x)
-  adders <- ifelse(adders < 0, 0, adders)
-  for (i in 1:length(x)) {
-    if (!is.na(x[i])) {
-      x[i] <- paste0(paste0(rep("0", adders[i]), collapse = ""), 
-                     x[i], collapse = "")
+  if(length(x) > 0){
+    x <- as.character(x)
+    adders <- n - nchar(x)
+    adders <- ifelse(adders < 0, 0, adders)
+    for (i in 1:length(x)) {
+      if (!is.na(x[i])) {
+        x[i] <- paste0(paste0(rep("0", adders[i]), collapse = ""), 
+                       x[i], collapse = "")
+      }
     }
   }
   return(x)
@@ -289,7 +417,8 @@ starting_roster <- v0demography_repeat_individual %>%
 # Add new individuals to the starting roster
 new_people <- healtheconnew_repeat_individual %>%
   left_join(healtheconnew %>% dplyr::select(hhid, todays_date, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
-  dplyr::select(hhid, todays_date, firstname, lastname, dob, sex, extid)
+  dplyr::select(hhid, todays_date, firstname, lastname, dob, sex, extid) %>%
+  mutate(hhid = as.character(hhid))
 starting_roster <- bind_rows(starting_roster, new_people)
 starting_roster <- starting_roster %>%
   arrange(desc(todays_date)) %>%
@@ -418,9 +547,10 @@ households <- households %>%
   left_join(heads)
 # Get visits done
 visits_done <- healtheconbaseline %>%
-  mutate(visit = 'V1') %>%
+  mutate(visit = 'V1', hhid = as.character(hhid)) %>%
   dplyr::select(hhid, visit) %>%
   bind_rows(healtheconmonthly %>% 
+              mutate(hhid = as.character(hhid)) %>%
               dplyr::select(hhid, visit)) %>% 
   group_by(hhid) %>%
   summarise(visits_done = paste0(sort(unique(visit)), collapse = ', '))
@@ -508,7 +638,7 @@ if(nrow(departures) > 0){
 # Go through each arrival and add
 roster <- bind_rows(
   starting_roster,
-  arrivals
+  arrivals %>% mutate(hhid = as.character(hhid))
 ) %>%
   arrange(desc(todays_date)) %>%
   # keep only the most recent case
@@ -531,7 +661,7 @@ heads <- v0demography_repeat_individual %>%
 # Get number of visits done
 visits_done <- 
   safety %>%
-  group_by(hhid) %>%
+  group_by(hhid = as.character(hhid)) %>%
   summarise(visits_done = paste0(sort(unique(visit)), collapse = ', '))
 # Build up the metadata, starting with the household IDs
 households <- roster %>% 
@@ -795,7 +925,10 @@ if(nrow(right) > 0){
 } else {
   individuals$efficacy_visits_done <- 0
 }
-
+# Keep only individuals who are currently "in" or "out" of efficacy
+individuals <- individuals %>% 
+  filter(!is.na(starting_efficacy_status)) %>%
+  filter(starting_efficacy_status %in% c('in', 'out'))
 # Write csvs
 if(!dir.exists('efficacy_metadata')){
   dir.create('efficacy_metadata')
