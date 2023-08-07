@@ -12,7 +12,7 @@ library(lubridate)
 library(readr)
 
 # Define production
-is_production <- TRUE
+is_production <- FALSE
 if(is_production){
   Sys.setenv(PIPELINE_STAGE = 'production') 
   # raw_or_clean <- 'clean'
