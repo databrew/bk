@@ -293,7 +293,7 @@ add_zero <- function (x, n) {
       }
     }
   }
-  return(x)
+  return(as.character(x))
 }
 v0demography <- v0demography %>% mutate(hhid = add_zero(hhid, n = 5))
 safety <- safety %>% mutate(hhid = add_zero(hhid, n = 5))
@@ -302,6 +302,10 @@ efficacy <- efficacy %>% mutate(hhid = add_zero(hhid, n = 5))
 healtheconbaseline <- healtheconbaseline %>% mutate(hhid = add_zero(hhid, n = 5))
 healtheconnew <- healtheconnew %>% mutate(hhid = add_zero(hhid, n = 5))
 healtheconmonthly <- healtheconmonthly %>% mutate(hhid = add_zero(hhid, n = 5))
+pfu <- pfu %>% mutate(hhid = add_zero(hhid, n = 5))
+pkday0 <- pkday0 %>% mutate(hhid = add_zero(hhid, n = 5))
+pkdays123 <- pkdays123 %>% mutate(hhid = add_zero(hhid, n = 5))
+pkfollowup <- pkfollowup %>% mutate(hhid = add_zero(hhid, n = 5))
 
 # Define a date after which to retrieve data
 start_from <- as.Date('2023-08-01')
