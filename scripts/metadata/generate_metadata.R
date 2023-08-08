@@ -1035,3 +1035,11 @@ write_csv(individuals, 'pfu_metadata/individual_data.csv')
 # <pk> ##############################################################################
 # (Just use safety metadata)
 # </pk> ##############################################################################
+
+
+
+# Combine them all into one
+zip(zipfile = 'efficacy_metadata.zip', files = 'efficacy_metadata/')
+zip(zipfile = 'health_economics_metadata.zip', files = 'health_economics_metadata//')
+zip(zipfile = 'pfu_metadata.zip', files = 'pfu_metadata/')
+zip(zipfile = 'safety_metadata.zip', files = 'safety_metadata/')
