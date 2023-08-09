@@ -899,7 +899,7 @@ right <-
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   filter(!is.na(person_absent), !is.na(extid)) %>%
   dplyr::mutate(efficacy_absent_most_recent_visit = person_absent) %>%
-  dplyr::select(extid, starting_efficacy_status)
+  dplyr::select(extid, efficacy_absent_most_recent_visit)
 if(nrow(right) > 0){
   individuals <- left_join(individuals, right) %>%
     mutate(efficacy_absent_most_recent_visit = ifelse(is.na(efficacy_absent_most_recent_visit), 0, efficacy_absent_most_recent_visit))
@@ -1043,6 +1043,10 @@ write_csv(individuals, 'pfu_metadata/individual_data.csv')
 
 
 # Combine them all into one
+file.remove('efficacy_metadata.zip')
+file.remove('health_economics_metadata.zip')
+file.remove('pfu_metadata.zip')
+file.remove('safety_metadata.zip')
 zip(zipfile = 'efficacy_metadata.zip', files = 'efficacy_metadata/')
 zip(zipfile = 'health_economics_metadata.zip', files = 'health_economics_metadata//')
 zip(zipfile = 'pfu_metadata.zip', files = 'pfu_metadata/')
