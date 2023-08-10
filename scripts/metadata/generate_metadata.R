@@ -320,7 +320,7 @@ safety_repeat_ae_symptom <- safety_repeat_ae_symptom %>% filter(PARENT_KEY %in% 
 safety_repeat_drug <- safety_repeat_drug %>% filter(PARENT_KEY %in% safety$KEY)
 safety_repeat_individual <- safety_repeat_individual %>% filter(PARENT_KEY %in% safety$KEY)
 safetynew <- safetynew %>% filter(todays_date >= start_from)
-safetynew_repeat_individual <- safetynew_repeat_individual %>% filter(PARENT_KEY %in% KEY)
+safetynew_repeat_individual <- safetynew_repeat_individual %>% filter(PARENT_KEY %in% safetynew$KEY)
 v0demography <- v0demography %>% filter(todays_date >= start_from)
 v0demography_repeat_individual <- v0demography_repeat_individual %>% filter(PARENT_KEY %in% v0demography$KEY)
 healtheconnew <- healtheconnew %>% filter(todays_date >= start_from)
@@ -407,6 +407,7 @@ if(TRUE){
 # End of prerequisites. Now beginning cohort-specific metadata generation
 # https://docs.google.com/spreadsheets/d/1mTqNFfnFLnP-WKJNupajVhTJPbbyV2a32kzyIxyGTMM/edit#gid=0
 #################################################################################################
+
 
 
 ##############################################################################
