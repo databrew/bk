@@ -417,11 +417,14 @@ if(TRUE){
 # First, create individual data based solely on v0demography
 starting_roster <- v0demography_repeat_individual %>% 
   left_join(v0demography %>% dplyr::select(hhid, todays_date, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
+  arrange(desc(todays_date)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::select(hhid, todays_date, firstname, lastname, dob, sex, extid)
 # Add new individuals to the starting roster
 new_people <- healtheconnew_repeat_individual %>%
   left_join(healtheconnew %>% dplyr::select(hhid, todays_date, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   dplyr::select(hhid, todays_date, firstname, lastname, dob, sex, extid) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
   mutate(hhid = as.character(hhid))
 starting_roster <- bind_rows(starting_roster, new_people)
 starting_roster <- starting_roster %>%

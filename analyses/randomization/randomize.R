@@ -376,6 +376,9 @@ if('table_1_ento_clusters.csv' %in% dir('outputs/')){
     # Manual replacement of cluster 52 with 82, as per project request Aug 3 2023
     ento_clusters$cluster_number[ento_clusters$cluster_number == 52] <- 82
     ento_clusters <- ento_clusters %>% arrange(cluster_number)
+    # # fix assignment
+    # ento_clusters <- ento_clusters %>% dplyr::select(cluster_number, location)
+    # ento_clusters <- left_join(ento_clusters, assignments)
     write_csv(ento_clusters, 'outputs/table_1_ento_clusters.csv')
   }
 } else {
