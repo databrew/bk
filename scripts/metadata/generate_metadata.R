@@ -12,7 +12,10 @@ library(lubridate)
 library(readr)
 
 # Define production
-is_production <- FALSE
+is_production <- TRUE
+folder <- 'kwale_testing'
+# folder <- 'kwale'
+
 if(is_production){
   Sys.setenv(PIPELINE_STAGE = 'production') 
   # raw_or_clean <- 'clean'
@@ -24,6 +27,7 @@ raw_or_clean <- 'clean'
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 start_fresh <- TRUE
 save_empty_objects <- FALSE # for one-off creation of empty objects (so as to make script work in production before some forms have any submitted data)
+
 rr <- function(x){
   message('removing ', nrow(x), ' rows')
   return(head(x, 0))
@@ -56,11 +60,6 @@ if(start_fresh){
   # bucket <- 'databrew.org'
   # folder <- 'kwale'
   bucket <- 'databrew.org'
-  if(is_production){
-    folder <- 'kwale'
-  } else {
-    folder <- 'kwale_testing'
-  }
   if(!dir.exists('kwale')){
     dir.create('kwale')
   }
@@ -79,9 +78,10 @@ if(start_fresh){
     output_dir <- glue::glue('{folder}/{raw_or_clean}-form/{this_dataset}',
                              folder = folder,
                              this_dataset = this_dataset)
-    dir.create(object_keys, recursive = TRUE, showWarnings = FALSE)
+    unlink(output_dir, recursive = TRUE)
+    dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
     print(object_keys)
-    cloudbrewr::aws_s3_bulk_get(
+    aws_s3_bulk_get(
       bucket = bucket,
       prefix = as.character(object_keys),
       output_dir = output_dir
@@ -307,6 +307,11 @@ pkday0 <- pkday0 %>% mutate(hhid = add_zero(hhid, n = 5))
 pkdays123 <- pkdays123 %>% mutate(hhid = add_zero(hhid, n = 5))
 pkfollowup <- pkfollowup %>% mutate(hhid = add_zero(hhid, n = 5))
 
+# TEMPORARY #################################################
+# Remove August 8th entries for household 01000
+safety$invalid <- safety$hhid == '01000' & safety$todays_date >= '2023-08-03' & safety$todays_date <= '2023-08-11'
+safety <- safety %>% filter(!invalid)
+
 # Define a date after which to retrieve data
 start_from <- as.Date('2023-08-01')
 efficacy <- efficacy %>% filter(todays_date >= start_from)
@@ -339,6 +344,9 @@ healtheconmonthly_repeat_disease <- healtheconmonthly_repeat_disease %>% filter(
 healtheconmonthly_repeat_individual <- healtheconmonthly_repeat_individual %>% filter(PARENT_KEY %in% healtheconmonthly$KEY)
 healtheconmonthly_repeat_miss_work_school <- healtheconmonthly_repeat_miss_work_school %>% filter(PARENT_KEY %in% healtheconmonthly$KEY)
 healtheconmonthly_repeat_other_employment_details <- healtheconmonthly_repeat_other_employment_details %>% filter(PARENT_KEY %in% healtheconmonthly$KEY)
+
+
+
 
 # Prior to beginning cohort-specific metadata generation, get the location of each house in v0demography and the cluster based on that location
 households_sp <- v0demography %>% 
@@ -970,9 +978,11 @@ pfu_in <-
 
 # Get the starting roster
 starting_roster <- v0demography_repeat_individual %>% 
+  left_join(v0demography %>% dplyr::select(hhid, todays_date, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
+  bind_rows(safetynew_repeat_individual %>% left_join(safetynew %>% dplyr::select(KEY, hhid, todays_date), by = c('PARENT_KEY' = 'KEY'))) %>%
+  bind_rows(safety_repeat_individual %>% left_join(safety %>% dplyr::select(KEY, hhid, todays_date), by = c('PARENT_KEY' = 'KEY'))) %>%
   # keep only those who are in pfu
   filter(extid %in% pfu_in$extid) %>%
-  left_join(v0demography %>% dplyr::select(hhid, todays_date, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   dplyr::select(hhid, todays_date, firstname, lastname, dob, sex, extid) %>%
   arrange(desc(todays_date)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
