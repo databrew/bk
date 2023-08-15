@@ -981,6 +981,8 @@ starting_roster <- v0demography_repeat_individual %>%
   left_join(v0demography %>% dplyr::select(hhid, todays_date, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   bind_rows(safetynew_repeat_individual %>% left_join(safetynew %>% dplyr::select(KEY, hhid, todays_date), by = c('PARENT_KEY' = 'KEY'))) %>%
   bind_rows(safety_repeat_individual %>% left_join(safety %>% dplyr::select(KEY, hhid, todays_date), by = c('PARENT_KEY' = 'KEY'))) %>%
+  # fix dates
+  mutate(dob = as.character(as.Date(dob))) %>%
   # keep only those who are in pfu
   filter(extid %in% pfu_in$extid) %>%
   dplyr::select(hhid, todays_date, firstname, lastname, dob, sex, extid) %>%
