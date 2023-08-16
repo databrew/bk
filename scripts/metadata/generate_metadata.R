@@ -535,6 +535,10 @@ if(nrow(healthecon_migrations) > 0){
   starting_roster$migrated <- 0
 }
 
+# Remove those who are dead and migrated
+starting_roster <- starting_roster %>%
+  filter(migrated != 1, dead != 1)
+
 # Now use individual data to make household data
 households <- starting_roster %>%
   mutate(roster_name = paste0(firstname, ' ', lastname, ' (',
@@ -651,6 +655,11 @@ if(nrow(departures) > 0){
   starting_roster$migrated[starting_roster$extid %in% departures$extid[departures$type == 'Departure']] <- 1
   starting_roster$dead[starting_roster$extid %in% departures$extid[departures$type == 'Died']] <- 1
 }
+
+# Remove those who are dead and migrated
+starting_roster <- starting_roster %>%
+  filter(migrated != 1, dead != 1)
+
 # Go through each arrival and add
 roster <- bind_rows(
   starting_roster,
@@ -862,6 +871,11 @@ if(nrow(efficacy_deaths) > 0){
 if(nrow(efficacy_departures) > 0){
   starting_roster$migrated[starting_roster$extid %in% efficacy_departures$extid[efficacy_departures$person_absent_reason == 'Migrated']] <- 1
 }
+
+# Remove those who are dead and migrated
+starting_roster <- starting_roster %>%
+  filter(migrated != 1, dead != 1)
+
 roster <- starting_roster %>%  
   arrange(desc(todays_date)) %>%
   # keep only the most recent case
@@ -998,6 +1012,11 @@ if(nrow(pfu_departures) > 0){
   starting_roster$dead[starting_roster$extid %in% pfu_departures$extid[pfu_departures$person_absent_reason == 'Died']] <- 1
   starting_roster$migrated[starting_roster$extid %in% pfu_departures$extid[pfu_departures$person_absent_reason == 'Migrated']] <- 1
 }
+
+# Remove those who are dead and migrated
+starting_roster <- starting_roster %>%
+  filter(migrated != 1, dead != 1)
+
 roster <- starting_roster %>%  
   arrange(desc(todays_date)) %>%
   # keep only the most recent case
