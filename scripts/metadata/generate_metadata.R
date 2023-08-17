@@ -309,7 +309,10 @@ pkfollowup <- pkfollowup %>% mutate(hhid = add_zero(hhid, n = 5))
 
 # TEMPORARY #################################################
 # Remove August 8th entries for household 01000
-safety$invalid <- safety$hhid == '01000' & safety$todays_date >= '2023-08-03' & safety$todays_date <= '2023-08-11'
+safety$invalid <- safety$hhid == '01000' & 
+  # safety$todays_date >= '2023-08-03' & 
+  # safety$todays_date <= '2023-08-11'
+  safety$todays_date <= '2023-08-16'
 safety <- safety %>% filter(!invalid)
 # Remove submissions as per Marta: https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1692200016777089?thread_ts=1692031520.267839&cid=C042KSRLYUA
 efficacy <- efficacy %>% filter(!instanceID %in% c('uuid:1459b002-dd54-48c2-9355-2a5540bcc5f6',
@@ -737,7 +740,8 @@ starter <-
       mutate(todays_date = as.Date(todays_date), extid = as.character(extid), safety_status = as.character(safety_status)) %>%
       dplyr::select(todays_date, extid, safety_status) %>% mutate(form = 'efficacy')
   ) %>%
-  arrange(desc(todays_date))
+  arrange(desc(todays_date)) %>%
+  filter(!is.na(safety_status))
 right <- starter %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   filter(!is.na(extid), !is.na(safety_status)) %>%
@@ -961,7 +965,7 @@ if(nrow(right) > 0){
 # Keep only individuals who are currently "in" or "out" of efficacy
 individuals <- individuals %>% 
   filter(!is.na(starting_efficacy_status)) %>%
-  filter(starting_efficacy_status %in% c('in', 'out', 'eos', 'refusal'))
+  filter(starting_efficacy_status %in% c('in', 'out'))
 # Write csvs
 if(!dir.exists('efficacy_metadata')){
   dir.create('efficacy_metadata')
