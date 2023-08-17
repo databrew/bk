@@ -14,6 +14,7 @@ library(readr)
 # Define production
 is_production <- TRUE
 folder <- 'kwale_testing'
+real_preselections <- FALSE
 # folder <- 'kwale'
 
 if(is_production){
@@ -317,6 +318,8 @@ safety <- safety %>% filter(!invalid)
 # Remove submissions as per Marta: https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1692200016777089?thread_ts=1692031520.267839&cid=C042KSRLYUA
 efficacy <- efficacy %>% filter(!instanceID %in% c('uuid:1459b002-dd54-48c2-9355-2a5540bcc5f6',
                                                    'uuid:90e3349a-59eb-40b5-8fbe-7542b2cc30b8'))
+# Strange issue with 12013-03
+safety <- safety %>% filter(instanceID != 'uuid:e036a4b1-5a33-4667-8215-389ef858f539')
 
 # Define a date after which to retrieve data
 start_from <- as.Date('2023-08-01')
@@ -904,11 +907,24 @@ individuals <- roster %>%
 individuals <- left_join(individuals, starting_weights)
 # Get starting height (generated in safety section)
 individuals <- left_join(individuals, starting_heights)
-# # Get efficacy status (placeholder) ################################################
+# # Get efficacy status  ################################################
 # g <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203')
 # g$extid[g$efficacy_preselected == 1]
-efficacy_preselected_ids <- c("01000-01", "01000-04", "12013-03", "34102-02", "34102-03", 
-                              "20001-01", "20001-02", "72034-01", "72034-02")
+if(real_preselections){
+  efficacy_selection <- read_csv('../../analyses/randomization/outputs/efficacy_selection.csv')
+  efficacy_preselected_ids <- sort(unique(efficacy_selection$extid))
+  # # one-off: list of households in efficacy with cls for mercy
+  # mercy <- efficacy_selection %>%
+  #   mutate(hhid = substr(extid, 1, 5)) %>%
+  #   dplyr::distinct(hhid) %>%
+  #   arrange(hhid) %>%
+  #   left_join(v0demography %>% dplyr::distinct(hhid, .keep_all = TRUE) %>%
+  #               dplyr::select(hhid, wid))
+} else {
+  efficacy_preselected_ids <- c("01000-01", "01000-04", "12013-03", "34102-02", "34102-03", 
+                                "20001-01", "20001-02", "72034-01", "72034-02")
+}
+
 individuals$efficacy_preselected <- ifelse(individuals$extid %in% efficacy_preselected_ids, 1, 0)
 efficacy_ids <- sort(unique(individuals$extid[individuals$efficacy_preselected == 1]))
 # Get some further efficacy status variables
