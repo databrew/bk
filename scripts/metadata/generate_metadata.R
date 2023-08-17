@@ -740,8 +740,8 @@ starter <-
       mutate(todays_date = as.Date(todays_date), extid = as.character(extid), safety_status = as.character(safety_status)) %>%
       dplyr::select(todays_date, extid, safety_status) %>% mutate(form = 'efficacy')
   ) %>%
-  arrange(desc(todays_date)) %>%
-  filter(!is.na(safety_status))
+  filter(!is.na(safety_status)) %>%
+  arrange(desc(todays_date)) 
 right <- starter %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   filter(!is.na(extid), !is.na(safety_status)) %>%
