@@ -311,6 +311,9 @@ pkfollowup <- pkfollowup %>% mutate(hhid = add_zero(hhid, n = 5))
 # Remove August 8th entries for household 01000
 safety$invalid <- safety$hhid == '01000' & safety$todays_date >= '2023-08-03' & safety$todays_date <= '2023-08-11'
 safety <- safety %>% filter(!invalid)
+# Remove submissions as per Marta: https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1692200016777089?thread_ts=1692031520.267839&cid=C042KSRLYUA
+efficacy <- efficacy %>% filter(!instanceID %in% c('uuid:1459b002-dd54-48c2-9355-2a5540bcc5f6',
+                                                   'uuid:90e3349a-59eb-40b5-8fbe-7542b2cc30b8'))
 
 # Define a date after which to retrieve data
 start_from <- as.Date('2023-08-01')
@@ -958,7 +961,7 @@ if(nrow(right) > 0){
 # Keep only individuals who are currently "in" or "out" of efficacy
 individuals <- individuals %>% 
   filter(!is.na(starting_efficacy_status)) %>%
-  filter(starting_efficacy_status %in% c('in', 'out'))
+  filter(starting_efficacy_status %in% c('in', 'out', 'eos', 'refusal'))
 # Write csvs
 if(!dir.exists('efficacy_metadata')){
   dir.create('efficacy_metadata')
