@@ -13,7 +13,8 @@ library(readr)
 
 # Define production
 is_production <- TRUE
-folder <- 'kwale_testing'
+# folder <- 'kwale_testing'
+folder <- 'test_of_test'
 real_preselections <- FALSE
 # folder <- 'kwale'
 
@@ -66,6 +67,9 @@ if(start_fresh){
   }
   if(!dir.exists('kwale_testing')){
     dir.create('kwale_testing')
+  }
+  if(!dir.exists('test_of_tests')){
+    dir.create('test_of_tests')
   }
   if(!dir.exists('empty_objects')){
     dir.create('empty_objects')
@@ -308,21 +312,9 @@ pkday0 <- pkday0 %>% mutate(hhid = add_zero(hhid, n = 5))
 pkdays123 <- pkdays123 %>% mutate(hhid = add_zero(hhid, n = 5))
 pkfollowup <- pkfollowup %>% mutate(hhid = add_zero(hhid, n = 5))
 
-# TEMPORARY #################################################
-# Remove August 8th entries for household 01000
-safety$invalid <- safety$hhid == '01000' & 
-  # safety$todays_date >= '2023-08-03' & 
-  # safety$todays_date <= '2023-08-11'
-  safety$todays_date <= '2023-08-16'
-safety <- safety %>% filter(!invalid)
-# Remove submissions as per Marta: https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1692200016777089?thread_ts=1692031520.267839&cid=C042KSRLYUA
-efficacy <- efficacy %>% filter(!instanceID %in% c('uuid:1459b002-dd54-48c2-9355-2a5540bcc5f6',
-                                                   'uuid:90e3349a-59eb-40b5-8fbe-7542b2cc30b8'))
-# Strange issue with 12013-03
-safety <- safety %>% filter(instanceID != 'uuid:e036a4b1-5a33-4667-8215-389ef858f539')
 
 # Define a date after which to retrieve data
-start_from <- as.Date('2023-08-01')
+start_from <- as.Date('1900-01-01')
 efficacy <- efficacy %>% filter(todays_date >= start_from)
 pfu <- pfu %>% filter(todays_date >= start_from)
 pfu_repeat_preg_symptom <- pfu_repeat_preg_symptom %>% filter(PARENT_KEY %in% pfu$KEY)
@@ -976,7 +968,7 @@ right <- efficacy %>%
 if(nrow(right) > 0){
   individuals <- left_join(individuals, right) 
 } else {
-  individuals$efficacy_visits_done <- 0
+  individuals$efficacy_visits_done <- ""
 }
 # Keep only individuals who are currently "in" or "out" of efficacy
 individuals <- individuals %>% 
