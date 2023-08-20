@@ -474,9 +474,15 @@ household_eos <-
 if(nrow(household_eos) > 0){
   starting_roster$starting_hecon_status[starting_roster$hhid %in% household_eos$hhid] <- 'eos'
 }
-# PLACEHOLDER, give 0 or 1 to the NTD variables
-starting_roster$ntd_safety_preselected <- sample(0:1, size = nrow(starting_roster), replace = TRUE)
-starting_roster$ntd_efficacy_preselected <- sample(0:1, size = nrow(starting_roster), replace = TRUE)
+# Read in Almudena-created health economics randomization data
+health_economics_clusters <- read_csv('../../analyses/randomization/outputs/health_economics_clusters.csv')
+health_economics_households <- read_csv('../../analyses/randomization/outputs/health_economics_households.csv')
+ntd_efficacy_preselection <- read_csv('../../analyses/randomization/outputs/health_economics_ntd_efficacy_preselection.csv')
+ntd_safety_preselection <- read_csv('../../analyses/randomization/outputs/health_economics_ntd_safety_preselection.csv')
+# Paula's instructions (https://docs.google.com/document/d/1Tjpyh8O9oesnDiQgjEih1VpOIZFctpM7UA5aDK--N8o/edit)
+starting_roster <- starting_roster %>%
+  mutate(ntd_safety_preselected = ifelse(extid %in% ntd_safety_preselection$extid, 1, 0)) %>%
+  mutate(ntd_efficacy_preselected = ifelse(extid %in% ntd_efficacy_preselection$extid, 1, 0))
 # Get visit 1 safety status
 v1_safety_status <- 
   bind_rows(
@@ -1008,8 +1014,12 @@ pfu_in <-
 # Get the starting roster
 starting_roster <- v0demography_repeat_individual %>% 
   left_join(v0demography %>% dplyr::select(hhid, todays_date, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
-  bind_rows(safetynew_repeat_individual %>% left_join(safetynew %>% dplyr::select(KEY, hhid, todays_date), by = c('PARENT_KEY' = 'KEY'))) %>%
-  bind_rows(safety_repeat_individual %>% left_join(safety %>% dplyr::select(KEY, hhid, todays_date), by = c('PARENT_KEY' = 'KEY'))) %>%
+  bind_rows(safetynew_repeat_individual %>%
+              mutate(nights_sleep_net = as.character(nights_sleep_net)) %>%
+              left_join(safetynew %>% dplyr::select(KEY, hhid, todays_date), by = c('PARENT_KEY' = 'KEY'))) %>%
+  bind_rows(safety_repeat_individual %>%
+              mutate(nights_sleep_net = as.character(nights_sleep_net)) %>%
+              left_join(safety %>% dplyr::select(KEY, hhid, todays_date), by = c('PARENT_KEY' = 'KEY'))) %>%
   # fix dates
   mutate(dob = as.character(as.Date(dob))) %>%
   # keep only those who are in pfu
@@ -1101,3 +1111,4 @@ zip(zipfile = 'efficacy_metadata.zip', files = 'efficacy_metadata/')
 zip(zipfile = 'health_economics_metadata.zip', files = 'health_economics_metadata//')
 zip(zipfile = 'pfu_metadata.zip', files = 'pfu_metadata/')
 zip(zipfile = 'safety_metadata.zip', files = 'safety_metadata/')
+
