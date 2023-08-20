@@ -13,6 +13,20 @@ clusters <- tibble(
                'North', 'North',
                rep('South', 40)))
 
+# Read in inputs from Almudena
+health_economics_clusters <- read_delim('inputs/HEcon_clusters.csv', delim = ';') %>% filter(!is.na(cluster))
+health_economics_households <- read_delim('inputs/HEcon_hhs.csv', delim = ';')
+
+# Save to outputs
+file_name <- 'outputs/health_economics_clusters.csv'
+if(!file.exists(file_name)){
+  write_csv(health_economics_clusters, file_name)
+}
+file_name <- 'outputs/health_economics_households.csv'
+if(!file.exists(file_name)){
+  write_csv(health_economics_households, file_name)
+}
+
 
 # Load in spatial files
 
@@ -1112,4 +1126,65 @@ if(file.exists(file_path)){
     dplyr::select(cluster = cluster_cluster_number, extid, priority_number) %>%
     arrange(cluster, priority_number)
   write_csv(efficacy_selection, file_path)
+}
+
+# Per Paula's instructions (https://docs.google.com/document/d/1Tjpyh8O9oesnDiQgjEih1VpOIZFctpM7UA5aDK--N8o/edit)
+# create "ntd_efficacy_preselected" variable for those who are both :
+# a) from a health economics household
+# b) efficacy preselected
+file_path1 <- 'outputs/health_economics_ntd_efficacy_preselection.csv'
+file_path2 <- 'outputs/health_economics_ntd_safety_preselection.csv'
+if(file.exists(file_path1)){
+  ntd_efficacy_preselection <- read_csv(file_path1)
+  ntd_safety_preselection <- read_csv(file_path2)
+} else {
+  ntd_efficacy_preselection <- efficacy_selection %>%
+    mutate(hhid = substr(extid, 1, 5)) %>%
+    dplyr::select(hhid, extid) %>%
+    filter(hhid %in% health_economics_households$hhid) %>%
+    dplyr::select(extid) %>%
+    mutate(ntd_efficacy_preselected =1 ) 
+  ntd_safety_preselection <- v0demography_repeat_individual %>%
+    left_join(v0demography_spatial@data %>%
+                dplyr::select(KEY,
+                              hhid,
+                              lng = Longitude,
+                              lat = Latitude,
+                              # cluster,
+                              in_core,
+                              in_cluster,
+                              cluster_cluster_number,
+                              core_cluster_number),
+              by = c('PARENT_KEY' = 'KEY')) %>%
+    filter(hhid %in% health_economics_households$hhid) %>%
+    filter(!extid %in% efficacy_selection$extid) %>%
+    filter(dob < as.Date('2018-10-01')) %>%
+    mutate(dummy = 1) %>%
+    dplyr::sample_n(nrow(.)) %>%
+    filter(!is.na(cluster_cluster_number)) %>%
+    group_by(cluster = cluster_cluster_number) %>%
+    mutate(cs = cumsum(dummy)) %>%
+    ungroup %>%
+    filter(cs <= 50) %>%
+    dplyr::select(cluster, extid) %>%
+    mutate(ntd_safety_preselected = 1)
+  write_csv(ntd_efficacy_preselection, file_path1)
+  write_csv(ntd_safety_preselection, file_path2)
+}
+
+# PK selection
+# Instructions: https://docs.google.com/document/d/1Tjpyh8O9oesnDiQgjEih1VpOIZFctpM7UA5aDK--N8o/edit
+file_path <- 'outputs/pk_clusters.csv'
+if(file.exists(file_path)){
+  pk_clusters <- read_csv(file_path)
+} else {
+  pk_clusters <- clusters@data %>%
+    dplyr::select(cluster_number) %>%
+    left_join(assignments %>% dplyr::select(cluster_number, assignment)) %>%
+    left_join(intervention_assignment, by = c('assignment' = 'arm')) %>%
+    filter(intervention == 'Treatment') %>%
+    dplyr::sample_n(10) %>%
+    dplyr::select(cluster_number) %>%
+    arrange(cluster_number)
+  write_csv(pk_clusters, file_path)
 }
