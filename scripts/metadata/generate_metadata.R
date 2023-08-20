@@ -582,14 +582,17 @@ visits_done <- healtheconbaseline %>%
   group_by(hhid) %>%
   summarise(visits_done = paste0(sort(unique(visit)), collapse = ', '))
 households <- left_join(households, visits_done)
-# Get hecon_hh_preselected, assuming this is a 0/1 value derived from an external dataset
-# for now just populating with random values
-households$hecon_hh_preselected <- sample(0:1, size = nrow(households), replace = TRUE)
-# Get hecon_members
+# Get hecon_hh_preselected, 
+households <- households %>%
+  mutate(hecon_hh_preselected = ifelse(hhid %in% health_economics_households$hhid, 1, 0))
+  # Get hecon_members
 households$hecon_members <- households$roster
 # Create the herd preselected variable (just random values for now)
-households$herd_preselected <- sample(0:1, size = nrow(households), replace = TRUE)
-
+households <- households %>%
+  mutate(herd_preselected = ifelse(hhid %in% health_economics_households$hhid[health_economics_households$herd_preselected == 'yes'], 1, 0))
+# Keep only health economics households
+households <- households %>% filter(hhid %in% health_economics_households$hhid)
+starting_roster <- starting_roster %>% filter(hhid %in% households$hhid)
 # Write csvs
 if(!dir.exists('health_economics_metadata')){
   dir.create('health_economics_metadata')

@@ -16,6 +16,14 @@ clusters <- tibble(
 # Read in inputs from Almudena
 health_economics_clusters <- read_delim('inputs/HEcon_clusters.csv', delim = ';') %>% filter(!is.na(cluster))
 health_economics_households <- read_delim('inputs/HEcon_hhs.csv', delim = ';')
+# sanity check on locations of households
+sanity <- health_economics_households %>%
+  left_join(v0demography %>% dplyr::select(geo_cluster_num, hhid)) %>%
+  filter(!is.na(geo_cluster_num)) %>%
+  group_by(cluster = geo_cluster_num) %>% tally %>%
+    left_join(health_economics_clusters)
+sanity$geo_cluster_num %in% health_economics_clusters$cluster
+
 
 # Save to outputs
 file_name <- 'outputs/health_economics_clusters.csv'
@@ -1226,6 +1234,7 @@ if(file.exists(file_path)){
     # select 8 for each cluster
     mutate(dummy = 1) %>%
     filter(!is.na(cluster_cluster_number)) %>%
+    filter(cluster_cluster_number %in% pk_clusters$cluster_number) %>%
     group_by(cluster = cluster_cluster_number) %>%
     mutate(cs = cumsum(dummy)) %>%
     filter(cs <= 8) %>%
