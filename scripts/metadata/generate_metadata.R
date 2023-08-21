@@ -14,9 +14,9 @@ library(readr)
 # Define production
 is_production <- TRUE
 # folder <- 'kwale_testing'
-folder <- 'test_of_test'
 real_preselections <- FALSE
 # folder <- 'kwale'
+folder <- 'test_of_test'
 
 if(is_production){
   Sys.setenv(PIPELINE_STAGE = 'production') 
@@ -70,6 +70,9 @@ if(start_fresh){
   }
   if(!dir.exists('test_of_tests')){
     dir.create('test_of_tests')
+  }
+  if(!dir.exists('health_economics_testing')){
+    dir.create('health_economics_testing')
   }
   if(!dir.exists('empty_objects')){
     dir.create('empty_objects')
@@ -380,10 +383,11 @@ v0demography <- v0demography %>%
 # Remove those outside of cluster boundaries (not doing now due to the fact that this is just testing)
 if(FALSE){
   v0demography <- v0demography %>%
-    filter(!is.na(not_in_cluster)) %>%
-    filter(!not_in_cluster) %>%
-    mutate(cluster = cluster_correct) %>%
-    dplyr::select(-cluster_correct)
+    filter(!geo_not_in_cluster)
+    # filter(!is.na(not_in_cluster)) %>%
+    # filter(!not_in_cluster) %>%
+    # mutate(cluster = cluster_correct) %>%
+    # dplyr::select(-cluster_correct)
 }
 
 # Prepare some external datasets 
@@ -474,6 +478,22 @@ household_eos <-
 if(nrow(household_eos) > 0){
   starting_roster$starting_hecon_status[starting_roster$hhid %in% household_eos$hhid] <- 'eos'
 }
+# If ever eos, always eos
+ever_eos <- 
+  bind_rows(
+    healtheconnew_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>% 
+      left_join(healtheconnew %>% dplyr::select(KEY, todays_date) %>% mutate(todays_date = as.Date(todays_date)), by = c('PARENT_KEY' = 'KEY')),
+    healtheconbaseline_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>% 
+      left_join(healtheconbaseline %>% dplyr::select(KEY, todays_date) %>% mutate(todays_date = as.Date(todays_date)), by = c('PARENT_KEY' = 'KEY')),
+    healtheconmonthly_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>% 
+      left_join(healtheconmonthly %>% dplyr::select(KEY, todays_date) %>% mutate(todays_date = as.Date(todays_date)), by = c('PARENT_KEY' = 'KEY'))
+  ) %>%
+  filter(!is.na(hecon_individual_status)) %>%
+  filter(hecon_individual_status == 'eos') %>%
+  filter(!is.na(extid)) %>%
+  dplyr::pull(extid)
+starting_roster$starting_hecon_status[starting_roster$extid %in% ever_eos] <- 'eos'
+
 # Read in Almudena-created health economics randomization data
 health_economics_clusters <- read_csv('../../analyses/randomization/outputs/health_economics_clusters.csv')
 health_economics_households <- read_csv('../../analyses/randomization/outputs/health_economics_households.csv')
@@ -670,7 +690,7 @@ if(nrow(departures) > 0){
 starting_roster <- starting_roster %>%
   filter(migrated != 1, dead != 1)
 
-# Go through each arrival and add
+# Go through each arrival and add information
 roster <- bind_rows(
   starting_roster,
   arrivals %>% mutate(hhid = as.character(hhid))
@@ -734,8 +754,8 @@ starter <-
       dplyr::select(todays_date, extid, safety_status) %>% mutate(form = 'v0demography'),
     safety_repeat_individual %>%
       left_join(safety %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
-      mutate(todays_date = as.Date(todays_date), extid = as.character(extid), safety_status = as.character(safety_status)) %>%
-      dplyr::select(todays_date, extid, safety_status) %>% mutate(form = 'safety'),
+      mutate(todays_date = as.Date(todays_date), extid = as.character(extid), safety_status = as.character(safety_status), pregnancy_status = as.character(pregnancy_status)) %>%
+      dplyr::select(todays_date, extid, safety_status, pregnancy_status) %>% mutate(form = 'safety'),
     safetynew_repeat_individual %>%
       left_join(safetynew %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
       mutate(todays_date = as.Date(todays_date), extid = as.character(extid), safety_status = as.character(safety_status)) %>%
@@ -745,11 +765,13 @@ starter <-
       dplyr::select(todays_date, extid, safety_status) %>% mutate(form = 'efficacy')
   ) %>%
   filter(!is.na(safety_status)) %>%
-  arrange(desc(todays_date)) 
+  arrange(desc(todays_date)) %>%
+  mutate(starting_pregnancy_status = ifelse(is.na(pregnancy_status), 'out', pregnancy_status)) %>%
+  dplyr::select(-pregnancy_status)
 right <- starter %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   filter(!is.na(extid), !is.na(safety_status)) %>%
-  dplyr::select(extid, starting_safety_status = safety_status) 
+  dplyr::select(extid, starting_safety_status = safety_status, starting_pregnancy_status) 
 # Any individual who is not in the above gets an "out" assignation
 individuals <- left_join(individuals, right) %>%
   mutate(starting_safety_status = ifelse(is.na(starting_safety_status), 'out', starting_safety_status))
@@ -758,10 +780,10 @@ ever_eos <- starter %>%
   filter(!is.na(safety_status)) %>%
   filter(safety_status == 'eos') %>% 
   filter(!is.na(extid)) %>%
-  dplyr::distinct(extid) %>%
+  # dplyr::distinct(extid) %>%
   pull(extid)
 individuals$starting_safety_status[individuals$extid %in% ever_eos] <- 'eos'
-# Double check: any individual who was ever pregnant is always safety eos
+# Double check: any individual who was ever pregnant is always safety eos and in pfu
 ever_pregnant <- 
   bind_rows(
     safety_repeat_individual %>% filter(!is.na(pregnancy_status)) %>%
@@ -771,6 +793,8 @@ ever_pregnant <-
       dplyr::select(extid)) %>%
   pull(extid)
 individuals$starting_safety_status[individuals$extid %in% ever_pregnant] <- 'eos'
+individuals$starting_pregnancy_status[individuals$extid %in% ever_pregnant] <- 'in'
+
 # Get starting weight
 starting_weights <- 
   bind_rows(
@@ -979,8 +1003,12 @@ if(nrow(right) > 0){
 } else {
   individuals$efficacy_visits_done <- ""
 }
+# If ever eos, always eos
+ever_eos <- efficacy %>% filter(efficacy_status == 'eos') %>% filter(!is.na(extid)) %>% dplyr::pull(extid)
+
 # Keep only individuals who are currently "in" or "out" of efficacy
 individuals <- individuals %>% 
+  filter(!extid %in% ever_eos) %>%
   filter(!is.na(starting_efficacy_status)) %>%
   filter(starting_efficacy_status %in% c('in', 'out'))
 # Write csvs
@@ -1002,13 +1030,18 @@ write_csv(individuals, 'efficacy_metadata/individual_data.csv')
 # no need for safetynew since they would be excluded from safety and therefore pregnancy in the first place
 pfu_in <-   
   bind_rows(
-    safety_repeat_individual %>% filter(!is.na(pregnancy_status)) %>%
-      left_join(safety %>% dplyr::select(KEY, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
-      dplyr::select(todays_date, extid, pregnancy_status) %>% mutate(form = 'safety'),
     pfu %>% filter(!is.na(pregnancy_status)) %>%
-      dplyr::select(todays_date, extid, pregnancy_status) %>% mutate(form = 'pfu')
+      dplyr::select(todays_date, extid, pregnancy_status, visit, start_time) %>% mutate(form = 'pfu') %>%
+      mutate(todays_date = as.Date(todays_date)) %>%
+      arrange(desc(start_time)),
+    safety_repeat_individual %>% filter(!is.na(pregnancy_status)) %>%
+      left_join(safety %>% dplyr::select(KEY, todays_date, visit, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
+      dplyr::select(todays_date, extid, pregnancy_status, visit, start_time) %>% mutate(form = 'safety') %>%
+      mutate(todays_date = as.Date(todays_date)) %>%
+      arrange(desc(start_time)),
   ) %>%
-  arrange(desc(todays_date)) %>%
+  # arrange(desc(todays_date)) %>%
+  # arrange(desc(start_time)) %>%
   filter(!is.na(extid), !is.na(pregnancy_status)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::select(extid, pregnancy_status) %>%
@@ -1025,7 +1058,8 @@ starting_roster <- v0demography_repeat_individual %>%
               left_join(safety %>% dplyr::select(KEY, hhid, todays_date), by = c('PARENT_KEY' = 'KEY'))) %>%
   # fix dates
   mutate(dob = as.character(as.Date(dob))) %>%
-  # keep only those who are in pfu
+  # # keep only those who are in pfu
+  # filter(extid %in% pfu_in$extid) %>%
   filter(extid %in% pfu_in$extid) %>%
   dplyr::select(hhid, todays_date, firstname, lastname, dob, sex, extid) %>%
   arrange(desc(todays_date)) %>%

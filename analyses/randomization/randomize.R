@@ -13,27 +13,6 @@ clusters <- tibble(
                'North', 'North',
                rep('South', 40)))
 
-# Read in inputs from Almudena
-health_economics_clusters <- read_delim('inputs/HEcon_clusters.csv', delim = ';') %>% filter(!is.na(cluster))
-health_economics_households <- read_delim('inputs/HEcon_hhs.csv', delim = ';')
-# sanity check on locations of households
-sanity <- health_economics_households %>%
-  left_join(v0demography %>% dplyr::select(geo_cluster_num, hhid)) %>%
-  filter(!is.na(geo_cluster_num)) %>%
-  group_by(cluster = geo_cluster_num) %>% tally %>%
-    left_join(health_economics_clusters)
-sanity$geo_cluster_num %in% health_economics_clusters$cluster
-
-
-# Save to outputs
-file_name <- 'outputs/health_economics_clusters.csv'
-if(!file.exists(file_name)){
-  write_csv(health_economics_clusters, file_name)
-}
-file_name <- 'outputs/health_economics_households.csv'
-if(!file.exists(file_name)){
-  write_csv(health_economics_households, file_name)
-}
 
 
 # Load in spatial files
@@ -228,6 +207,28 @@ if(start_fresh){
   save(ra, rab, rx, v0demography, v0demography_repeat_individual, file = 'data.RData')
 } else {
   load('data.RData')
+}
+
+# Read in inputs from Almudena
+health_economics_clusters <- read_delim('inputs/HEcon_clusters.csv', delim = ';') %>% filter(!is.na(cluster))
+health_economics_households <- read_delim('inputs/HEcon_hhs.csv', delim = ';')
+# # sanity check on locations of households
+# sanity <- health_economics_households %>%
+#   left_join(v0demography %>% dplyr::select(geo_cluster_num, hhid)) %>%
+#   filter(!is.na(geo_cluster_num)) %>%
+#   group_by(cluster = geo_cluster_num) %>% tally %>%
+#   left_join(health_economics_clusters)
+# sanity$geo_cluster_num %in% health_economics_clusters$cluster
+
+
+# Save to outputs
+file_name <- 'outputs/health_economics_clusters.csv'
+if(!file.exists(file_name)){
+  write_csv(health_economics_clusters, file_name)
+}
+file_name <- 'outputs/health_economics_households.csv'
+if(!file.exists(file_name)){
+  write_csv(health_economics_households, file_name)
 }
 
 
