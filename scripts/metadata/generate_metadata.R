@@ -350,8 +350,6 @@ healtheconmonthly_repeat_miss_work_school <- healtheconmonthly_repeat_miss_work_
 healtheconmonthly_repeat_other_employment_details <- healtheconmonthly_repeat_other_employment_details %>% filter(PARENT_KEY %in% healtheconmonthly$KEY)
 
 
-
-
 # Prior to beginning cohort-specific metadata generation, get the location of each house in v0demography and the cluster based on that location
 households_sp <- v0demography %>% 
   arrange(desc(todays_date)) %>%
@@ -653,7 +651,7 @@ safety_deaths <- safety_repeat_individual %>%
   filter(!is.na(person_absent_reason)) %>%
   filter(person_absent_reason %in% c('Died')) %>%
   # filter(person_absent_reason %in% c('Died', 'Migrated')) %>%
-  dplyr::select(hhid, todays_date, firstname, lastname, dob, sex, extid) %>% mutate(type = 'Death')
+  dplyr::select(hhid, todays_date, firstname, lastname, dob, sex, extid) %>% mutate(type = 'Died')
 # Get efficacy departures (but ignore migrations, per project instructions)
 # https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1690186129913529?thread_ts=1689946560.024259&cid=C042KSRLYUA
 efficacy_departures <- efficacy %>% 
@@ -667,7 +665,7 @@ efficacy_departures <- efficacy %>%
 efficacy_deaths <- efficacy_departures %>%
   filter(person_absent_reason %in% c('Died')) %>%
   # filter(person_absent_reason %in% c('Died', 'Migrated')) %>%
-  dplyr::select(hhid, todays_date, firstname, lastname, dob, sex, extid) %>% mutate(type = 'Death')
+  dplyr::select(hhid, todays_date, firstname, lastname, dob, sex, extid) %>% mutate(type = 'Died')
 # Combine safety and efficacy departures
 departures <- bind_rows(safety_departures, safety_deaths, efficacy_deaths)
 # events <- bind_rows(arrivals, departures) %>% arrange(todays_date)
@@ -685,7 +683,11 @@ if(nrow(departures) > 0){
   starting_roster$migrated[starting_roster$extid %in% departures$extid[departures$type == 'Departure']] <- 1
   starting_roster$dead[starting_roster$extid %in% departures$extid[departures$type == 'Died']] <- 1
 }
-
+# stash those who are dead to keep in starting safety status for efficacy
+dead_in_safety <- starting_roster %>%
+  filter(dead == 1) %>%
+  dplyr::select(extid) %>%
+  mutate(starting_safety_status = 'eos')
 # Remove those who are dead and migrated
 starting_roster <- starting_roster %>%
   filter(migrated != 1, dead != 1)
@@ -872,6 +874,17 @@ individuals <- left_join(individuals, right) %>%
   mutate(starting_pk_status = ifelse(is.na(starting_pk_status) & extid %in% pk_ids, 
                             'out',
                             starting_pk_status))
+# stash starting safety status for efficacy
+starting_safety_statuses <- individuals %>%
+  dplyr::select(extid, starting_safety_status)
+# Add the efficacy dead
+starting_safety_statuses <- 
+  bind_rows(
+    dead_in_safety,
+    starting_safety_statuses
+  ) %>%
+  dplyr::distinct(extid, .keep_all = TRUE)
+
 # Write csvs
 if(!dir.exists('safety_metadata')){
   dir.create('safety_metadata')
@@ -1011,6 +1024,10 @@ individuals <- individuals %>%
   filter(!extid %in% ever_eos) %>%
   filter(!is.na(starting_efficacy_status)) %>%
   filter(starting_efficacy_status %in% c('in', 'out'))
+
+# Add a "starting_safety_status" to efficacy
+individuals <- left_join(individuals, starting_safety_statuses)
+
 # Write csvs
 if(!dir.exists('efficacy_metadata')){
   dir.create('efficacy_metadata')
