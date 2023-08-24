@@ -868,11 +868,18 @@ starting_heights <-
   dplyr::select(extid, starting_height)
 individuals <- left_join(individuals, starting_heights)
 # Get pk_status
-# Get pk status ################################################# (placeholder)
-# individuals$pk_preselected <- sample(c(NA, 0, 1), nrow(individuals), replace = TRUE) ############# placeholder
-# g <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203')
-# g$extid[g$pk_preselected == 1]
-pk_preselected_ids <- c("01000-01", "56123-01")
+if(real_preselections){
+  # Read in real preselection for pk
+  pk_clusters <- read_csv('../../analyses/randomization/outputs/pk_clusters.csv')
+  pk_individuals <- read_csv('../../analyses/randomization/outputs/pk_individuals.csv')
+  pk_preselected_ids <- pk_individuals$extid
+} else {
+  # Fake PK IDs
+  # # g <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203')
+  # g$extid[g$pk_preselected == 1]
+  pk_preselected_ids <- c("01000-01", "56123-01")
+}
+
 individuals$pk_preselected <- ifelse(individuals$extid %in% pk_preselected_ids, 1, 0)
 pk_ids <- sort(unique(individuals$extid[individuals$pk_preselected == 1]))
 right <- bind_rows(
