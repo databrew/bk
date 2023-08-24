@@ -82,10 +82,13 @@ for(i in 1:length(datasets)){
 # entorcmorphid-repeat_tube_gambiae_gonotrophic.csv
 # and in the collection_type column: "LT" if the QR is from the entoltmorphid form and "RC" if the QR is from entorcmorphid form.
 library(readr)
-e1 <- read_csv('kwale/clean-form/entoltmorphid/entoltmorphid-repeat_tubes_dissected_unfed_funestus.csv')
-e2 <- read_csv('kwale/clean-form/entoltmorphid/entoltmorphid-repeat_tubes_dissected_unfed_gambiae.csv')
-e3 <- read_csv('kwale/clean-form/entorcmorphid/entorcmorphid-repeat_tube_funestus_gonotrophic.csv')
-e4 <- read_csv('kwale/clean-form/entorcmorphid/entorcmorphid-repeat_tube_gambiae_gonotrophic.csv')
+entoltmorphid <- read_csv('kwale/clean-form/entoltmorphid/entoltmorphid.csv')
+entorcmorphid <- read_csv('kwale/clean-form/entorcmorphid/entorcmorphid.csv')
+
+e1 <- read_csv('kwale/clean-form/entoltmorphid/entoltmorphid-repeat_tubes_dissected_unfed_funestus.csv') %>% left_join(entoltmorphid %>% dplyr::select(todays_date, KEY), by = c('PARENT_KEY' = 'KEY'))
+e2 <- read_csv('kwale/clean-form/entoltmorphid/entoltmorphid-repeat_tubes_dissected_unfed_gambiae.csv') %>% left_join(entoltmorphid %>% dplyr::select(todays_date, KEY), by = c('PARENT_KEY' = 'KEY'))
+e3 <- read_csv('kwale/clean-form/entorcmorphid/entorcmorphid-repeat_tube_funestus_gonotrophic.csv') %>% left_join(entorcmorphid %>% dplyr::select(todays_date, KEY), by = c('PARENT_KEY' = 'KEY'))
+e4 <- read_csv('kwale/clean-form/entorcmorphid/entorcmorphid-repeat_tube_gambiae_gonotrophic.csv') %>% left_join(entorcmorphid %>% dplyr::select(todays_date, KEY), by = c('PARENT_KEY' = 'KEY'))
 
 # Temp, remove bad instances
 remove_bad <- function(z){z %>% filter(!PARENT_KEY %in% c("uuid:6ac0451a-4337-43ca-8e46-b2ed4e056e72", "uuid:8622a054-f295-4e53-af02-9e1d2d4fdb38", 
@@ -98,15 +101,27 @@ e4 <- e4 %>% remove_bad()
 
 out <- 
   bind_rows(
-    e1 %>% dplyr::select(tube_id = tubes_dissected_unfed_funestus_qr) %>%
+    e1 %>% dplyr::select(tube_id = tubes_dissected_unfed_funestus_qr, todays_date) %>%
       mutate(collection_type = 'LT', tube_id = as.character(tube_id)),
-    e2 %>% dplyr::select(tube_id = tubes_dissected_unfed_gambiae_qr) %>%
+    e2 %>% dplyr::select(tube_id = tubes_dissected_unfed_gambiae_qr, todays_date) %>%
       mutate(collection_type = 'LT', tube_id = as.character(tube_id)),
-    e3 %>% dplyr::select(tube_id = tubes_funestus_gonotrophic_qr) %>%
+    e3 %>% dplyr::select(tube_id = tubes_funestus_gonotrophic_qr, todays_date) %>%
       mutate(collection_type = 'RC', tube_id = as.character(tube_id)),
-    e4 %>% dplyr::select(tube_id = tubes_gambiae_gonotrophic_qr) %>%
+    e4 %>% dplyr::select(tube_id = tubes_gambiae_gonotrophic_qr, todays_date) %>%
       mutate(collection_type = 'RC', tube_id = as.character(tube_id))
-  ) %>%
+  )
+
+# Filter for a specific period based on Miguel's instructions
+# https://bohemiakenya.slack.com/archives/C03DXF6SPC2/p1692871799819169?thread_ts=1692799112.440639&cid=C03DXF6SPC2
+filter_by_dates <- FALSE
+if(filter_by_dates){
+  out <- out %>% filter(
+    todays_date >= as.Date('2023-08-14'),
+    todays_date <= as.Date('2023-08-18')
+  )
+}
+
+out <- out %>%
   dplyr::distinct(tube_id, .keep_all = TRUE) %>%
   arrange(tube_id)
-write_csv(out, 'metadata.csv')
+write_csv(out, 'ento_metadata.csv')
