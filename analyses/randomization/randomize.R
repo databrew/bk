@@ -1200,47 +1200,48 @@ if(file.exists(file_path)){
   write_csv(pk_clusters, file_path)
 }
 
-# PK Individuals
-# Instructions at https://docs.google.com/document/d/1Tjpyh8O9oesnDiQgjEih1VpOIZFctpM7UA5aDK--N8o/edit
-# Select 8 individuals per cluster from the Pk clusters (pk_cluster=yes) that are
-# ≥ 18 - <65 years old as of Oct 1st
-# NTD_efficacy_preselected = no (actually, not possible because Efficacy kids are all 5-15, but just in case)
-# NTD_safety_preselected = no
-
-file_path <- 'outputs/pk_individuals.csv'
-if(file.exists(file_path)){
-  pk_individuals <- read_csv(file_path)
-} else {
-  pk_individuals <-  v0demography_repeat_individual %>%
-    left_join(v0demography_spatial@data %>%
-                dplyr::select(KEY,
-                              hhid,
-                              lng = Longitude,
-                              lat = Latitude,
-                              # cluster,
-                              in_core,
-                              in_cluster,
-                              cluster_cluster_number,
-                              core_cluster_number),
-              by = c('PARENT_KEY' = 'KEY')) %>%
-    filter(!extid %in% ntd_efficacy_preselection$extid) %>%
-    filter(!extid %in% ntd_safety_preselection$extid) %>%
-    # must be >= 18 and < 65 as of oct 1 2023
-    # >=18
-    filter(dob <= as.Date('2005-10-01')) %>%
-    # < 65
-    filter(dob > as.Date('1958-10-01')) %>%
-    # randomize order
-    dplyr::sample_n(nrow(.)) %>%
-    # select 8 for each cluster
-    mutate(dummy = 1) %>%
-    filter(!is.na(cluster_cluster_number)) %>%
-    filter(cluster_cluster_number %in% pk_clusters$cluster_number) %>%
-    group_by(cluster = cluster_cluster_number) %>%
-    mutate(cs = cumsum(dummy)) %>%
-    filter(cs <= 8) %>%
-    ungroup %>%
-    dplyr::select(cluster, extid) %>%
-    arrange(cluster, extid)
-  write_csv(pk_individuals, file_path)
-}
+# PROJECT NO LONGER DOING THIS: https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1693205208066469?thread_ts=1692786669.002209&cid=C042KSRLYUA
+# # PK Individuals
+# # Instructions at https://docs.google.com/document/d/1Tjpyh8O9oesnDiQgjEih1VpOIZFctpM7UA5aDK--N8o/edit
+# # Select 8 individuals per cluster from the Pk clusters (pk_cluster=yes) that are
+# # ≥ 18 - <65 years old as of Oct 1st
+# # NTD_efficacy_preselected = no (actually, not possible because Efficacy kids are all 5-15, but just in case)
+# # NTD_safety_preselected = no
+# 
+# file_path <- 'outputs/pk_individuals.csv'
+# if(file.exists(file_path)){
+#   pk_individuals <- read_csv(file_path)
+# } else {
+#   pk_individuals <-  v0demography_repeat_individual %>%
+#     left_join(v0demography_spatial@data %>%
+#                 dplyr::select(KEY,
+#                               hhid,
+#                               lng = Longitude,
+#                               lat = Latitude,
+#                               # cluster,
+#                               in_core,
+#                               in_cluster,
+#                               cluster_cluster_number,
+#                               core_cluster_number),
+#               by = c('PARENT_KEY' = 'KEY')) %>%
+#     filter(!extid %in% ntd_efficacy_preselection$extid) %>%
+#     filter(!extid %in% ntd_safety_preselection$extid) %>%
+#     # must be >= 18 and < 65 as of oct 1 2023
+#     # >=18
+#     filter(dob <= as.Date('2005-10-01')) %>%
+#     # < 65
+#     filter(dob > as.Date('1958-10-01')) %>%
+#     # randomize order
+#     dplyr::sample_n(nrow(.)) %>%
+#     # select 8 for each cluster
+#     mutate(dummy = 1) %>%
+#     filter(!is.na(cluster_cluster_number)) %>%
+#     filter(cluster_cluster_number %in% pk_clusters$cluster_number) %>%
+#     group_by(cluster = cluster_cluster_number) %>%
+#     mutate(cs = cumsum(dummy)) %>%
+#     filter(cs <= 8) %>%
+#     ungroup %>%
+#     dplyr::select(cluster, extid) %>%
+#     arrange(cluster, extid)
+#   write_csv(pk_individuals, file_path)
+# }
