@@ -1137,6 +1137,20 @@ if(file.exists(file_path)){
   write_csv(efficacy_selection, file_path)
 }
 
+# One-off request for Carlos
+# https://trello.com/c/iSs67XrF/2000-efficacy-selection-with-additional-information
+# distance_to_edge
+# age as of oct 1 2023
+if(FALSE){
+  carlos <- efficacy_selection %>%
+    left_join(eligibles_sp_projected@data %>%
+                mutate(age_at_enrollment = as.numeric(age_at_enrollment)) %>%
+                dplyr::select(extid, distance_to_edge, age_at_enrollment)) %>%
+    dplyr::select(cluster, extid, priority_number, distance_to_edge, age_at_enrollment) %>%
+    arrange(cluster, priority_number)
+  write_csv(carlos, '~/Desktop/efficacy_expanded.csv')
+}
+
 # Per Paula's instructions (https://docs.google.com/document/d/1Tjpyh8O9oesnDiQgjEih1VpOIZFctpM7UA5aDK--N8o/edit)
 # create "ntd_efficacy_preselected" variable for those who are both :
 # a) from a health economics household

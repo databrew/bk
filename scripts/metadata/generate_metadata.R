@@ -721,8 +721,10 @@ households <- left_join(households, visits_done)
 households <- households %>%
   mutate(hecon_hh_status = ifelse(is.na(hecon_hh_status), 'out', hecon_hh_status))
 # After baseline visit, only those which are "in" should remain
+households$remove <- FALSE
 if(v1_done){
-  households <- households %>% filter(hecon_hh_status == 'in')
+  # remove households from ntd, but not from health economics
+  households <- households %>% mutate(remove = hecon_hh_status != 'in') 
 }
 
 # Get hecon_hh_preselected, 
@@ -736,23 +738,8 @@ households <- households %>%
 # Keep only health economics households
 households <- households %>% filter(hhid %in% health_economics_households$hhid)
 starting_roster <- starting_roster %>% filter(hhid %in% households$hhid)
-# Write csvs
-if(!dir.exists('health_economics_metadata')){
-  dir.create('health_economics_metadata')
-}
-write_csv(households, 'health_economics_metadata/household_data.csv')
-write_csv(starting_roster, 'health_economics_metadata/individual_data.csv')
-# </Health economics> ##############################################################################
-##############################################################################
-##############################################################################
-##############################################################################
 
-# <NTD> ##############################################################################
-##############################################################################
-##############################################################################
-##############################################################################
-
-# Just take health economics and filter for those who are NTD preselected
+# Write NTD data before removing those who are out/eos for health econ
 individuals <- starting_roster %>%
   filter(extid %in% ntd_efficacy_preselection$extid |
            extid %in% ntd_safety_preselection$extid)
@@ -762,8 +749,17 @@ if(!dir.exists('ntd_metadata')){
 }
 write_csv(individuals, 'ntd_metadata/individual_data.csv')
 
+# Remove from health econ those who are out/eos
+households <- households %>% filter(!remove) %>% dplyr::select(-remove)
+starting_roster <- starting_roster %>% filter(hhid %in% households$hhid)
 
-# </NTD> ##############################################################################
+# Write csvs
+if(!dir.exists('health_economics_metadata')){
+  dir.create('health_economics_metadata')
+}
+write_csv(households, 'health_economics_metadata/household_data.csv')
+write_csv(starting_roster, 'health_economics_metadata/individual_data.csv')
+# </Health economics> ##############################################################################
 ##############################################################################
 ##############################################################################
 ##############################################################################
