@@ -18,8 +18,7 @@ real_preselections <- FALSE
 # folder <- 'kwale'
 # folder <- 'test_of_test'
 folder <- 'health_economics_testing'
-# Is visit 1 completely done (relevant to removing health economics households that did not enroll)
-v1_done <- TRUE
+
 
 if(folder == 'health_economics_testing'){
   real_preselections <- TRUE
@@ -709,23 +708,21 @@ visits_done <- healtheconbaseline %>%
               dplyr::select(hhid, visit)) %>% 
   group_by(hhid) %>%
   summarise(visits_done = paste0(sort(unique(visit)), collapse = ', '))
-# Add baseline in/out status
+# Get baseline in/out status
 right <- healtheconbaseline %>%
+  mutate(start_time = as.POSIXct(start_time)) %>%
+  dplyr::select(start_time, hhid, hecon_hh_status = hecon_household_status) %>%
+  bind_rows(healtheconmonthly %>%
+              mutate(start_time = as.POSIXct(start_time)) %>%
+              dplyr::select(start_time, hhid, hecon_hh_status = hecon_household_status)) %>%
   arrange(desc(start_time)) %>%
-  dplyr::distinct(hhid, .keep_all = TRUE) %>%
-  dplyr::select(hhid, hecon_hh_status = hecon_household_status)
+  dplyr::distinct(hhid, .keep_all = TRUE) 
 visits_done <- left_join(visits_done, right)
 households <- left_join(households, visits_done)
-# If NA hecon_hh_status, this means that the person did not have a baseline visit, and 
+# If NA hecon_hh_status, this means that the household did not have any  visit, and 
 # should be considered "out"
 households <- households %>%
   mutate(hecon_hh_status = ifelse(is.na(hecon_hh_status), 'out', hecon_hh_status))
-# After baseline visit, only those which are "in" should remain
-households$remove <- FALSE
-if(v1_done){
-  # remove households from ntd, but not from health economics
-  households <- households %>% mutate(remove = hecon_hh_status != 'in') 
-}
 
 # Get hecon_hh_preselected, 
 households <- households %>%
@@ -739,26 +736,35 @@ households <- households %>%
 households <- households %>% filter(hhid %in% health_economics_households$hhid)
 starting_roster <- starting_roster %>% filter(hhid %in% households$hhid)
 
-# Write NTD data before removing those who are out/eos for health econ
+# Write NTD data before removing those who are out/eos for health econ ########################
 individuals <- starting_roster %>%
   filter(extid %in% ntd_efficacy_preselection$extid |
            extid %in% ntd_safety_preselection$extid)
-# Write csvs
 if(!dir.exists('ntd_metadata')){
   dir.create('ntd_metadata')
 }
 write_csv(individuals, 'ntd_metadata/individual_data.csv')
 
+# Write health economic baseline data #########################################
+if(!dir.exists('healtheconbaseline_metadata')){
+  dir.create('healtheconbaseline_metadata')
+}
+write_csv(households, 'healtheconbaseline_metadata/household_data.csv')
+write_csv(starting_roster, 'healtheconbaseline_metadata/individual_data.csv')
+
+# Write health economic monthly followup data
 # Remove from health econ those who are out/eos
-households <- households %>% filter(!remove) %>% dplyr::select(-remove)
+households <- households %>% filter(!is.na(hecon_hh_status)) %>% filter(hecon_hh_status == 'in')
 starting_roster <- starting_roster %>% filter(hhid %in% households$hhid)
 
-# Write csvs
-if(!dir.exists('health_economics_metadata')){
-  dir.create('health_economics_metadata')
+if(!dir.exists('healtheconmonthly_metadata')){
+  dir.create('healtheconmonthly_metadata')
 }
-write_csv(households, 'health_economics_metadata/household_data.csv')
-write_csv(starting_roster, 'health_economics_metadata/individual_data.csv')
+write_csv(households, 'healtheconmonthly_metadata/household_data.csv')
+write_csv(starting_roster, 'healtheconmonthly_metadata/individual_data.csv')
+
+
+
 # </Health economics> ##############################################################################
 ##############################################################################
 ##############################################################################
