@@ -16,7 +16,17 @@ is_production <- TRUE
 # folder <- 'kwale_testing'
 real_preselections <- FALSE
 # folder <- 'kwale'
-folder <- 'test_of_test'
+# folder <- 'test_of_test'
+folder <- 'health_economics_testing'
+# Is visit 1 completely done (relevant to removing health economics households that did not enroll)
+v1_done <- TRUE
+
+if(folder == 'health_economics_testing'){
+  real_preselections <- TRUE
+  use_real_v0 <- TRUE
+} else {
+  use_real_v0 <- FALSE
+}
 
 if(is_production){
   Sys.setenv(PIPELINE_STAGE = 'production') 
@@ -55,7 +65,7 @@ if(start_fresh){
   datasets <- c('v0demography', 'safetynew', 'safety', 'efficacy', 'pfu',
                 'pkday0', 'pkdays123',
                 'pkfollowup',
-                'healtheconbaseline', 'healthealtheconnew', 'healtheconmonthly')
+                'healtheconbaseline', 'healtheconnew', 'healtheconmonthly')
   datasets_names <- datasets
   
   # Loop through each dataset and retrieve
@@ -128,18 +138,26 @@ if(start_fresh){
     load('empty_objects/safetynew.RData')
   })
   #v0demography
-  tryCatch({
-    v0demography <- read_csv(paste0(middle_path, 'v0demography/v0demography.csv'))
-    v0demography_repeat_individual <- read_csv(paste0(middle_path, 'v0demography/v0demography-repeat_individual.csv'))
-    if(save_empty_objects){
-      v0demography <- v0demography %>% rr()
-      v0demography_repeat_individual <- v0demography_repeat_individual %>% rr()
-      save(v0demography, v0demography_repeat_individual, file = 'empty_objects/v0demography.RData')
-    }
-  },
-  error = {
-    load('empty_objects/v0demography.RData')
-  })
+  if(use_real_v0){
+    # v0demography <- read_csv(paste0(middle_path, 'v0demography/v0demography.csv'))
+    # v0demography_repeat_individual <- read_csv(paste0(middle_path, 'v0demography/v0demography-repeat_individual.csv'))
+    # save(v0demography, v0demography_repeat_individual, file = 'real_v0.RData')
+    load('real_v0.RData')
+  } else {
+    tryCatch({
+      v0demography <- read_csv(paste0(middle_path, 'v0demography/v0demography.csv'))
+      v0demography_repeat_individual <- read_csv(paste0(middle_path, 'v0demography/v0demography-repeat_individual.csv'))
+      if(save_empty_objects){
+        v0demography <- v0demography %>% rr()
+        v0demography_repeat_individual <- v0demography_repeat_individual %>% rr()
+        save(v0demography, v0demography_repeat_individual, file = 'empty_objects/v0demography.RData')
+      }
+    },
+    error = {
+      load('empty_objects/v0demography.RData')
+    })
+  }
+
   # efficacy
   tryCatch({
     efficacy <- read_csv(paste0(middle_path, 'efficacy/efficacy.csv'))
@@ -315,6 +333,91 @@ pkday0 <- pkday0 %>% mutate(hhid = add_zero(hhid, n = 5))
 pkdays123 <- pkdays123 %>% mutate(hhid = add_zero(hhid, n = 5))
 pkfollowup <- pkfollowup %>% mutate(hhid = add_zero(hhid, n = 5))
 
+# Capitalize all names
+efficacy <- efficacy %>% 
+  mutate(member_select = toupper(member_select),
+         person_string = toupper(person_string),
+         firstname = toupper(firstname),
+         lastname = toupper(lastname),
+         fullname = toupper(fullname),
+         dob_pulled = toupper(dob_pulled))
+# healtheconbaseline
+# healtheconbaseline_repeat_cattle
+# healtheconbaseline_repeat_disease
+# healtheconbaseline_repeat_individual
+# healtheconbaseline_repeat_miss_work_school
+# healtheconbaseline_repeat_other_employment_details
+# healtheconmonthly
+# healtheconmonthly_repeat_cattle
+# healtheconmonthly_repeat_disease
+# healtheconmonthly_repeat_individual
+# healtheconmonthly_repeat_miss_work_school
+# healtheconmonthly_repeat_other_employment_details
+# healtheconnew
+# healtheconnew_repeat_individual
+# healtheconnew_repeat_miss_work_school
+# healtheconnew_repeat_other_employment_details
+# pfu
+pfu <- pfu %>%
+  mutate(member_select = toupper(member_select),
+         person_string = toupper(person_string),
+         firstname = toupper(firstname),
+         lastname = toupper(lastname),
+         fullname = toupper(fullname),
+         dob_pulled = toupper(dob_pulled))
+
+# pkday0
+pkday0 <- pkday0 %>%
+  mutate(member_select = toupper(member_select),
+         person_string = toupper(person_string),
+         firstname = toupper(firstname),
+         lastname = toupper(lastname),
+         fullname = toupper(fullname),
+         dob_pulled = toupper(dob_pulled))
+# pkdays123
+pkdays123 <- pkdays123 %>%
+  mutate(member_select = toupper(member_select),
+         person_string = toupper(person_string),
+         firstname = toupper(firstname),
+         lastname = toupper(lastname),
+         fullname = toupper(fullname),
+         dob_pulled = toupper(dob_pulled))
+# pkfollowup
+pkfollowup <- pkfollowup %>%
+  mutate(member_select = toupper(member_select),
+         person_string = toupper(person_string),
+         firstname = toupper(firstname),
+         lastname = toupper(lastname),
+         fullname = toupper(fullname),
+         dob_pulled = toupper(dob_pulled))
+# safety
+safety <- safety %>%
+  mutate(household_members = toupper(household_members))
+# safety_repeat_ae_symptom
+# safety_repeat_drug
+# safety_repeat_individual
+safety_repeat_individual <- safety_repeat_individual %>%
+  mutate(member_select = toupper(member_select),
+         person_string = toupper(person_string),
+         firstname = toupper(firstname),
+         lastname = toupper(lastname),
+         fullname = toupper(fullname),
+         dob_pulled = toupper(dob_pulled),
+         taken = toupper(taken))
+  
+# safetynew
+safetynew <- safetynew %>%
+  mutate(household_members = toupper(household_members))
+# safetynew_repeat_individual
+safetynew_repeat_individual <- safetynew_repeat_individual %>%
+  mutate(firstname = toupper(firstname),
+         lastname = toupper(lastname))
+# v0demography
+# v0demography_repeat_individual
+v0demography_repeat_individual <- v0demography_repeat_individual %>%
+  mutate(person_signed_icf = toupper(person_signed_icf),
+         firstname = toupper(firstname),
+         lastname = toupper(lastname))
 
 # Define a date after which to retrieve data
 start_from <- as.Date('1900-01-01')
@@ -400,7 +503,7 @@ assignments <- read_csv('../../analyses/randomization/outputs/assignments.csv')
 intervention_assignment <- read_csv('../../analyses/randomization/outputs/intervention_assignment.csv')
 # Make fake manual modifications per project specifications
 # # NEEDS TO BE CHANGED FOR REAL DATA COLLECTION
-if(TRUE){
+if(!real_preselections){
   # fake randomization statuses created by paula in 
   # https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203
   # g <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203')
@@ -475,8 +578,8 @@ starting_roster <- left_join(starting_roster, starting_hecon_statuses) %>%
 # if in the heconmonthly form hecon_household_status = eos, the individual should be eos
 household_eos <- 
   bind_rows(
-    healtheconmonthly %>% dplyr::select(hhid, start_time, hecon_household_status),
-    healtheconbaseline %>% dplyr::select(hhid, start_time, hecon_household_status)
+    healtheconmonthly %>% mutate(start_time = as.POSIXct(start_time)) %>% dplyr::select(hhid, start_time, hecon_household_status),
+    healtheconbaseline %>% mutate(start_time = as.POSIXct(start_time)) %>% dplyr::select(hhid, start_time, hecon_household_status)
   ) %>%
   filter(hecon_household_status == 'eos')
 if(nrow(household_eos) > 0){
@@ -500,7 +603,8 @@ starting_roster$starting_hecon_status[starting_roster$extid %in% ever_eos] <- 'e
 
 # Read in Almudena-created health economics randomization data
 health_economics_clusters <- read_csv('../../analyses/randomization/outputs/health_economics_clusters.csv')
-health_economics_households <- read_csv('../../analyses/randomization/outputs/health_economics_households.csv')
+health_economics_households <- read_csv('../../analyses/randomization/outputs/health_economics_households.csv') %>%
+  mutate(hhid = add_zero(hhid, 5))
 ntd_efficacy_preselection <- read_csv('../../analyses/randomization/outputs/health_economics_ntd_efficacy_preselection.csv')
 ntd_safety_preselection <- read_csv('../../analyses/randomization/outputs/health_economics_ntd_safety_preselection.csv')
 # Paula's instructions (https://docs.google.com/document/d/1Tjpyh8O9oesnDiQgjEih1VpOIZFctpM7UA5aDK--N8o/edit)
@@ -596,7 +700,7 @@ heads <- v0demography_repeat_individual %>%
   dplyr::select(hhid, household_head)
 households <- households %>%
   left_join(heads)
-# Get visits done
+# Get visits done and baseline in/out status
 visits_done <- healtheconbaseline %>%
   mutate(visit = 'V1', hhid = as.character(hhid)) %>%
   dplyr::select(hhid, visit) %>%
@@ -605,7 +709,22 @@ visits_done <- healtheconbaseline %>%
               dplyr::select(hhid, visit)) %>% 
   group_by(hhid) %>%
   summarise(visits_done = paste0(sort(unique(visit)), collapse = ', '))
+# Add baseline in/out status
+right <- healtheconbaseline %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(hhid, .keep_all = TRUE) %>%
+  dplyr::select(hhid, hecon_hh_status = hecon_household_status)
+visits_done <- left_join(visits_done, right)
 households <- left_join(households, visits_done)
+# If NA hecon_hh_status, this means that the person did not have a baseline visit, and 
+# should be considered "out"
+households <- households %>%
+  mutate(hecon_hh_status = ifelse(is.na(hecon_hh_status), 'out', hecon_hh_status))
+# After baseline visit, only those which are "in" should remain
+if(v1_done){
+  households <- households %>% filter(hecon_hh_status == 'in')
+}
+
 # Get hecon_hh_preselected, 
 households <- households %>%
   mutate(hecon_hh_preselected = ifelse(hhid %in% health_economics_households$hhid, 1, 0))
@@ -867,6 +986,7 @@ starting_heights <-
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::select(extid, starting_height)
 individuals <- left_join(individuals, starting_heights)
+
 # Get pk_status
 if(real_preselections){
   # Read in real preselection for pk
@@ -983,13 +1103,18 @@ individuals <- left_join(individuals, starting_heights)
 if(real_preselections){
   efficacy_selection <- read_csv('../../analyses/randomization/outputs/efficacy_selection.csv')
   efficacy_preselected_ids <- sort(unique(efficacy_selection$extid))
-  # # one-off: list of households in efficacy with cls for mercy
+  # # # one-off: list of households in efficacy with cls for mercy
   # mercy <- efficacy_selection %>%
-  #   mutate(hhid = substr(extid, 1, 5)) %>%
-  #   dplyr::distinct(hhid) %>%
-  #   arrange(hhid) %>%
+  #   left_join(v0demography_repeat_individual %>% dplyr::select(extid, PARENT_KEY)) %>%
   #   left_join(v0demography %>% dplyr::distinct(hhid, .keep_all = TRUE) %>%
-  #               dplyr::select(hhid, wid))
+  #               dplyr::select(hhid, KEY, wid), by = c('PARENT_KEY' = 'KEY')) %>%
+  #   mutate(hhid = substr(extid, 1, 5)) %>%
+  #   group_by(hhid) %>%
+  #   summarise(efficacy_ids = paste0(sort(unique(extid)), collapse = ';'),
+  #             cl = dplyr::first(wid)) %>%
+  #   ungroup %>%
+  #   arrange(cl, hhid)
+  # write_csv(mercy, '~/Desktop/efficacy_selections_with_cl.csv')
 } else {
   efficacy_preselected_ids <- c("01000-01", "01000-04", "12013-03", "34102-02", "34102-03", 
                                 "20001-01", "20001-02", "72034-01", "72034-02")
@@ -1098,12 +1223,13 @@ pfu_in <-
 
 # Get the starting roster
 starting_roster <- v0demography_repeat_individual %>% 
+  dplyr::select(PARENT_KEY, firstname, lastname, dob, sex, extid) %>%
   left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   bind_rows(safetynew_repeat_individual %>%
-              mutate(nights_sleep_net = as.character(nights_sleep_net)) %>%
+              dplyr::select(PARENT_KEY, firstname, lastname, dob, sex, extid) %>%
               left_join(safetynew %>% dplyr::select(KEY, hhid, start_time), by = c('PARENT_KEY' = 'KEY'))) %>%
   bind_rows(safety_repeat_individual %>%
-              mutate(nights_sleep_net = as.character(nights_sleep_net)) %>%
+              dplyr::select(PARENT_KEY, firstname, lastname, dob, sex, extid) %>%
               left_join(safety %>% dplyr::select(KEY, hhid, start_time), by = c('PARENT_KEY' = 'KEY'))) %>%
   # fix dates
   mutate(dob = as.character(as.Date(dob))) %>%
