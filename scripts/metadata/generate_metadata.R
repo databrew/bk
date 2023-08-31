@@ -64,7 +64,7 @@ if(start_fresh){
   datasets <- c('v0demography', 'safetynew', 'safety', 'efficacy', 'pfu',
                 'pkday0', 'pkdays123',
                 'pkfollowup',
-                'healtheconbaseline', 'healtheconnew', 'healtheconmonthly')
+                'healtheconbaseline', 'healtheconnew', 'healtheconmonthlyz')
   datasets_names <- datasets
   
   # Loop through each dataset and retrieve
@@ -254,12 +254,12 @@ if(start_fresh){
   })
   # healtheconmonthly
   tryCatch({
-    healtheconmonthly <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly.csv'))
-    healtheconmonthly_repeat_cattle <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_cattle.csv'))
-    healtheconmonthly_repeat_disease <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_disease.csv'))
-    healtheconmonthly_repeat_individual <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_individual.csv'))
-    healtheconmonthly_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_miss_work_school.csv'))
-    healtheconmonthly_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_other_employment_details.csv'))
+    healtheconmonthly <- read_csv(paste0(middle_path, 'healtheconmonthlyz/healtheconmonthlyz.csv'))
+    healtheconmonthly_repeat_cattle <- read_csv(paste0(middle_path, 'healtheconmonthlyz/healtheconmonthlyz-repeat_cattle.csv'))
+    healtheconmonthly_repeat_disease <- read_csv(paste0(middle_path, 'healtheconmonthlyz/healtheconmonthlyz-repeat_disease.csv'))
+    healtheconmonthly_repeat_individual <- read_csv(paste0(middle_path, 'healtheconmonthlyz/healtheconmonthlyz-repeat_individual.csv'))
+    healtheconmonthly_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconmonthlyz/healtheconmonthlyz-repeat_miss_work_school.csv'))
+    healtheconmonthly_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconmonthlyz/healtheconmonthlyz-repeat_other_employment_details.csv'))
     if(save_empty_objects){
       healtheconmonthly <- healtheconmonthly %>% rr()
       healtheconmonthly_repeat_cattle <- healtheconmonthly_repeat_cattle %>% rr()
@@ -735,6 +735,10 @@ households <- households %>%
 # Keep only health economics households
 households <- households %>% filter(hhid %in% health_economics_households$hhid)
 starting_roster <- starting_roster %>% filter(hhid %in% households$hhid)
+
+# Reformat clusters and household IDs
+households <- households %>%
+  mutate(cluster = add_zero(cluster, 2))
 
 # Write NTD data before removing those who are out/eos for health econ ########################
 individuals <- starting_roster %>%

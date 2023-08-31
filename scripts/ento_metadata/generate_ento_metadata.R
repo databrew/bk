@@ -41,10 +41,12 @@ tryCatch({
 datasets <- c(#'entoltfield',
               'entoltmorphid',
               # 'entorcfield',
+              # 'entorcoviposition',
               'entorcmorphid')
 datasets_names <- c(#'Ento Light trap collection field form',
                     'Ento Light trap morphological ID form',
-                    #'Ento Resting collections field form',
+                    # 'Ento Resting collections field form',
+                    # 'Ento Resting Collections Oviposition form',
                     'Ento Resting collections morphological ID form')
 
 # Loop through each dataset and retrieve
@@ -84,6 +86,9 @@ for(i in 1:length(datasets)){
 library(readr)
 entoltmorphid <- read_csv('kwale/clean-form/entoltmorphid/entoltmorphid.csv')
 entorcmorphid <- read_csv('kwale/clean-form/entorcmorphid/entorcmorphid.csv')
+# entorcfield <- read_csv('kwale/clean-form/entorcfield/entorcfield.csv')
+# entorcoviposition <- read_csv('kwale/clean-form/entorcoviposition/entorcoviposition.csv')
+
 
 e1 <- read_csv('kwale/clean-form/entoltmorphid/entoltmorphid-repeat_tubes_dissected_unfed_funestus.csv') %>% left_join(entoltmorphid %>% dplyr::select(todays_date, KEY), by = c('PARENT_KEY' = 'KEY'))
 e2 <- read_csv('kwale/clean-form/entoltmorphid/entoltmorphid-repeat_tubes_dissected_unfed_gambiae.csv') %>% left_join(entoltmorphid %>% dplyr::select(todays_date, KEY), by = c('PARENT_KEY' = 'KEY'))
