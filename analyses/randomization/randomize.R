@@ -218,7 +218,7 @@ health_economics_households <- read_delim('inputs/HEcon_hhs.csv', delim = ';')
 #   filter(!is.na(geo_cluster_num)) %>%
 #   group_by(cluster = geo_cluster_num) %>% tally %>%
 #   left_join(health_economics_clusters)
-# sanity$geo_cluster_num %in% health_economics_clusters$cluster
+# sanity$cluster %in% health_economics_clusters$cluster
 
 
 # Save to outputs
