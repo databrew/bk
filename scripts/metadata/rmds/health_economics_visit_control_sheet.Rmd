@@ -67,6 +67,15 @@ load('health_economics_tables.RData')
 ntd_efficacy_preselection <- read_csv('../../../analyses/randomization/outputs/health_economics_ntd_efficacy_preselection.csv')
 ntd_safety_preselection <- read_csv('../../../analyses/randomization/outputs/health_economics_ntd_safety_preselection.csv')
 
+# Get number of ntd individuals per household
+ntd_ids <- sort(unique(c(ntd_efficacy_preselection$extid, ntd_safety_preselection$extid)))
+ndx <- v0demography_repeat_individual %>%
+  left_join(v0demography %>% dplyr::select(KEY, hhid), by = c('PARENT_KEY' = 'KEY')) %>%
+  mutate(in_ntd = extid %in% ntd_ids) %>%
+  group_by(hhid) %>%
+  summarise(n_ntd = length(which(in_ntd)))
+  
+
 # Read in hard-coded files supplied by Paula for organizing visit control sheets:
 # https://bohemiakenya.slack.com/archives/C058WT0ADBN/p1693470284107819
 cluster9 <- read_delim('health_economics_supplementary_vcs_data/HEcon VCS cluster 9.csv', delim = ';') %>%
@@ -103,7 +112,47 @@ households <- households %>%
               dplyr::select(hhid, village, own_cattle)) %>%
   left_join(subs) %>%
   mutate(own_cattle = ifelse(is.na(own_cattle), 'no', own_cattle)) %>%
-  mutate(own_cattle = Hmisc::capitalize(own_cattle))
+  mutate(own_cattle = Hmisc::capitalize(own_cattle)) %>%
+  left_join(ndx) %>%
+  mutate(dummy = 1) %>%
+  group_by(VCS) %>%
+  mutate(index = cumsum(dummy)) %>%
+  ungroup %>%
+  dplyr::select(
+    VCS, 
+    `No.` = index,
+    `Hh_ID` = hhid,
+    Village = village,
+    `Head of Hh` = household_head,
+    `Head of Hh sub` = hh_sub,
+    `Hh members` = num_members,
+    `NTD-preselected members` = n_ntd,
+    `Cattle-owning` = own_cattle
+  ) %>%
+  mutate(
+    `1` = '',
+      `2` = '',
+      `3` = '',
+    Refusal = '',
+    `New hh member(s)` = '',
+    `Herd eligible` = '',
+    `Date hh visit` = '',
+    Notes = ''
+  ) 
+
+
+# Fake names for anonimization
+if(TRUE){
+  fake_names <- babynames::babynames
+  fake_names <- sort(unique(fake_names$name))
+  out <- c()
+  for(i in 1:10000){
+    out[i] <- paste0(sample(fake_names, 1), ' ', sample(fake_names, 1))
+  }
+  fake_names <- out
+  households$`Head of Hh` <- sample(fake_names, nrow(households))
+  households$`Head of Hh sub` <- sample(fake_names, nrow(households))
+}
 
 vcs_documents <- sort(unique(households$VCS))
 
@@ -113,26 +162,48 @@ vcs_documents <- sort(unique(households$VCS))
 
 
 ```{r results='asis', eval = TRUE}  
+cat('\n\n')
 # Print the titles/tables
 for (i in 1:length(vcs_documents)) {
   this_cluster <- vcs_documents[i]
   this_data <- households %>% filter(VCS == this_cluster) %>%
-    dplyr::select(hhid, num_members, arm, intervention)
+    dplyr::select(-VCS)
+  n_hh <- nrow(this_data)
 
-  names(this_data) <- gsub('_', ' ', names(this_data))
+  # names(this_data) <- gsub('_', ' ', names(this_data))
 
-  names(this_data) <- Hmisc::capitalize(names(this_data))
+  # names(this_data) <- Hmisc::capitalize(names(this_data))
   k <- kable(this_data, format = "latex",
               longtable = TRUE,
               booktabs = TRUE,
               #align = "c", 
+             escape = TRUE,
           row.names = FALSE) %>%
       kable_styling(latex_options = c(#"scale_down",
                                        "striped"
                                       ), 
-                     # full_width = T, 
-                    font_size = 7) 
+                     # full_width = T,
+                    font_size = 7) %>%
+    add_header_above(c(" " = 8, "Absences" = 3, " " = 5)) %>%
+    column_spec(1,  width = "1em")  %>%
+    column_spec(2,  width = "3em")  %>%
+    column_spec(3,  width = "5em")  %>%
+    column_spec(4,  width = "9em")  %>%
+    column_spec(5,  width = "9em")  %>%
+    column_spec(6,  width = "5em")  %>%
+    column_spec(7,  width = "5em")  %>%
+    column_spec(8,  width = "3em")  %>%
+    column_spec(9,  width = "1em")  %>%
+    column_spec(10,  width = "1em")  %>%
+    column_spec(11,  width = "1em")  %>%
+    column_spec(12,  width = "3em")  %>%
+    column_spec(13,  width = "4em")  %>%
+    column_spec(14,  width = "3em")  %>%
+    column_spec(15,  width = "9em")  
+  
   cat(paste0("\\fbox{\\parbox{5cm}{\\centering Cluster No. ", this_cluster, "}}\n\n"))
+  cat(paste0("\\medskip\n\n"))
+  cat(paste0('(Number of households: ',n_hh, ')'))
   cat(paste0("\\medskip\n\n"))
   cat(paste0('Health Economics Baseline (V1) Visit Control Sheet'))
   # k <- paste0(paste0('Cluster ', this_cluster, '\\', k))
@@ -140,5 +211,7 @@ for (i in 1:length(vcs_documents)) {
   cat('\\newpage')
 }
 ```
+
+\thispagestyle{empty}
 
 \end{Center}
