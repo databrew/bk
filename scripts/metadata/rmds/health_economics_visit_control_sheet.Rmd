@@ -142,7 +142,7 @@ households <- households %>%
 
 
 # Fake names for anonimization
-if(TRUE){
+if(FALSE){
   fake_names <- babynames::babynames
   fake_names <- sort(unique(fake_names$name))
   out <- c()

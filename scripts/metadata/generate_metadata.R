@@ -341,19 +341,42 @@ efficacy <- efficacy %>%
          fullname = toupper(fullname),
          dob_pulled = toupper(dob_pulled))
 # healtheconbaseline
+healtheconbaseline <- healtheconbaseline %>%
+  mutate(household_members = toupper(household_members))
 # healtheconbaseline_repeat_cattle
 # healtheconbaseline_repeat_disease
 # healtheconbaseline_repeat_individual
+healtheconbaseline_repeat_individual <- healtheconbaseline_repeat_individual %>%
+  mutate(taken = toupper(taken),
+         member_select = toupper(member_select),
+         person_string = toupper(person_string),
+         firstname = toupper(firstname),
+         lastname = toupper(lastname),
+         fullname = toupper(fullname),
+         dob_pulled = toupper(dob_pulled))
 # healtheconbaseline_repeat_miss_work_school
 # healtheconbaseline_repeat_other_employment_details
 # healtheconmonthly
+healtheconmonthly <- healtheconmonthly %>%
+  mutate(household_members = toupper(household_members))
 # healtheconmonthly_repeat_cattle
 # healtheconmonthly_repeat_disease
 # healtheconmonthly_repeat_individual
+healtheconmonthly_repeat_individual <- healtheconmonthly_repeat_individual %>%
+  mutate(taken = toupper(taken),
+         member_select = toupper(member_select),
+         person_string = toupper(person_string),
+         firstname = toupper(firstname),
+         lastname = toupper(lastname),
+         fullname = toupper(fullname),
+         dob_pulled = toupper(dob_pulled))
 # healtheconmonthly_repeat_miss_work_school
 # healtheconmonthly_repeat_other_employment_details
 # healtheconnew
 # healtheconnew_repeat_individual
+healtheconnew_repeat_individual <- healtheconnew_repeat_individual %>%
+  mutate(firstname = toupper(firstname),
+         lastname = toupper(lastname))
 # healtheconnew_repeat_miss_work_school
 # healtheconnew_repeat_other_employment_details
 # pfu
