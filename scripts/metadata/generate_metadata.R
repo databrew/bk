@@ -783,6 +783,9 @@ write_csv(starting_roster, 'healtheconbaseline_metadata/individual_data.csv')
 # https://docs.google.com/spreadsheets/d/1Ok1JAq4RhAv0dMnVRjl38Ig-6XdEyvBJbCtMzFql9k4/edit#gid=0
 save(households, individuals, v0demography, v0demography_repeat_individual, file = 'rmds/health_economics_tables.RData')
 
+# Render the visit 0 household health economics visit control sheet
+rmarkdown::render('rmds/health_economics_visit_control_sheet.Rmd')
+
 # Write health economic monthly followup data  #########################################
 # Remove from health econ those who are out/eos
 households <- households %>% filter(!is.na(hecon_hh_status)) %>% filter(hecon_hh_status == 'in')
