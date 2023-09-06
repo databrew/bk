@@ -181,7 +181,7 @@ persons <- v0demography_repeat_individual %>%
   ) 
 
 # Fake names for anonimization
-if(TRUE){
+if(FALSE){
   fake_names <- babynames::babynames
   fake_names <- sort(unique(fake_names$name))
   out <- c()
@@ -232,16 +232,16 @@ for (i in 1:length(vcs_documents)) {
     column_spec(3,  width = "5em")  %>%
     column_spec(4,  width = "9em")  %>%
     column_spec(5,  width = "9em")  %>%
-    column_spec(6,  width = "5em")  %>%
+    column_spec(6,  width = "3em")  %>%
     column_spec(7,  width = "5em")  %>%
     column_spec(8,  width = "3em")  %>%
     column_spec(9,  width = "1em")  %>%
     column_spec(10,  width = "1em")  %>%
     column_spec(11,  width = "1em")  %>%
     column_spec(12,  width = "3em")  %>%
-    column_spec(13,  width = "4em")  %>%
+    column_spec(13,  width = "3em")  %>%
     column_spec(14,  width = "3em")  %>%
-    column_spec(15,  width = "9em")  
+    column_spec(15,  width = "15em")  
   
   # Individual table
     k2 <- kable(these_persons, format = "latex",
@@ -268,7 +268,37 @@ for (i in 1:length(vcs_documents)) {
     column_spec(9,  width = "1em")  %>%
     column_spec(10,  width = "4em")  %>%
     column_spec(11,  width = "5em")  %>%
-    column_spec(12,  width = "7em")  
+    column_spec(12,  width = "27em")  
+    
+    # New members tabble
+    new_members <- tibble(
+      `No.` = 1:15,
+      `Ext ID` = ' ',
+      `Member name` = ' ',
+      `HH member age` = ' ',
+      `Refused` = ' ',
+      `Date visited` = ' ',
+      `Notes` = ' '
+    )
+    k3 <- kable(new_members, format = "latex",
+              longtable = TRUE,
+              booktabs = TRUE,
+              #align = "c", 
+             escape = TRUE,
+          row.names = FALSE) %>%
+      kable_styling(latex_options = c(#"scale_down",
+        'repeat_header',
+                                       "striped"
+                                      ), 
+                     # full_width = T,
+                    font_size = 7) %>%
+    column_spec(1,  width = "1em")  %>%
+    column_spec(2,  width = "7em")  %>%
+    column_spec(3,  width = "15em")  %>%
+    column_spec(4,  width = "5em")  %>%
+    column_spec(5,  width = "5em")  %>%
+    column_spec(6,  width = "8em")  %>%
+    column_spec(7,  width = "30em") 
   
   cat(paste0("\\fbox{\\parbox{5cm}{\\centering Cluster No. ", this_cluster, ' HOUSEHOLDS',  "}}\n\n"))
   cat(paste0("\\medskip\n\n"))
@@ -281,6 +311,12 @@ for (i in 1:length(vcs_documents)) {
   cat(paste0("\\fbox{\\parbox{5cm}{\\centering Cluster No. ", this_cluster, ' INDIVIDUALS',  "}}\n\n"))
 
   print(k2)
+  # cat('\\')
+    cat('\\newpage')
+
+    cat(paste0("\\fbox{\\parbox{5cm}{\\centering Cluster No. ", this_cluster, ' NEW MEMBERS',  "}}\n\n"))
+
+  print(k3)
   cat('\\newpage')
 
 }
