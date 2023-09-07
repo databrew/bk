@@ -104,8 +104,9 @@ subs <- v0demography_repeat_individual %>%
   filter(!is.na(hh_head_sub_yn)) %>%
   filter(hh_head_sub_yn == 'yes') %>%
   left_join(v0demography %>% dplyr::select(KEY, hhid), by = c('PARENT_KEY' = 'KEY')) %>%
-  mutate(full_name = paste0(firstname, ' ', lastname)) %>%
-  mutate(full_name = stringr::str_replace_all(full_name, "[^[:alnum:]]", "")) %>%
+  mutate(firstname = stringr::str_replace_all(firstname, "[^[:alnum:]]", "")) %>%
+  mutate(lastname = stringr::str_replace_all(lastname, "[^[:alnum:]]", "")) %>%
+  mutate(full_name = paste0(firstname, '  ', lastname)) %>%
   mutate(full_name = toupper(full_name)) %>%
     # mutate(full_name = gsub(r"(\\)", '', full_name)) %>%
   group_by(hhid) %>%
@@ -158,8 +159,10 @@ persons <- v0demography_repeat_individual %>%
   group_by(VCS) %>%
   mutate(index = cumsum(dummy)) %>%
   ungroup %>%
+  mutate(firstname = stringr::str_replace_all(firstname, "[^[:alnum:]]", "")) %>%
+  mutate(lastname = stringr::str_replace_all(lastname, "[^[:alnum:]]", "")) %>%
   mutate(full_name = paste0(firstname, ' ', lastname)) %>%
-  mutate(full_name = stringr::str_replace_all(full_name, "[^[:alnum:]]", "")) %>%
+  # mutate(full_name = stringr::str_replace_all(full_name, "[^[:alnum:]]", "")) %>%
   # mutate(full_name = gsub(r"(\\)", '', full_name)) %>%
     mutate(full_name = toupper(full_name)) %>%
   mutate(age = as.numeric(floor((Sys.Date() - dob) / 365.25))) %>%
@@ -230,7 +233,7 @@ for (i in 1:length(vcs_documents)) {
     column_spec(1,  width = "1em")  %>%
     column_spec(2,  width = "3em")  %>%
     column_spec(3,  width = "5em")  %>%
-    column_spec(4,  width = "9em")  %>%
+    column_spec(4,  width = "15em")  %>%
     column_spec(5,  width = "9em")  %>%
     column_spec(6,  width = "3em")  %>%
     column_spec(7,  width = "5em")  %>%
@@ -241,7 +244,7 @@ for (i in 1:length(vcs_documents)) {
     column_spec(12,  width = "3em")  %>%
     column_spec(13,  width = "3em")  %>%
     column_spec(14,  width = "3em")  %>%
-    column_spec(15,  width = "15em")  
+    column_spec(15,  width = "13em")  
   
   # Individual table
     k2 <- kable(these_persons, format = "latex",
@@ -273,7 +276,7 @@ for (i in 1:length(vcs_documents)) {
     # New members tabble
     new_members <- tibble(
       `No.` = 1:15,
-      `Ext ID` = ' ',
+      `Ext ID` = ' \n ',
       `Member name` = ' ',
       `HH member age` = ' ',
       `Refused` = ' ',
@@ -291,14 +294,14 @@ for (i in 1:length(vcs_documents)) {
                                        "striped"
                                       ), 
                      # full_width = T,
-                    font_size = 7) %>%
+                    font_size = 11) %>%
     column_spec(1,  width = "1em")  %>%
-    column_spec(2,  width = "7em")  %>%
-    column_spec(3,  width = "15em")  %>%
+    column_spec(2,  width = "5em")  %>%
+    column_spec(3,  width = "10em")  %>%
     column_spec(4,  width = "5em")  %>%
     column_spec(5,  width = "5em")  %>%
     column_spec(6,  width = "8em")  %>%
-    column_spec(7,  width = "30em") 
+    column_spec(7,  width = "15em") 
   
   cat(paste0("\\fbox{\\parbox{5cm}{\\centering Cluster No. ", this_cluster, ' HOUSEHOLDS',  "}}\n\n"))
   cat(paste0("\\medskip\n\n"))
