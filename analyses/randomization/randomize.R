@@ -21,6 +21,8 @@ clusters <- tibble(
 # load('../recon_clustering/final/cores.RData')
 # load('../recon_clustering/final/buffers.RData')
 
+load('../../data_public/spatial/clusters.RData')
+old_clusters <- clusters
 load('../../data_public/spatial/new_cores.RData')
 load('../../data_public/spatial/new_clusters.RData')
 cores <- new_cores
@@ -1276,3 +1278,52 @@ if(file.exists(file_path)){
 #     arrange(cluster, extid)
 #   write_csv(pk_individuals, file_path)
 # }
+
+# New PK individuals selection instructions September 11 2023
+file_path <- 'outputs/pk_individuals.csv'
+if(file.exists(file_path)){
+  pk_individuals <- read_csv(file_path)
+} else {
+  # Get the OLD clusters (dropped clusters) from v0 demography
+  v0demography_spatial_old <- v0demography %>% mutate(x = Longitude, y = Latitude)
+  coordinates(v0demography_spatial_old) <- ~x+y
+  proj4string(v0demography_spatial_old) <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+  p4s <- "+proj=utm +zone=37 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+  crs <- CRS(p4s)
+  v0demography_spatial_old_projected <- spTransform(v0demography_spatial_old, crs)
+  old_clusters_projected <- spTransform(old_clusters, crs)
+  old_clusters_projected_buffered <- rgeos::gBuffer(old_clusters_projected, byid = TRUE, width = 50)
+  
+  o <- sp::over(v0demography_spatial_old_projected, polygons(old_clusters_projected_buffered))
+  v0demography_spatial_old@data$in_cluster <- !is.na(o)
+  v0demography_spatial_old$old_cluster_number <- as.numeric(old_clusters_projected_buffered@data$cluster_number[o])
+  
+  # Select 15 individuals per cluster from the Pk clusters (pk_cluster=yes)
+  eligibles <- v0demography_repeat_individual %>%
+    left_join(v0demography_spatial_old@data %>%
+                dplyr::select(KEY,
+                              lng = Longitude, lat = Latitude,
+                              old_cluster_number),
+              by = c('PARENT_KEY' = 'KEY'))
+  date_of_enrollment <- as.Date('2023-10-01')
+  # Keep only those in pk clusters who are of correct age, and only 15 per cluster
+  eligibles <- eligibles %>%
+    mutate(age_at_enrollment  = date_of_enrollment - dob) %>%
+    mutate(age_at_enrollment = age_at_enrollment / 365.25) %>%
+    mutate(pk_eligible = age_at_enrollment >= 18.0 & age_at_enrollment < 65.0) %>%
+    filter(!is.na(old_cluster_number)) %>%
+    filter(old_cluster_number %in% pk_clusters$cluster_number) %>%
+    filter(pk_eligible) %>%
+    dplyr::sample_n(nrow(.)) %>%
+    mutate(dummy = 1) %>%
+    group_by(cluster = old_cluster_number) %>%
+    mutate(cs = cumsum(dummy)) %>%
+    ungroup %>%
+    filter(cs <= 15) %>%
+    dplyr::select(extid, cluster, cs, age, lng, lat, dob)
+  # Keep only relevant columns
+  pk_individuals <- eligibles %>%
+    dplyr::select(cluster, extid)  %>%
+    arrange(cluster, extid)
+  write_csv(pk_individuals, file_path)
+}
