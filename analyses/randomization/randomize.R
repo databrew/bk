@@ -1203,14 +1203,31 @@ file_path <- 'outputs/pk_clusters.csv'
 if(file.exists(file_path)){
   pk_clusters <- read_csv(file_path)
 } else {
-  pk_clusters <- clusters@data %>%
-    dplyr::select(cluster_number) %>%
-    left_join(assignments %>% dplyr::select(cluster_number, assignment)) %>%
-    left_join(intervention_assignment, by = c('assignment' = 'arm')) %>%
-    filter(intervention == 'Treatment') %>%
-    dplyr::sample_n(10) %>%
-    dplyr::select(cluster_number) %>%
-    arrange(cluster_number)
+  # Pick 10 of the following 12
+  possible_pk_clusters <- c(1,
+                            52,
+                            71,
+                            76,
+                            89,
+                            4,
+                            6,
+                            32,
+                            66,
+                            86,
+                            35,
+                            47)
+  pk_clusters <- tibble(cluster_number = sample(possible_pk_clusters, size = 10, replace = FALSE))
+  pk_clusters <- pk_clusters %>% arrange(cluster_number)
+  # New specifications on September 11 2023 from project:
+  # https://bohemiakenya.slack.com/archives/C059Q4RU2CA/p1694420124056119
+  # pk_clusters <- clusters@data %>%
+  #   dplyr::select(cluster_number) %>%
+  #   left_join(assignments %>% dplyr::select(cluster_number, assignment)) %>%
+  #   left_join(intervention_assignment, by = c('assignment' = 'arm')) %>%
+  #   filter(intervention == 'Treatment') %>%
+  #   dplyr::sample_n(10) %>%
+  #   dplyr::select(cluster_number) %>%
+  #   arrange(cluster_number)
   write_csv(pk_clusters, file_path)
 }
 
