@@ -14,13 +14,18 @@ library(readr)
 # Define production
 is_production <- TRUE
 # folder <- 'kwale_testing'
-real_preselections <- FALSE
+real_preselections <- TRUE
 # folder <- 'kwale'
-# folder <- 'test_of_test'
-folder <- 'health_economics_testing'
+# folder <- 'health_economics_testing'
+folder <- 'test_of_test'
+if(folder == 'kwale'){
+  geo_filter <- TRUE
+} else {
+  geo_filter <- FALSE
+}
 
 
-if(folder == 'health_economics_testing'){
+if(folder %in% c('health_economics_testing', 'test_of_test', 'kwale')){
   real_preselections <- TRUE
   use_real_v0 <- TRUE
 } else {
@@ -64,7 +69,7 @@ if(start_fresh){
   datasets <- c('v0demography', 'safetynew', 'safety', 'efficacy', 'pfu',
                 'pkday0', 'pkdays123',
                 'pkfollowup',
-                'healtheconbaseline', 'healtheconnew', 'healtheconmonthlyz')
+                'healtheconbaseline', 'healtheconnew', 'healtheconmonthly')
   datasets_names <- datasets
   
   # Loop through each dataset and retrieve
@@ -254,12 +259,12 @@ if(start_fresh){
   })
   # healtheconmonthly
   tryCatch({
-    healtheconmonthly <- read_csv(paste0(middle_path, 'healtheconmonthlyz/healtheconmonthlyz.csv'))
-    healtheconmonthly_repeat_cattle <- read_csv(paste0(middle_path, 'healtheconmonthlyz/healtheconmonthlyz-repeat_cattle.csv'))
-    healtheconmonthly_repeat_disease <- read_csv(paste0(middle_path, 'healtheconmonthlyz/healtheconmonthlyz-repeat_disease.csv'))
-    healtheconmonthly_repeat_individual <- read_csv(paste0(middle_path, 'healtheconmonthlyz/healtheconmonthlyz-repeat_individual.csv'))
-    healtheconmonthly_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconmonthlyz/healtheconmonthlyz-repeat_miss_work_school.csv'))
-    healtheconmonthly_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconmonthlyz/healtheconmonthlyz-repeat_other_employment_details.csv'))
+    healtheconmonthly <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly.csv'))
+    healtheconmonthly_repeat_cattle <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_cattle.csv'))
+    healtheconmonthly_repeat_disease <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_disease.csv'))
+    healtheconmonthly_repeat_individual <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_individual.csv'))
+    healtheconmonthly_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_miss_work_school.csv'))
+    healtheconmonthly_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_other_employment_details.csv'))
     if(save_empty_objects){
       healtheconmonthly <- healtheconmonthly %>% rr()
       healtheconmonthly_repeat_cattle <- healtheconmonthly_repeat_cattle %>% rr()
@@ -442,7 +447,7 @@ v0demography_repeat_individual <- v0demography_repeat_individual %>%
          lastname = toupper(lastname))
 
 # Define a date after which to retrieve data
-start_from <- as.Date('1900-01-01')
+start_from <- as.Date('2023-09-11')
 efficacy <- efficacy %>% filter(todays_date >= start_from)
 pfu <- pfu %>% filter(todays_date >= start_from)
 pfu_repeat_preg_symptom <- pfu_repeat_preg_symptom %>% filter(PARENT_KEY %in% pfu$KEY)
@@ -455,8 +460,10 @@ safety_repeat_drug <- safety_repeat_drug %>% filter(PARENT_KEY %in% safety$KEY)
 safety_repeat_individual <- safety_repeat_individual %>% filter(PARENT_KEY %in% safety$KEY)
 safetynew <- safetynew %>% filter(todays_date >= start_from)
 safetynew_repeat_individual <- safetynew_repeat_individual %>% filter(PARENT_KEY %in% safetynew$KEY)
-v0demography <- v0demography %>% filter(todays_date >= start_from)
-v0demography_repeat_individual <- v0demography_repeat_individual %>% filter(PARENT_KEY %in% v0demography$KEY)
+if(!folder %in% c('health_economics_testing', 'test_of_test', 'kwale')){
+  v0demography <- v0demography %>% filter(todays_date >= start_from)
+  v0demography_repeat_individual <- v0demography_repeat_individual %>% filter(PARENT_KEY %in% v0demography$KEY)
+}
 healtheconnew <- healtheconnew %>% filter(todays_date >= start_from)
 healtheconnew_repeat_individual <- healtheconnew_repeat_individual %>% filter(PARENT_KEY %in% healtheconnew$KEY)
 healtheconnew_repeat_miss_work_school <- healtheconnew_repeat_miss_work_school %>% filter(PARENT_KEY %in% healtheconnew$KEY)
@@ -507,7 +514,7 @@ v0demography <- v0demography %>%
   arrange(desc(todays_date)) %>%
   dplyr::distinct(hhid, .keep_all = TRUE) 
 # Remove those outside of cluster boundaries (not doing now due to the fact that this is just testing)
-if(FALSE){
+if(geo_filter){
   v0demography <- v0demography %>%
     filter(!geo_not_in_cluster) %>%
     # overwrite the cluster variable
@@ -543,6 +550,8 @@ if(!real_preselections){
   assignments <- assignments %>%
     filter(!cluster_number %in% fake_assignments$cluster_number) %>%
     bind_rows(fake_assignments)
+} else {
+  message('Using real assignations')
 }
 
 
@@ -784,7 +793,9 @@ write_csv(starting_roster, 'healtheconbaseline_metadata/individual_data.csv')
 save(households, individuals, v0demography, v0demography_repeat_individual, file = 'rmds/health_economics_tables.RData')
 
 # Render the visit 0 household health economics visit control sheet
-rmarkdown::render('rmds/health_economics_visit_control_sheet.Rmd')
+if(FALSE){
+  rmarkdown::render('rmds/health_economics_visit_control_sheet.Rmd')
+}
 
 # Write health economic monthly followup data  #########################################
 # Remove from health econ those who are out/eos
@@ -1023,45 +1034,46 @@ starting_heights <-
   dplyr::select(extid, starting_height)
 individuals <- left_join(individuals, starting_heights)
 
-# Get pk_status
-if(real_preselections){
-  # Read in real preselection for pk
-  pk_clusters <- read_csv('../../analyses/randomization/outputs/pk_clusters.csv')
-  pk_individuals <- read_csv('../../analyses/randomization/outputs/pk_individuals.csv')
-  pk_preselected_ids <- pk_individuals$extid
-} else {
-  # Fake PK IDs
-  # # g <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203')
-  # g$extid[g$pk_preselected == 1]
-  pk_preselected_ids <- c("01000-01", "56123-01")
-}
-
-individuals$pk_preselected <- ifelse(individuals$extid %in% pk_preselected_ids, 1, 0)
-pk_ids <- sort(unique(individuals$extid[individuals$pk_preselected == 1]))
-right <- bind_rows(
-  safety_repeat_individual %>% 
-    filter(!is.na(pk_status)) %>%
-    left_join(safety %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
-    dplyr::select(start_time, extid, pk_status) %>% mutate(form = 'safety', start_time = as.POSIXct(start_time)),
-  pkday0 %>%
-    filter(!is.na(pk_status)) %>%
-    dplyr::select(start_time, extid, pk_status) %>% mutate(form = 'pkday0', start_time = as.POSIXct(start_time)),
-  pkdays123 %>%
-    filter(!is.na(pk_status)) %>%
-    dplyr::select(start_time, extid, pk_status) %>% mutate(form = 'pkdays123', start_time = as.POSIXct(start_time)),
-  pkfollowup %>%
-    filter(!is.na(pk_status)) %>%
-    dplyr::select(start_time, extid, pk_status) %>% mutate(form = 'pkfollowup', start_time = as.POSIXct(start_time)),
-) %>%
-  filter(!is.na(pk_status), !is.na(extid)) %>%
-  arrange(desc(start_time)) %>%
-  dplyr::distinct(extid, .keep_all = TRUE) %>%
-  dplyr::select(extid, starting_pk_status = pk_status)
-individuals <- left_join(individuals, right) %>%
-  # if one is pk pre-selected by not in any of the "right" data, she is "out"; otherwise NA
-  mutate(starting_pk_status = ifelse(is.na(starting_pk_status) & extid %in% pk_ids, 
-                            'out',
-                            starting_pk_status))
+### PK SECTION OF SAFETY####
+# # Get pk_status
+# # COMMENTING OUT AS OF SEPTEMBER 11 2023, PK NO LONGER PART OF THIS
+# if(real_preselections){
+#   # Read in real preselection for pk
+#   pk_clusters <- read_csv('../../analyses/randomization/outputs/pk_clusters.csv')
+#   pk_individuals <- read_csv('../../analyses/randomization/outputs/pk_individuals.csv')
+#   pk_preselected_ids <- pk_individuals$extid
+# } else {
+#   # Fake PK IDs
+#   # # g <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203')
+#   # g$extid[g$pk_preselected == 1]
+#   pk_preselected_ids <- c("01000-01", "56123-01")
+# }
+# individuals$pk_preselected <- ifelse(individuals$extid %in% pk_preselected_ids, 1, 0)
+# pk_ids <- sort(unique(individuals$extid[individuals$pk_preselected == 1]))
+# right <- bind_rows(
+#   safety_repeat_individual %>% 
+#     filter(!is.na(pk_status)) %>%
+#     left_join(safety %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
+#     dplyr::select(start_time, extid, pk_status) %>% mutate(form = 'safety', start_time = as.POSIXct(start_time)),
+#   pkday0 %>%
+#     filter(!is.na(pk_status)) %>%
+#     dplyr::select(start_time, extid, pk_status) %>% mutate(form = 'pkday0', start_time = as.POSIXct(start_time)),
+#   pkdays123 %>%
+#     filter(!is.na(pk_status)) %>%
+#     dplyr::select(start_time, extid, pk_status) %>% mutate(form = 'pkdays123', start_time = as.POSIXct(start_time)),
+#   pkfollowup %>%
+#     filter(!is.na(pk_status)) %>%
+#     dplyr::select(start_time, extid, pk_status) %>% mutate(form = 'pkfollowup', start_time = as.POSIXct(start_time)),
+# ) %>%
+#   filter(!is.na(pk_status), !is.na(extid)) %>%
+#   arrange(desc(start_time)) %>%
+#   dplyr::distinct(extid, .keep_all = TRUE) %>%
+#   dplyr::select(extid, starting_pk_status = pk_status)
+# individuals <- left_join(individuals, right) %>%
+#   # if one is pk pre-selected by not in any of the "right" data, she is "out"; otherwise NA
+#   mutate(starting_pk_status = ifelse(is.na(starting_pk_status) & extid %in% pk_ids, 
+#                             'out',
+#                             starting_pk_status))
 # stash starting safety status for efficacy
 starting_safety_statuses <- individuals %>%
   dplyr::select(extid, starting_safety_status)
