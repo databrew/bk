@@ -447,7 +447,7 @@ v0demography_repeat_individual <- v0demography_repeat_individual %>%
          lastname = toupper(lastname))
 
 # Define a date after which to retrieve data
-start_from <- as.Date('2023-09-11')
+start_from <- as.Date('2023-09-12')
 efficacy <- efficacy %>% filter(todays_date >= start_from)
 pfu <- pfu %>% filter(todays_date >= start_from)
 pfu_repeat_preg_symptom <- pfu_repeat_preg_symptom %>% filter(PARENT_KEY %in% pfu$KEY)
