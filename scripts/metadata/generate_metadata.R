@@ -15,9 +15,9 @@ library(readr)
 is_production <- TRUE
 # folder <- 'kwale_testing'
 real_preselections <- TRUE
-# folder <- 'kwale'
+folder <- 'kwale'
 # folder <- 'health_economics_testing'
-folder <- 'test_of_test'
+# folder <- 'test_of_test'
 if(folder == 'kwale'){
   geo_filter <- TRUE
 } else {
