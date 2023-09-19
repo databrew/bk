@@ -1034,46 +1034,6 @@ starting_heights <-
   dplyr::select(extid, starting_height)
 individuals <- left_join(individuals, starting_heights)
 
-### PK SECTION OF SAFETY####
-# # Get pk_status
-# # COMMENTING OUT AS OF SEPTEMBER 11 2023, PK NO LONGER PART OF THIS
-# if(real_preselections){
-#   # Read in real preselection for pk
-#   pk_clusters <- read_csv('../../analyses/randomization/outputs/pk_clusters.csv')
-#   pk_individuals <- read_csv('../../analyses/randomization/outputs/pk_individuals.csv')
-#   pk_preselected_ids <- pk_individuals$extid
-# } else {
-#   # Fake PK IDs
-#   # # g <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203')
-#   # g$extid[g$pk_preselected == 1]
-#   pk_preselected_ids <- c("01000-01", "56123-01")
-# }
-# individuals$pk_preselected <- ifelse(individuals$extid %in% pk_preselected_ids, 1, 0)
-# pk_ids <- sort(unique(individuals$extid[individuals$pk_preselected == 1]))
-# right <- bind_rows(
-#   safety_repeat_individual %>% 
-#     filter(!is.na(pk_status)) %>%
-#     left_join(safety %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
-#     dplyr::select(start_time, extid, pk_status) %>% mutate(form = 'safety', start_time = as.POSIXct(start_time)),
-#   pkday0 %>%
-#     filter(!is.na(pk_status)) %>%
-#     dplyr::select(start_time, extid, pk_status) %>% mutate(form = 'pkday0', start_time = as.POSIXct(start_time)),
-#   pkdays123 %>%
-#     filter(!is.na(pk_status)) %>%
-#     dplyr::select(start_time, extid, pk_status) %>% mutate(form = 'pkdays123', start_time = as.POSIXct(start_time)),
-#   pkfollowup %>%
-#     filter(!is.na(pk_status)) %>%
-#     dplyr::select(start_time, extid, pk_status) %>% mutate(form = 'pkfollowup', start_time = as.POSIXct(start_time)),
-# ) %>%
-#   filter(!is.na(pk_status), !is.na(extid)) %>%
-#   arrange(desc(start_time)) %>%
-#   dplyr::distinct(extid, .keep_all = TRUE) %>%
-#   dplyr::select(extid, starting_pk_status = pk_status)
-# individuals <- left_join(individuals, right) %>%
-#   # if one is pk pre-selected by not in any of the "right" data, she is "out"; otherwise NA
-#   mutate(starting_pk_status = ifelse(is.na(starting_pk_status) & extid %in% pk_ids, 
-#                             'out',
-#                             starting_pk_status))
 # stash starting safety status for efficacy
 starting_safety_statuses <- individuals %>%
   dplyr::select(extid, starting_safety_status)
@@ -1357,7 +1317,46 @@ write_csv(individuals, 'pfu_metadata/individual_data.csv')
 
 
 # <pk> ##############################################################################
-# (Just use safety metadata)
+# Column specs: https://docs.google.com/spreadsheets/d/1mTqNFfnFLnP-WKJNupajVhTJPbbyV2a32kzyIxyGTMM/edit#gid=0
+# Card https://trello.com/c/1o8gzkTg/2003-pk-refactoring-remove-from-safety-create-stand-alone
+# "Should be a static list of all those who are PK preselected
+
+# Get PK clusters
+pk_clusters <- read_csv('../../analyses/randomization/outputs/pk_clusters.csv')
+# Get PK individuals
+pk_individuals <- read_csv('../../analyses/randomization/outputs/pk_individuals.csv')
+pk_preselected_ids <- pk_individuals$extid
+# Create list of PK individuals
+# Get the starting roster
+individuals <- v0demography_repeat_individual %>% 
+  left_join(v0demography %>% dplyr::select(hhid, start_time, cluster, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
+  mutate(cluster = add_zero(cluster, 2)) %>%
+  dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid, cluster) %>%
+  filter(extid %in% pk_preselected_ids) %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::mutate(fullname_dob = paste0(firstname, ' ', lastname, ' | ', dob)) %>%
+  mutate(fullname_id = paste0(firstname, ' ', lastname, ' (',
+                              extid, ')')) %>%  
+  dplyr::select(firstname, lastname,
+                fullname_dob,
+                fullname_id,
+                sex, hhid,
+                extid, cluster)
+# Based on that list of individuals, create a households data set
+households <- individuals %>%
+  dplyr::distinct(hhid, .keep_all = TRUE) %>%
+  dplyr::select(cluster, hhid) %>%
+  arrange(cluster, hhid)
+# Remove cluster variable from individuals (not specified)
+individuals$cluster <- NULL
+
+# Write csvs
+if(!dir.exists('pk_metadata')){
+  dir.create('pk_metadata')
+}
+write_csv(individuals, 'pk_metadata/individual_data.csv')
+write_csv(households, 'pk_metadata/household_data.csv')
 # </pk> ##############################################################################
 
 
@@ -1368,9 +1367,11 @@ file.remove('health_economics_metadata.zip')
 file.remove('pfu_metadata.zip')
 file.remove('safety_metadata.zip')
 file.remove('ntd_metadata.zip')
+file.remove('pk_metadata.zip')
 zip(zipfile = 'efficacy_metadata.zip', files = 'efficacy_metadata/')
 zip(zipfile = 'health_economics_metadata.zip', files = 'health_economics_metadata//')
 zip(zipfile = 'pfu_metadata.zip', files = 'pfu_metadata/')
 zip(zipfile = 'safety_metadata.zip', files = 'safety_metadata/')
 zip(zipfile = 'ntd_metadata.zip', files = 'ntd_metadata/')
+zip(zipfile = 'pk_metadata.zip', files = 'pk_metadata/')
 
