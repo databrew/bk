@@ -118,8 +118,8 @@ The `scripts/metadata/generate_metadata.R` script generates the metadata files n
 
 #### Data Quality Testing
 
-Series of data quality unit tests will be conducted on each metadata before being uploaded in ODK Central. Tests will be done via R package, more documentation on dataqualitybrewr github repo [here](https://github.com/databrew/dataqualitybrewr/tree/main) 
+Series of data quality unit tests will be conducted on each metadata before being uploaded to ODK Central. Tests will be done via `dataqualitybrewr`, which is an R package that we will continuously manage and add in more testing features based on logic and requirements. More documentation on the use-case [here](https://github.com/databrew/dataqualitybrewr/tree/main) 
 
-Once all data quality tests have passed, Data is stored for AWS for capturing all state changes from prior and current visits and ODK Central for drop-down functionality.
+Once all data quality tests have passed, Data will be stored to AWS for capturing all state changes from prior and current visits and ODK Central for drop-down functionality.
 
 Data quality tests will be managed and tracked here in this [Google Sheets](https://docs.google.com/spreadsheets/d/1OrSul3WqtsO_0JzAXShx8LDmLfNZEugVHvj2SsKNRu0/edit?usp=sharing). 
