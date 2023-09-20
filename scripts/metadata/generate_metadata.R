@@ -1193,11 +1193,23 @@ individuals <- individuals %>%
 # Add a "starting_safety_status" to efficacy
 individuals <- left_join(individuals, starting_safety_statuses)
 
+
+
+
 # Write csvs
 if(!dir.exists('efficacy_metadata')){
   dir.create('efficacy_metadata')
 }
 write_csv(individuals, 'efficacy_metadata/individual_data.csv')
+
+# Create "visit control sheets" for efficacy based on these specifications:
+# https://docs.google.com/spreadsheets/d/1nco1rPFVk9ZgevR02FdjDF1D8m3jyu9n104vpPXYQ5Q/edit#gid=683638136
+save(individuals, v0demography, v0demography_repeat_individual, file = 'rmds/efficacy_tables.RData')
+
+# Render the visit 0 household health economics visit control sheet
+if(FALSE){
+  rmarkdown::render('rmds/health_economics_visit_control_sheet.Rmd')
+}
 # </Efficacy> ##############################################################################
 ##############################################################################
 ##############################################################################
