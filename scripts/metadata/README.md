@@ -115,3 +115,11 @@ There is no "NTD status" for individuals or households.
 #### Comment on script functionality
 
 The `scripts/metadata/generate_metadata.R` script generates the metadata files necessary for the health economics suite of forms. Because the NTD "status" concept does not exist, and because the NTD form's metadata is not dynamic (it is generated once only), the NTD file is written only once. In the metadata generation script, it is written based on all eligible health economics individuals, filtered down only to those who are "pre-selected" for the NTD component of the project. This filtering + writing occurs _before_ filtering for "in" households (which is necessary for the "monthly" forms, since households which are "out" or "eos" should not show up in monthly forms).
+
+#### Data Quality Testing
+
+Series of data quality unit tests will be conducted on each metadata before being uploaded in ODK Central. Tests will be done via R package, more documentation on dataqualitybrewr github repo [here](https://github.com/databrew/dataqualitybrewr/tree/main) 
+
+Once all data quality tests have passed, Data is stored for AWS for capturing all state changes from prior and current visits and ODK Central for drop-down functionality.
+
+Data quality tests will be managed and tracked here in this [Google Sheets](https://docs.google.com/spreadsheets/d/1OrSul3WqtsO_0JzAXShx8LDmLfNZEugVHvj2SsKNRu0/edit?usp=sharing). 
