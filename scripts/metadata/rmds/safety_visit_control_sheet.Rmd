@@ -1,16 +1,30 @@
 ---
 title: ""
-output: pdf_document
-geometry: margin=2cm
-classoption: landscape
+output: 
+  pdf_document:
+    latex_engine: pdflatex
 header-includes:
+- \usepackage{array}
+- \usepackage{booktabs}
+- \usepackage{threeparttablex}
+- \usepackage{pdflscape}
+- \usepackage{booktabs}
+- \usepackage{longtable}
 - \usepackage{fancyhdr}
 - \pagestyle{fancy}
 - \usepackage{lastpage}
 - \fancyhead[CO,CE]{Safety visit control sheets. Visit 1}
-- \fancyfoot[CO,CE]{This is a transitory document to assist the casual laborers with household identification.\\This document will not be retained in the study investigator site file (ISF).}
-- \fancyfoot[LE,RO]{\thepage}
+- \fancyfoot[CO,CE]{This is a transitory document to assist the casual laborers with household identification.\\This document will not be retained in the study investigator site file (ISF).\\Bohemia Safety Visit Control Sheets Version 2.0. Date = \today\\}
+- \fancyfoot[LE,RO]{Page {\thepage} of \pageref{LastPage}}
+geometry: margin=2cm
+classoption: landscape
+params:
+  vcs: 3
+always_allow_html: true
 ---
+
+\thispagestyle{fancy}
+
 
 ```{r, eval = FALSE, echo = FALSE}
 header-includes:
@@ -24,6 +38,7 @@ header-includes:
 - \usepackage{pdflscape}
 - \usepackage{tabu}
 - \usepackage[normalem]{ulem}
+- \thispagestyle{empty}
 
 ```
 
@@ -43,7 +58,6 @@ knitr::opts_chunk$set(
 options(knitr.kable.NA = '')
 ```
 
-\thispagestyle{empty}
 
 
 ```{r}
@@ -88,15 +102,26 @@ heads <- v0demography_repeat_individual %>%
 #                          right) 
 individuals <- individuals %>% left_join(heads)
 
+# Update the "status" field to includ reason why someone is out
+individuals <- left_join(individuals, reason_out) %>%
+  mutate(starting_safety_status = ifelse(is.na(status),
+                                         starting_safety_status,
+                                         status))
+
 # Create a variable to indicate which section this should be grouped in for printing
 # For now, just a placeholder
 individuals$VCS <- individuals$cluster
+
+# Filter down only to those in the vcs
+individuals <- individuals %>% filter(VCS == params$vcs)
+
+
 vcs_documents <- sort(unique(individuals$VCS))
 
 # Filter down only to relevant variables
 # Ward	Village	HhID	Hh head name	Ext_ID	Name	DOB	Efficacy status	Absences		Notes
 out <- individuals %>%
-  # dplyr::sample_n(300) %>%
+  # dplyr::sample_n(100) %>%
   mutate(absence1 = ' ', absence2 = ' ', notes = ' ') %>%
   dplyr::select(Ward = ward, 
                 Village = village,
@@ -137,20 +162,20 @@ for (i in 1:length(vcs_documents)) {
              escape = TRUE,
           row.names = FALSE) %>%
       kable_styling(latex_options = c(#"scale_down",
-                'repeat_header',
+                'repeat_header'#,
 
-                                       "striped"
+                                       # "striped"
                                       ), 
                      # full_width = T,
                     font_size = 7) %>%
     add_header_above(c(" " = 7, "Absences" = 2, " " = 1)) %>%
-    column_spec(1,  width = "5em")  %>%
+    column_spec(1,  width = "8em")  %>%
     column_spec(2,  width = "5em")  %>%
     column_spec(3,  width = "3em")  %>%
     column_spec(4,  width = "10em")  %>%
     column_spec(5,  width = "5em")  %>%
     column_spec(6,  width = "15em")  %>%
-    column_spec(7,  width = "6em")  %>%
+    column_spec(7,  width = "10em")  %>%
     column_spec(8,  width = "3em")  %>%
     column_spec(9,  width = "3em")  %>%
     column_spec(10,  width = "15em")  

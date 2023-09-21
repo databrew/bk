@@ -1054,11 +1054,76 @@ write_csv(individuals, 'safety_metadata/individual_data.csv')
 
 # Create "visit control sheets" for safety based on these specifications:
 # https://docs.google.com/spreadsheets/d/1nco1rPFVk9ZgevR02FdjDF1D8m3jyu9n104vpPXYQ5Q/edit#gid=0
-save(individuals, households, v0demography, v0demography_repeat_individual, file = 'rmds/safety_tables.RData')
+
+# For the visit control sheets, we need to show the "reason" someone is out
+obvious_screening <- 
+  bind_rows(
+    safety_repeat_individual %>% left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
+      dplyr::select(extid, start_time, obvious_screening) %>%
+      mutate(src = 'Safety'),
+    safetynew_repeat_individual %>% left_join(safetynew, by = c('PARENT_KEY' = 'KEY')) %>%
+      dplyr::select(extid, start_time, obvious_screening) %>%
+      mutate(src = 'Safety')
+  ) %>%
+  filter(!is.na(obvious_screening)) %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, obvious_screening)
+ever_present <- safety_repeat_individual %>%
+  filter(!is.na(person_present)) %>%
+  filter(person_present == 'yes') %>%
+  dplyr::select(extid) %>%
+  bind_rows(safetynew_repeat_individual %>% dplyr::select(extid)) %>%
+  dplyr::distinct(extid)
+household_ever_visited <- safety %>%
+  dplyr::distinct(hhid)
+
+# If one :
+#   is NOT in the "obvious screening" category (ie, they have never been flagged for obvious screening), AND
+# HAS had a non-absent visit AND
+# is OUT
+# this means they get an "out" status without any in-parentheses text.
+
+# Create a dataframe for reasons why "out"
+reason_out <- individuals %>%
+  dplyr::filter(starting_safety_status == 'out') %>%
+  dplyr::select(extid, hhid) %>%
+  mutate(in_parentheses = NA) %>%
+  left_join(obvious_screening) %>%
+  mutate(in_parentheses = ifelse(!is.na(obvious_screening),
+                                 obvious_screening,
+                                 in_parentheses)) %>%
+  mutate(in_parentheses = ifelse(!extid %in% ever_present & hhid %in% household_ever_visited$hhid, 
+                                 'absent', 
+                                 in_parentheses)) %>%
+  mutate(in_parentheses = ifelse(is.na(in_parentheses), '',
+                                 paste0(' (', in_parentheses, ')'))) %>%
+  mutate(status = paste0('out', in_parentheses)) %>%
+  dplyr::select(extid, status)
+
+save(reason_out, individuals, households, v0demography, v0demography_repeat_individual, file = 'rmds/safety_tables.RData')
 
 # Render the visit 0 household health economics visit control sheet
+options(kableExtra.latex.load_packages = FALSE)
+
 if(FALSE){
-  rmarkdown::render('rmds/safety_visit_control_sheet.Rmd')
+  if(!dir.exists('rmds/safety_visit_control_sheets')){
+    dir.create('rmds/safety_visit_control_sheets')
+  }
+  vcs_list <- sort(unique(individuals$cluster))
+  for(a in 1:length(vcs_list)){
+    this_vcs <- vcs_list[a]
+    message(a, ' of ', length(vcs_list), ' WD: ', getwd())
+    rmarkdown::render('rmds/safety_visit_control_sheet.Rmd', params = list('vcs' = this_vcs),
+                      output_file = paste0( getwd(), '/safety_visit_control_sheets/', add_zero(this_vcs, 3), '.pdf'))
+    # # Reload the data file
+    # load('rmds/safety_tables.RData')
+    owd <- getwd()
+    setwd('rmds/safety_visit_control_sheets/')
+    system_text <- paste0('pdftk *.pdf cat output safety_visit_control_sheets.pdf')
+    system(system_text)
+    setwd(owd)
+  }
 }
 # </Safety> ##############################################################################
 ##############################################################################
@@ -1216,8 +1281,27 @@ write_csv(individuals, 'efficacy_metadata/individual_data.csv')
 save(individuals, v0demography, v0demography_repeat_individual, file = 'rmds/efficacy_tables.RData')
 
 # Render the visit 0 household health economics visit control sheet
+# Render the visit 0 household health economics visit control sheet
+options(kableExtra.latex.load_packages = FALSE)
+
 if(FALSE){
-  rmarkdown::render('rmds/health_economics_visit_control_sheet.Rmd')
+  if(!dir.exists('rmds/efficacy_visit_control_sheets')){
+    dir.create('rmds/efficacy_visit_control_sheets')
+  }
+  vcs_list <- sort(unique(individuals$cluster))
+  for(a in 1:length(vcs_list)){
+    this_vcs <- vcs_list[a]
+    message(a, ' of ', length(vcs_list), ' WD: ', getwd())
+    rmarkdown::render('rmds/efficacy_visit_control_sheet.Rmd', params = list('vcs' = this_vcs),
+                      output_file = paste0( getwd(), '/efficacy_visit_control_sheets/', add_zero(this_vcs, 3), '.pdf'))
+    # # Reload the data file
+    # load('rmds/safety_tables.RData')
+    owd <- getwd()
+    setwd('rmds/efficacy_visit_control_sheets/')
+    system_text <- paste0('pdftk *.pdf cat output efficacy_visit_control_sheets.pdf')
+    system(system_text)
+    setwd(owd)
+  }
 }
 # </Efficacy> ##############################################################################
 ##############################################################################
