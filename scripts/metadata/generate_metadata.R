@@ -1051,6 +1051,15 @@ if(!dir.exists('safety_metadata')){
 }
 write_csv(households, 'safety_metadata/household_data.csv')
 write_csv(individuals, 'safety_metadata/individual_data.csv')
+
+# Create "visit control sheets" for safety based on these specifications:
+# https://docs.google.com/spreadsheets/d/1nco1rPFVk9ZgevR02FdjDF1D8m3jyu9n104vpPXYQ5Q/edit#gid=0
+save(individuals, households, v0demography, v0demography_repeat_individual, file = 'rmds/safety_tables.RData')
+
+# Render the visit 0 household health economics visit control sheet
+if(FALSE){
+  rmarkdown::render('rmds/safety_visit_control_sheet.Rmd')
+}
 # </Safety> ##############################################################################
 ##############################################################################
 ##############################################################################
