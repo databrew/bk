@@ -1101,29 +1101,89 @@ reason_out <- individuals %>%
   mutate(status = paste0('out', in_parentheses)) %>%
   dplyr::select(extid, status)
 
+# Visit control sheets should be divided not by cluster
+# but by "sub-cluster" based on the number of fieldworkers in that cluster
+# this instruction has been provided at https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1695366280214239
+# Load the spreadsheet from the project
+if('cl_per_cluster.RData' %in% dir()){
+  load('cl_per_cluster.RData')
+} else {
+  cl_per_cluster <- readxl::read_excel('inputs/CL per cluster for DBrew.xlsx')
+  save(cl_per_cluster, file = 'cl_per_cluster.RData')
+}
+# Assign a "vcs" to each individual (ie, which sub-group they are part of)
+vcs_list <- list()
+for(i in 1:nrow(cl_per_cluster)){
+  this_input <- cl_per_cluster[i,]  
+  these_households <- households %>%
+    filter(cluster == this_input$`Cluster assigned`)
+  n_hhs <- nrow(these_households)
+  n_cls <- this_input$`Total Cls in cluster`
+  hhs_per_cl <- ceiling(n_hhs / n_cls)
+  # Define the division points
+  groupings <- rep(1:n_cls, each = hhs_per_cl)
+  groupings <- LETTERS[groupings]
+  groupings <- groupings[1:n_hhs]
+  out <- these_households %>% dplyr::select(hhid, cluster) %>%
+    mutate(grp = groupings) %>%
+    mutate(vcs = paste0(add_zero(cluster, 2), grp))
+  vcs_list[[i]] <- out
+}
+vcs_data <- bind_rows(vcs_list) %>%
+  dplyr::select(hhid, VCS = vcs)
+# Add to individual dataframe
+individuals <- individuals %>% left_join(vcs_data)
+
+
 save(reason_out, individuals, households, v0demography, v0demography_repeat_individual, file = 'rmds/safety_tables.RData')
 
 # Render the visit 0 household health economics visit control sheet
 options(kableExtra.latex.load_packages = FALSE)
+library(pdftools)
 
 if(FALSE){
   if(!dir.exists('rmds/safety_visit_control_sheets')){
     dir.create('rmds/safety_visit_control_sheets')
   }
-  vcs_list <- sort(unique(individuals$cluster))
+  # # Reload the data file
+  load('rmds/safety_tables.RData')
+  vcs_list <- sort(unique(individuals$VCS))
   for(a in 1:length(vcs_list)){
     this_vcs <- vcs_list[a]
     message(a, ' of ', length(vcs_list), ' WD: ', getwd())
     rmarkdown::render('rmds/safety_visit_control_sheet.Rmd', params = list('vcs' = this_vcs),
                       output_file = paste0( getwd(), '/safety_visit_control_sheets/', add_zero(this_vcs, 3), '.pdf'))
-    # # Reload the data file
-    # load('rmds/safety_tables.RData')
-    owd <- getwd()
-    setwd('rmds/safety_visit_control_sheets/')
-    system_text <- paste0('pdftk *.pdf cat output safety_visit_control_sheets.pdf')
-    system(system_text)
-    setwd(owd)
   }
+  # Count how many pages in each document
+  pdfs <- dir('rmds/safety_visit_control_sheets')
+  pdfs_data_list <- list()
+  for(i in 1:length(pdfs)){
+    file_name <- pdfs[i]
+    pdf_data <- pdf_info(paste0('rmds/safety_visit_control_sheets/', file_name))
+    out <- tibble(file_name,
+                  n_pages = pdf_data$pages
+    )
+    pdfs_data_list[[i]] <- out
+  }
+  pdfs_data <- bind_rows(pdfs_data_list)
+  # See if odd number of pages
+  for(i in 1:nrow(pdfs_data)){
+    this_file_name <- pdfs_data$file_name[i]
+    this_n_pages <- pdfs_data$n_pages[i]
+    is_odd <- this_n_pages %% 2 != 0
+    if(is_odd){
+      file.copy('blank_page.pdf',
+                paste0('rmds/safety_visit_control_sheets/',
+                       gsub('.pdf', '_blank.pdf', this_file_name)),
+                overwrite = TRUE)
+    }
+  }
+  # Now stitch them all together
+  owd <- getwd()
+  setwd('rmds/safety_visit_control_sheets/')
+  system_text <- paste0('pdftk *.pdf cat output safety_visit_control_sheets.pdf')
+  system(system_text)
+  setwd(owd)
 }
 # </Safety> ##############################################################################
 ##############################################################################

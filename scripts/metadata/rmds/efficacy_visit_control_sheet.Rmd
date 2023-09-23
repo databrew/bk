@@ -115,20 +115,24 @@ vcs_documents <- sort(unique(individuals$VCS))
 out <- individuals %>%
   mutate(absence1 = ' ', absence2 = ' ', notes = ' ') %>%
   # dplyr::sample_n(100) %>%
+    mutate(Name = paste0(firstname, ' ', lastname)) %>%
   dplyr::select(Ward = ward, 
                 Village = village,
                 `HhID` = hhid,
                 `Hh head name` = head_name,
                 `Ext_ID` = extid,
-                Name = fullname_id,
+                Name,
                 DOB = dob,
                 `Efficacy status` = starting_efficacy_status,
                 `1` = absence1, 
                 `2` = absence2,
                 Notes = notes,
                 VCS) %>%
-  arrange(VCS, HhID)
-use_fake_names <- TRUE
+  arrange(VCS, HhID) %>%
+  mutate(Ward = ifelse(Ward == 'Ramisi', 'Ram',
+                       ifelse(Ward == 'Pongwe kikoneni', 'PK', Ward))) %>%
+  mutate(Village = Hmisc::capitalize(tolower(Village)))
+use_fake_names <- FALSE
 if(use_fake_names){
   fake_names <- babynames::babynames
   fake_names <- fake_names$name
@@ -161,8 +165,8 @@ for (i in 1:length(vcs_documents)) {
                      # full_width = T,
                     font_size = 7) %>%
     add_header_above(c(" " = 8, "Absences" = 2, " " = 1)) %>%
-    column_spec(1,  width = "8em")  %>%
-    column_spec(2,  width = "5em")  %>%
+    column_spec(1,  width = "3em")  %>%
+    column_spec(2,  width = "7em")  %>%
     column_spec(3,  width = "3em")  %>%
     column_spec(4,  width = "10em")  %>%
     column_spec(5,  width = "5em")  %>%
