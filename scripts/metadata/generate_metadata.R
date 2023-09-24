@@ -1353,7 +1353,7 @@ options(kableExtra.latex.load_packages = FALSE)
 #   message(i, '\n')
 # }
 
-if(TRUE){
+if(FALSE){
   if(!dir.exists('rmds/efficacy_visit_control_sheets')){
     dir.create('rmds/efficacy_visit_control_sheets')
   }
@@ -1392,6 +1392,10 @@ pfu_in <-
   bind_rows(
     pfu %>% filter(!is.na(pregnancy_status)) %>%
       dplyr::select(start_time, extid, pregnancy_status, visit) %>% mutate(form = 'pfu') %>%
+      mutate(start_time = as.POSIXct(start_time)) %>%
+      arrange(desc(start_time)),
+    pkfollowup %>% filter(!is.na(pregnancy_status)) %>%
+      dplyr::select(start_time, extid, pregnancy_status, visit) %>% mutate(form = 'pkfollowup') %>%
       mutate(start_time = as.POSIXct(start_time)) %>%
       arrange(desc(start_time)),
     safety_repeat_individual %>% filter(!is.na(pregnancy_status)) %>%
