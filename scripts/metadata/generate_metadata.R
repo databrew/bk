@@ -1,5 +1,9 @@
 # https://trello.com/c/QORpzA5d/1938-se-metadata-scripting
 # https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=389444343
+# libraries <- c('logger', 'purrr', 'dplyr', 'data.table', 'sf', 'sp', 'lubridate', 'readr', 
+#                'pdftools', 'rmarkdown', 'knitr', 'kableExtra', 'readr')
+# remove.packages(libraries)
+# install.packages(libraries)
 
 library(logger)
 library(purrr)
@@ -9,6 +13,11 @@ library(data.table)
 library(sf)
 library(sp)
 library(lubridate)
+library(readr)
+library(pdftools)
+library(rmarkdown)
+library(knitr)
+library(kableExtra)
 library(readr)
 
 # Define production
@@ -41,7 +50,7 @@ if(is_production){
 }
 raw_or_clean <- 'clean'
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
-start_fresh <- TRUE
+start_fresh <- FALSE
 save_empty_objects <- FALSE # for one-off creation of empty objects (so as to make script work in production before some forms have any submitted data)
 
 rr <- function(x){
@@ -1139,7 +1148,6 @@ save(reason_out, individuals, households, v0demography, v0demography_repeat_indi
 
 # Render the visit 0 household health economics visit control sheet
 options(kableExtra.latex.load_packages = FALSE)
-library(pdftools)
 
 if(FALSE){
   if(!dir.exists('rmds/safety_visit_control_sheets')){
@@ -1325,10 +1333,7 @@ individuals <- individuals %>%
   filter(starting_efficacy_status %in% c('in', 'out'))
 
 # Add a "starting_safety_status" to efficacy
-individuals <- left_join(individuals, starting_safety_statuses)
-
-
-
+individuals <- individuals %>% left_join(starting_safety_statuses)
 
 # Write csvs
 if(!dir.exists('efficacy_metadata')){
@@ -1343,25 +1348,33 @@ save(individuals, v0demography, v0demography_repeat_individual, file = 'rmds/eff
 # Render the visit 0 household health economics visit control sheet
 # Render the visit 0 household health economics visit control sheet
 options(kableExtra.latex.load_packages = FALSE)
+# for(i in 1:5){
+#   Sys.sleep(1)
+#   message(i, '\n')
+# }
 
-if(FALSE){
+if(TRUE){
   if(!dir.exists('rmds/efficacy_visit_control_sheets')){
     dir.create('rmds/efficacy_visit_control_sheets')
   }
+  load('rmds/efficacy_tables.RData')
   vcs_list <- sort(unique(individuals$cluster))
   for(a in 1:length(vcs_list)){
     this_vcs <- vcs_list[a]
     message(a, ' of ', length(vcs_list), ' WD: ', getwd())
     rmarkdown::render('rmds/efficacy_visit_control_sheet.Rmd', params = list('vcs' = this_vcs),
                       output_file = paste0( getwd(), '/efficacy_visit_control_sheets/', add_zero(this_vcs, 3), '.pdf'))
-    # # Reload the data file
-    # load('rmds/safety_tables.RData')
-    owd <- getwd()
-    setwd('rmds/efficacy_visit_control_sheets/')
-    system_text <- paste0('pdftk *.pdf cat output efficacy_visit_control_sheets.pdf')
-    system(system_text)
-    setwd(owd)
   }
+  
+ 
+  # Now stitch them all together
+  owd <- getwd()
+  setwd('rmds/efficacy_visit_control_sheets/')
+  system_text <- paste0('pdftk *.pdf cat output efficacy_visit_control_sheets.pdf')
+  system(system_text)
+  setwd(owd)
+  
+  
 }
 # </Efficacy> ##############################################################################
 ##############################################################################
