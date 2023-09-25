@@ -1411,7 +1411,7 @@ pfu_in <-
   dplyr::select(extid, pregnancy_status) %>%
   filter(pregnancy_status == 'in')
 
-# Get the starting roster
+# Get the starting roster # THIS PART NEEDS FIXING, SINCE IT INCLUDES ONLY IN-CLUSTER HOUSHOLDS (it should include all since pk can add to pfu but is not in-cluster)
 starting_roster <- v0demography_repeat_individual %>% 
   dplyr::select(PARENT_KEY, firstname, lastname, dob, sex, extid) %>%
   left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
