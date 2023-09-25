@@ -1409,13 +1409,24 @@ individuals <- individuals %>%
 
 # Add a "starting_safety_status" to efficacy
 individuals <- individuals %>% left_join(starting_safety_statuses)
+
+# Make cluster character
+individuals <- individuals %>%
+  mutate(cluster = add_zero(cluster, 2))
 gc()
+
+# Create a household metadata per last minute request:
+# https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1695661677831249?thread_ts=1695658613.655559&cid=C042KSRLYUA
+households <- individuals %>%
+  dplyr::distinct(hhid, cluster) %>%
+  arrange(cluster, hhid)
+
 # Write csvs
 if(!dir.exists('efficacy_metadata')){
   dir.create('efficacy_metadata')
 }
 write_csv(individuals, 'efficacy_metadata/individual_data.csv')
-
+write_csv(households, 'efficacy_metadata/household_data.csv')
 # Create "visit control sheets" for efficacy based on these specifications:
 # https://docs.google.com/spreadsheets/d/1nco1rPFVk9ZgevR02FdjDF1D8m3jyu9n104vpPXYQ5Q/edit#gid=683638136
 save(individuals, v0demography, v0demography_repeat_individual, file = 'rmds/efficacy_tables.RData')
