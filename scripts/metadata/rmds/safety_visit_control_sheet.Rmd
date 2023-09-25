@@ -173,16 +173,16 @@ for (i in 1:length(vcs_documents)) {
                      # full_width = T,
                     font_size = 7) %>%
     add_header_above(c(" " = 7, "Absences" = 2, " " = 1)) %>%
-    column_spec(1,  width = "3em")  %>%
-    column_spec(2,  width = "7em")  %>%
+    column_spec(1,  width = "2em")  %>%
+    column_spec(2,  width = "12em")  %>%
     column_spec(3,  width = "3em")  %>%
     column_spec(4,  width = "15em")  %>%
     column_spec(5,  width = "5em")  %>%
     column_spec(6,  width = "15em")  %>%
     column_spec(7,  width = "10em")  %>%
-    column_spec(8,  width = "2em")  %>%
-    column_spec(9,  width = "2em")  %>%
-    column_spec(10,  width = "10em")  
+    column_spec(8,  width = "1em")  %>%
+    column_spec(9,  width = "1em")  %>%
+    column_spec(10,  width = "8em")  
   
   cat(paste0("\\fbox{\\parbox{5cm}{\\centering Cluster No. ", this_cluster, '',  "}}\n\n"))
   cat(paste0("\\medskip\n\n"))

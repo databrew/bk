@@ -1194,16 +1194,22 @@ for(i in 1:nrow(cl_per_cluster)){
   this_input <- cl_per_cluster[i,]  
   these_households <- households %>%
     filter(cluster == this_input$`Cluster assigned`)
+  these_individuals <- individuals %>%
+    filter(hhid %in% these_households$hhid) %>%
+    arrange(hhid)
   n_hhs <- nrow(these_households)
+  n_individuals <- nrow(these_individuals)
   n_cls <- this_input$`Total Cls in cluster`
   hhs_per_cl <- ceiling(n_hhs / n_cls)
+  individuals_per_cl <- ceiling(n_individuals / n_cls)
   # Define the division points
-  groupings <- rep(1:n_cls, each = hhs_per_cl)
+  groupings <- rep(1:n_cls, each = individuals_per_cl)
   groupings <- LETTERS[groupings]
-  groupings <- groupings[1:n_hhs]
-  out <- these_households %>% dplyr::select(hhid, cluster) %>%
+  groupings <- groupings[1:n_individuals]
+  out <- these_individuals %>% dplyr::select(hhid, cluster, extid) %>%
     mutate(grp = groupings) %>%
-    mutate(vcs = paste0(add_zero(cluster, 2), grp))
+    mutate(vcs = paste0(add_zero(cluster, 2), grp)) %>%
+    dplyr::distinct(hhid, .keep_all = TRUE)
   vcs_list[[i]] <- out
 }
 vcs_data <- bind_rows(vcs_list) %>%
@@ -1402,7 +1408,7 @@ individuals <- individuals %>%
 
 # Add a "starting_safety_status" to efficacy
 individuals <- individuals %>% left_join(starting_safety_statuses)
-
+gc()
 # Write csvs
 if(!dir.exists('efficacy_metadata')){
   dir.create('efficacy_metadata')
