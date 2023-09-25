@@ -1,9 +1,9 @@
 # https://trello.com/c/QORpzA5d/1938-se-metadata-scripting
 # https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=389444343
-# libraries <- c('logger', 'purrr', 'dplyr', 'data.table', 'sf', 'sp', 'lubridate', 'readr', 
-#                'pdftools', 'rmarkdown', 'knitr', 'kableExtra', 'readr')
-# remove.packages(libraries)
-# install.packages(libraries)
+system(paste0("cat /proc/",Sys.getpid(),"/status | grep VmSize"))
+# Linux memory issues
+library(unix)
+rlimit_as(1e12)  #increases to ~12GB
 
 library(logger)
 library(purrr)
@@ -314,7 +314,56 @@ if(start_fresh){
   #      healtheconmonthly_repeat_other_employment_details,
   #      file = 'data.RData'
   #      )
-  save.image('data.RData')
+  # save.image('data.RData')
+  save(bucket,
+       datasets,
+       datasets_names,
+       efficacy,
+       env_pipeline_stage,
+       folder,
+       geo_filter,
+       healtheconbaseline,
+       healtheconbaseline_repeat_cattle,
+       healtheconbaseline_repeat_disease,
+       healtheconbaseline_repeat_individual,
+       healtheconbaseline_repeat_miss_work_school,
+       healtheconbaseline_repeat_other_employment_details,
+       healtheconmonthly,
+       healtheconmonthly_repeat_cattle,
+       healtheconmonthly_repeat_disease,
+       healtheconmonthly_repeat_individual,
+       healtheconmonthly_repeat_miss_work_school,
+       healtheconmonthly_repeat_other_employment_details,
+       healtheconnew,
+       healtheconnew_repeat_individual,
+       healtheconnew_repeat_miss_work_school,
+       healtheconnew_repeat_other_employment_details,
+       # i,
+       is_production,
+       middle_path,
+       object_keys,
+       output_dir,
+       pfu,
+       pfu_repeat_preg_symptom,
+       pkday0,
+       pkdays123,
+       pkfollowup,
+       raw_or_clean,
+       real_preselections,
+       rr,
+       safety,
+       safety_repeat_ae_symptom,
+       safety_repeat_drug,
+       safety_repeat_individual,
+       safetynew,
+       safetynew_repeat_individual,
+       # save_empty_objects,
+       start_fresh,
+       this_dataset,
+       use_real_v0,
+       v0demography,
+       v0demography_repeat_individual,
+       file = 'data.RData')
 } else {
   load('data.RData')
 }
@@ -522,17 +571,36 @@ v0demography <- left_join(v0demography, households_sp_projected@data %>% dplyr::
 v0demography <- v0demography %>%
   arrange(desc(todays_date)) %>%
   dplyr::distinct(hhid, .keep_all = TRUE) 
-# Remove those outside of cluster boundaries (not doing now due to the fact that this is just testing)
+# Remove those outside of cluster boundaries 
+# But first save a copy of the FULL v0demography set
+# since the pk data (and downstream pfu) is allowed to contain
+# out-of-cluster households / individuals
+v0demography_full <- v0demography
+v0demography_full_repeat_individual <- v0demography_repeat_individual
+# Get the cluster numbers (even for the old, deprecated, removed clusters)
+load('../../data_public/spatial/clusters.RData')
+old_clusters <- clusters; rm(clusters)
+# buffer clusters by 20 meters so as to 
+old_clusters_projected <- spTransform(old_clusters, crs)
+old_clusters_projected_buffered <- rgeos::gBuffer(spgeom = old_clusters_projected, byid = TRUE, width = 50)
+o <- sp::over(households_sp_projected, polygons(old_clusters_projected_buffered))
+households_sp_projected@data$not_in_old_cluster <- is.na(o)
+households_sp_projected@data$old_cluster_correct <- old_clusters_projected_buffered@data$cluster_nu[o]
+v0demography_full <- left_join(v0demography_full, households_sp_projected@data %>% dplyr::select(hhid, not_in_old_cluster, old_cluster_correct))
+v0demography_full <- v0demography_full %>%
+  arrange(desc(todays_date)) %>%
+  dplyr::distinct(hhid, .keep_all = TRUE) 
+
 if(geo_filter){
   v0demography <- v0demography %>%
     filter(!geo_not_in_cluster) %>%
     # overwrite the cluster variable
     mutate(cluster = geo_cluster_num) %>%
     filter(!is.na(geo_cluster_num))
-    # filter(!is.na(not_in_cluster)) %>%
-    # filter(!not_in_cluster) %>%
-    # mutate(cluster = cluster_correct) %>%
-    # dplyr::select(-cluster_correct)
+  v0demography_full <- v0demography_full %>%
+    filter(!not_in_old_cluster) %>%
+    mutate(cluster = old_cluster_correct) %>%
+    filter(!is.na(cluster))
 }
 
 # Prepare some external datasets 
@@ -567,7 +635,7 @@ if(!real_preselections){
 # End of prerequisites. Now beginning cohort-specific metadata generation
 # https://docs.google.com/spreadsheets/d/1mTqNFfnFLnP-WKJNupajVhTJPbbyV2a32kzyIxyGTMM/edit#gid=0
 #################################################################################################
-
+pryr::mem_used()
 
 
 ##############################################################################
@@ -818,7 +886,7 @@ write_csv(households, 'healtheconmonthly_metadata/household_data.csv')
 write_csv(starting_roster, 'healtheconmonthly_metadata/individual_data.csv')
 
 
-
+pryr::mem_used()
 # </Health economics> ##############################################################################
 ##############################################################################
 ##############################################################################
@@ -1147,7 +1215,7 @@ individuals <- individuals %>% left_join(vcs_data)
 save(reason_out, individuals, households, v0demography, v0demography_repeat_individual, file = 'rmds/safety_tables.RData')
 
 # Render the visit 0 household health economics visit control sheet
-options(kableExtra.latex.load_packages = FALSE)
+# options(kableExtra.latex.load_packages = FALSE)
 
 if(FALSE){
   if(!dir.exists('rmds/safety_visit_control_sheets')){
@@ -1197,7 +1265,7 @@ if(FALSE){
 ##############################################################################
 ##############################################################################
 ##############################################################################
-
+pryr::mem_used()
 
 
 
@@ -1346,12 +1414,6 @@ write_csv(individuals, 'efficacy_metadata/individual_data.csv')
 save(individuals, v0demography, v0demography_repeat_individual, file = 'rmds/efficacy_tables.RData')
 
 # Render the visit 0 household health economics visit control sheet
-# Render the visit 0 household health economics visit control sheet
-options(kableExtra.latex.load_packages = FALSE)
-# for(i in 1:5){
-#   Sys.sleep(1)
-#   message(i, '\n')
-# }
 
 if(FALSE){
   if(!dir.exists('rmds/efficacy_visit_control_sheets')){
@@ -1381,7 +1443,7 @@ if(FALSE){
 ##############################################################################
 ##############################################################################
 
-
+pryr::mem_used()
 
 
 # <pfu> ##############################################################################
@@ -1391,16 +1453,16 @@ if(FALSE){
 pfu_in <-   
   bind_rows(
     pfu %>% filter(!is.na(pregnancy_status)) %>%
-      dplyr::select(start_time, extid, pregnancy_status, visit) %>% mutate(form = 'pfu') %>%
+      dplyr::select(start_time, extid, pregnancy_status) %>% mutate(form = 'pfu') %>%
       mutate(start_time = as.POSIXct(start_time)) %>%
       arrange(desc(start_time)),
     pkfollowup %>% filter(!is.na(pregnancy_status)) %>%
-      dplyr::select(start_time, extid, pregnancy_status, visit) %>% mutate(form = 'pkfollowup') %>%
+      dplyr::select(start_time, extid, pregnancy_status) %>% mutate(form = 'pkfollowup') %>%
       mutate(start_time = as.POSIXct(start_time)) %>%
       arrange(desc(start_time)),
     safety_repeat_individual %>% filter(!is.na(pregnancy_status)) %>%
-      left_join(safety %>% dplyr::select(KEY, visit, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
-      dplyr::select(extid, pregnancy_status, visit, start_time) %>% mutate(form = 'safety') %>%
+      left_join(safety %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
+      dplyr::select(extid, pregnancy_status, start_time) %>% mutate(form = 'safety') %>%
       mutate(start_time = as.POSIXct(start_time)) %>%
       arrange(desc(start_time)),
   ) %>%
@@ -1412,9 +1474,9 @@ pfu_in <-
   filter(pregnancy_status == 'in')
 
 # Get the starting roster # THIS PART NEEDS FIXING, SINCE IT INCLUDES ONLY IN-CLUSTER HOUSHOLDS (it should include all since pk can add to pfu but is not in-cluster)
-starting_roster <- v0demography_repeat_individual %>% 
+starting_roster <- v0demography_full_repeat_individual %>% 
   dplyr::select(PARENT_KEY, firstname, lastname, dob, sex, extid) %>%
-  left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
+  left_join(v0demography_full %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   bind_rows(safetynew_repeat_individual %>%
               dplyr::select(PARENT_KEY, firstname, lastname, dob, sex, extid) %>%
               left_join(safetynew %>% dplyr::select(KEY, hhid, start_time), by = c('PARENT_KEY' = 'KEY'))) %>%
@@ -1510,7 +1572,7 @@ pk_individuals <- read_csv('../../analyses/randomization/outputs/pk_individuals.
 pk_preselected_ids <- pk_individuals$extid
 # Create list of PK individuals
 # Get the starting roster
-individuals <- v0demography_repeat_individual %>% 
+individuals <- v0demography_full_repeat_individual %>% 
   left_join(v0demography %>% dplyr::select(hhid, start_time, cluster, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   mutate(cluster = add_zero(cluster, 2)) %>%
   dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid, cluster) %>%
@@ -1551,7 +1613,7 @@ file.remove('safety_metadata.zip')
 file.remove('ntd_metadata.zip')
 file.remove('pk_metadata.zip')
 zip(zipfile = 'efficacy_metadata.zip', files = 'efficacy_metadata/')
-zip(zipfile = 'health_economics_metadata.zip', files = 'health_economics_metadata//')
+zip(zipfile = 'health_economics_metadata.zip', files = c('healtheconbaseline_metadata/', 'healtheconmonthly_metadata/'))
 zip(zipfile = 'pfu_metadata.zip', files = 'pfu_metadata/')
 zip(zipfile = 'safety_metadata.zip', files = 'safety_metadata/')
 zip(zipfile = 'ntd_metadata.zip', files = 'ntd_metadata/')
