@@ -1224,6 +1224,7 @@ save(reason_out, individuals, households, v0demography, v0demography_repeat_indi
 # options(kableExtra.latex.load_packages = FALSE)
 
 if(FALSE){
+  unlink('rmds/safety_visit_control_sheets/', recursive = TRUE)
   if(!dir.exists('rmds/safety_visit_control_sheets')){
     dir.create('rmds/safety_visit_control_sheets')
   }
@@ -1422,6 +1423,7 @@ save(individuals, v0demography, v0demography_repeat_individual, file = 'rmds/eff
 # Render the visit 0 household health economics visit control sheet
 
 if(FALSE){
+  unlink('rmds/efficacy_visit_control_sheets/', recursive = TRUE)
   if(!dir.exists('rmds/efficacy_visit_control_sheets')){
     dir.create('rmds/efficacy_visit_control_sheets')
   }
