@@ -3,7 +3,7 @@
 system(paste0("cat /proc/",Sys.getpid(),"/status | grep VmSize"))
 # Linux memory issues
 library(unix)
-rlimit_as(1e12)  #increases to ~12GB
+rlimit_as(1e13)  # 12increases to ~12GB
 
 library(logger)
 library(purrr)
