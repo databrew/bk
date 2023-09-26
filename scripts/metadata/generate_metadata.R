@@ -595,7 +595,7 @@ if(geo_filter){
   v0demography <- v0demography %>%
     filter(!geo_not_in_cluster) %>%
     # overwrite the cluster variable
-    mutate(cluster = geo_cluster_num) %>%
+    mutate(cluster = add_zero(geo_cluster_num, 2)) %>%
     filter(!is.na(geo_cluster_num))
   v0demography_full <- v0demography_full %>%
     filter(!not_in_old_cluster) %>%
@@ -605,32 +605,9 @@ if(geo_filter){
 
 # Prepare some external datasets 
 # actual randomization status
-assignments <- read_csv('../../analyses/randomization/outputs/assignments.csv')
+assignments <- read_csv('../../analyses/randomization/outputs/assignments.csv') %>%
+  mutate(cluster_number = add_zero(cluster_number, 2))
 intervention_assignment <- read_csv('../../analyses/randomization/outputs/intervention_assignment.csv')
-# Make fake manual modifications per project specifications
-# # NEEDS TO BE CHANGED FOR REAL DATA COLLECTION
-if(!real_preselections){
-  # fake randomization statuses created by paula in 
-  # https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203
-  # g <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203')
-  # g <- g %>% dplyr::distinct(cluster, intervention) %>% 
-  #   arrange(intervention)
-  # intervention_assignment <- tibble(arm = 2:1, intervention = c('Control', 'Treatment'))
-  fake_assignments <- 
-    structure(list(cluster_number = c(1, 12, 20, 34, 35, 56, 72), 
-                   location = c("North", 'North',
-                                "North", "North", "North", "North", "South"),
-                   assignment = c(1, 2, 2, 1, 2, 1, 1)), 
-              row.names = c(NA, 
-                            -7L), 
-              class = c("tbl_df", "tbl", "data.frame"))
-  assignments <- assignments %>%
-    filter(!cluster_number %in% fake_assignments$cluster_number) %>%
-    bind_rows(fake_assignments)
-} else {
-  message('Using real assignations')
-}
-
 
 # End of prerequisites. Now beginning cohort-specific metadata generation
 # https://docs.google.com/spreadsheets/d/1mTqNFfnFLnP-WKJNupajVhTJPbbyV2a32kzyIxyGTMM/edit#gid=0
@@ -1410,9 +1387,6 @@ individuals <- individuals %>%
 # Add a "starting_safety_status" to efficacy
 individuals <- individuals %>% left_join(starting_safety_statuses)
 
-# Make cluster character
-individuals <- individuals %>%
-  mutate(cluster = add_zero(cluster, 2))
 gc()
 
 # Create a household metadata per last minute request:
