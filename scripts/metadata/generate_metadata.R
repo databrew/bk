@@ -1099,6 +1099,11 @@ starting_safety_statuses <-
   ) %>%
   dplyr::distinct(extid, .keep_all = TRUE)
 
+# Remove out of cluster individuals
+individuals <- individuals %>% filter(!is.na(hhid),
+                                      !is.na(cluster))
+households <- households %>% filter(!is.na(hhid),
+                                    !is.na(cluster))
 # Write csvs
 if(!dir.exists('safety_metadata')){
   dir.create('safety_metadata')
@@ -1395,6 +1400,12 @@ households <- individuals %>%
   dplyr::distinct(hhid, cluster) %>%
   arrange(cluster, hhid)
 
+# Remove out of cluster individuals
+individuals <- individuals %>% filter(!is.na(hhid),
+                                      !is.na(cluster))
+households <- households %>% filter(!is.na(hhid),
+                                    !is.na(cluster))
+
 # Write csvs
 if(!dir.exists('efficacy_metadata')){
   dir.create('efficacy_metadata')
@@ -1541,6 +1552,8 @@ right <-
                 pregnancy_most_recent_present_date = todays_date) %>%
   mutate(pregnancy_most_recent_present_date = paste0('.', as.character(pregnancy_most_recent_present_date)))
 individuals <- left_join(individuals, right) 
+
+individuals <- individuals %>% filter(!is.na(hhid))
 
 # Write csvs
 if(!dir.exists('pfu_metadata')){
