@@ -1332,7 +1332,13 @@ individuals <- left_join(individuals, starting_weights)
 # Get starting height (generated in safety section)
 individuals <- left_join(individuals, starting_heights)
 # # Get efficacy status  ################################################
-efficacy_selection <- read_csv('../../analyses/randomization/outputs/efficacy_selection.csv')
+efficacy_selection <- read_csv('../../analyses/randomization/outputs/efficacy_selection.csv') %>%
+  mutate(cluster = add_zero(cluster, 2))
+if(FALSE){
+  nika_efficacy <- efficacy_selection %>%
+    dplyr::select(extid)
+  write_csv(nika_efficacy, '/tmp/efficacy_ids.csv')
+}
 efficacy_preselected_ids <- sort(unique(efficacy_selection$extid))
 # # # one-off: list of households in efficacy with cls for mercy
 # mercy <- efficacy_selection %>%
