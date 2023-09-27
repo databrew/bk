@@ -701,7 +701,7 @@ v1_safety_status <-
   bind_rows(
     safety_repeat_individual %>%
       left_join(safety %>% dplyr::select(KEY, visit, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
-      mutate(todays_date = as.POSIXct(start_time), extid = as.character(extid), safety_status = as.character(safety_status)) %>%
+      mutate(start_time = as.POSIXct(start_time), extid = as.character(extid), safety_status = as.character(safety_status)) %>%
       dplyr::select(start_time, extid, safety_status, visit) %>% mutate(form = 'safety'),
     safetynew_repeat_individual %>%
       left_join(safetynew %>% dplyr::select(KEY, visit, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
@@ -877,15 +877,19 @@ pryr::mem_used()
 # Get arrivals
 arrivals <- safetynew_repeat_individual %>%
   filter(!is.na(lastname), !is.na(dob)) %>%
+  mutate(dob = lubridate::as_datetime(dob)) %>%
   left_join(safetynew %>% dplyr::select(hhid, KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
+  mutate(start_time = lubridate::as_datetime(start_time)) %>%
   dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>% mutate(type = 'Arrival')
 # Get departures
 safety_departures <- safety_repeat_individual %>%
   filter(!is.na(lastname), !is.na(dob)) %>%
+  mutate(dob = lubridate::as_datetime(dob)) %>%
   filter(person_left_household == 1| person_migrated == 1 | person_out_migrated == 1) %>%
   left_join(safety %>% dplyr::select(hhid, KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
   dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>%
-  mutate(type = 'Departure')
+  mutate(type = 'Departure') %>%
+  mutate(start_time = lubridate::as_datetime(start_time))
 safety_deaths <- safety_repeat_individual %>%
   left_join(safety %>% dplyr::select(KEY, start_time, hhid), by = c('PARENT_KEY' = 'KEY')) %>%
   filter(!is.na(lastname), !is.na(dob)) %>%
@@ -1257,7 +1261,7 @@ if(FALSE){
 pryr::mem_used()
 
 
-
+save.image('temp.RData')
 # <Efficacy> ##############################################################################
 
 # Get the starting roster
@@ -1305,27 +1309,21 @@ individuals <- left_join(individuals, starting_weights)
 # Get starting height (generated in safety section)
 individuals <- left_join(individuals, starting_heights)
 # # Get efficacy status  ################################################
-# g <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=1430667203')
-# g$extid[g$efficacy_preselected == 1]
-if(real_preselections){
-  efficacy_selection <- read_csv('../../analyses/randomization/outputs/efficacy_selection.csv')
-  efficacy_preselected_ids <- sort(unique(efficacy_selection$extid))
-  # # # one-off: list of households in efficacy with cls for mercy
-  # mercy <- efficacy_selection %>%
-  #   left_join(v0demography_repeat_individual %>% dplyr::select(extid, PARENT_KEY)) %>%
-  #   left_join(v0demography %>% dplyr::distinct(hhid, .keep_all = TRUE) %>%
-  #               dplyr::select(hhid, KEY, wid), by = c('PARENT_KEY' = 'KEY')) %>%
-  #   mutate(hhid = substr(extid, 1, 5)) %>%
-  #   group_by(hhid) %>%
-  #   summarise(efficacy_ids = paste0(sort(unique(extid)), collapse = ';'),
-  #             cl = dplyr::first(wid)) %>%
-  #   ungroup %>%
-  #   arrange(cl, hhid)
-  # write_csv(mercy, '~/Desktop/efficacy_selections_with_cl.csv')
-} else {
-  efficacy_preselected_ids <- c("01000-01", "01000-04", "12013-03", "34102-02", "34102-03", 
-                                "20001-01", "20001-02", "72034-01", "72034-02")
-}
+efficacy_selection <- read_csv('../../analyses/randomization/outputs/efficacy_selection.csv')
+efficacy_preselected_ids <- sort(unique(efficacy_selection$extid))
+# # # one-off: list of households in efficacy with cls for mercy
+# mercy <- efficacy_selection %>%
+#   left_join(v0demography_repeat_individual %>% dplyr::select(extid, PARENT_KEY)) %>%
+#   left_join(v0demography %>% dplyr::distinct(hhid, .keep_all = TRUE) %>%
+#               dplyr::select(hhid, KEY, wid), by = c('PARENT_KEY' = 'KEY')) %>%
+#   mutate(hhid = substr(extid, 1, 5)) %>%
+#   group_by(hhid) %>%
+#   summarise(efficacy_ids = paste0(sort(unique(extid)), collapse = ';'),
+#             cl = dplyr::first(wid)) %>%
+#   ungroup %>%
+#   arrange(cl, hhid)
+# write_csv(mercy, '~/Desktop/efficacy_selections_with_cl.csv')
+
 
 individuals$efficacy_preselected <- ifelse(individuals$extid %in% efficacy_preselected_ids, 1, 0)
 efficacy_ids <- sort(unique(individuals$extid[individuals$efficacy_preselected == 1]))
@@ -1481,12 +1479,18 @@ pfu_in <-
 starting_roster <- v0demography_full_repeat_individual %>% 
   dplyr::select(PARENT_KEY, firstname, lastname, dob, sex, extid) %>%
   left_join(v0demography_full %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
+  mutate(dob = lubridate::as_datetime(dob)) %>%
+  mutate(start_time = lubridate::as_datetime(start_time)) %>%
   bind_rows(safetynew_repeat_individual %>%
               dplyr::select(PARENT_KEY, firstname, lastname, dob, sex, extid) %>%
-              left_join(safetynew %>% dplyr::select(KEY, hhid, start_time), by = c('PARENT_KEY' = 'KEY'))) %>%
+              mutate(dob = lubridate::as_datetime(dob)) %>%
+              left_join(safetynew %>% dplyr::select(KEY, hhid, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
+              mutate(start_time = lubridate::as_datetime(start_time))) %>%
   bind_rows(safety_repeat_individual %>%
               dplyr::select(PARENT_KEY, firstname, lastname, dob, sex, extid) %>%
-              left_join(safety %>% dplyr::select(KEY, hhid, start_time), by = c('PARENT_KEY' = 'KEY'))) %>%
+              mutate(dob = lubridate::as_datetime(dob)) %>%
+              left_join(safety %>% dplyr::select(KEY, hhid, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
+              mutate(start_time = lubridate::as_datetime(start_time))) %>%
   # fix dates
   mutate(dob = as.character(as.Date(dob))) %>%
   # # keep only those who are in pfu
