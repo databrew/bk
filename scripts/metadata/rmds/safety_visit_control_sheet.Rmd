@@ -174,7 +174,7 @@ for (i in 1:length(vcs_documents)) {
                     font_size = 7) %>%
     add_header_above(c(" " = 7, "Absences" = 2, " " = 1)) %>%
     column_spec(1,  width = "2em")  %>%
-    column_spec(2,  width = "12em")  %>%
+    column_spec(2,  width = "15em")  %>%
     column_spec(3,  width = "3em")  %>%
     column_spec(4,  width = "15em")  %>%
     column_spec(5,  width = "5em")  %>%

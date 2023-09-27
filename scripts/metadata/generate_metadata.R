@@ -1186,12 +1186,14 @@ if('cl_per_cluster.RData' %in% dir()){
   cl_per_cluster <- readxl::read_excel('inputs/CL per cluster for DBrew.xlsx')
   save(cl_per_cluster, file = 'cl_per_cluster.RData')
 }
+cl_per_cluster <- cl_per_cluster %>%
+  mutate(cluster = add_zero(`Cluster assigned`, 2))
 # Assign a "vcs" to each individual (ie, which sub-group they are part of)
 vcs_list <- list()
 for(i in 1:nrow(cl_per_cluster)){
   this_input <- cl_per_cluster[i,]  
   these_households <- households %>%
-    filter(cluster == this_input$`Cluster assigned`)
+    filter(cluster == this_input$cluster)
   these_individuals <- individuals %>%
     filter(hhid %in% these_households$hhid) %>%
     arrange(hhid)
