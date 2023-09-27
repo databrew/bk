@@ -1,5 +1,14 @@
 # https://trello.com/c/QORpzA5d/1938-se-metadata-scripting
 # https://docs.google.com/spreadsheets/d/1gff7p0MKejzllSEp7ONunpaSufvTWXxafktPK4xyCys/edit#gid=389444343
+
+# Remove log files in rmd (they get created in visit control sheet rendering)
+logs <- dir('rmds', pattern = '.log')
+if(length(logs) > 0){
+  for(i in 1:length(logs)){
+    file.remove(paste0('rmds/', logs[i]))
+  }
+}
+
 system(paste0("cat /proc/",Sys.getpid(),"/status | grep VmSize"))
 # Linux memory issues
 library(unix)
@@ -26,7 +35,7 @@ is_production <- TRUE
 real_preselections <- TRUE
 folder <- 'kwale'
 # folder <- 'health_economics_testing'
-# folder <- 'test_of_test'
+folder <- 'test_of_test'
 if(folder == 'kwale'){
   geo_filter <- TRUE
 } else {
@@ -599,8 +608,11 @@ if(geo_filter){
     filter(!is.na(geo_cluster_num))
   v0demography_full <- v0demography_full %>%
     filter(!not_in_old_cluster) %>%
-    mutate(cluster = old_cluster_correct) %>%
+    mutate(cluster = add_zero(old_cluster_correct, 2)) %>%
     filter(!is.na(cluster))
+} else {
+  v0demography$cluster <- add_zero(v0demography$cluster, 2)
+  v0demography_full$cluster <- add_zero(v0demography_full$cluster, 2)
 }
 
 # Prepare some external datasets 
@@ -1564,6 +1576,37 @@ if(!dir.exists('pfu_metadata')){
   dir.create('pfu_metadata')
 }
 write_csv(individuals, 'pfu_metadata/individual_data.csv')
+
+# Render the PFU visit control sheets
+individuals <- left_join(individuals, v0demography_full %>% dplyr::select(hhid, cluster))
+save(individuals, v0demography, v0demography_repeat_individual, file = 'rmds/pfu_tables.RData')
+
+if(FALSE){
+  unlink('rmds/pfu_visit_control_sheets/', recursive = TRUE)
+  if(!dir.exists('rmds/pfu_visit_control_sheets')){
+    dir.create('rmds/pfu_visit_control_sheets')
+  }
+  load('rmds/pfu_tables.RData')
+  vcs_list <- sort(unique(individuals$cluster))
+  for(a in 1:length(vcs_list)){
+    this_vcs <- vcs_list[a]
+    message(a, ' of ', length(vcs_list), ' WD: ', getwd())
+    rmarkdown::render('rmds/pfu_visit_control_sheet.Rmd', params = list('vcs' = this_vcs),
+                      output_file = paste0( getwd(), '/pfu_visit_control_sheets/', add_zero(this_vcs, 3), '.pdf'))
+  }
+  
+  
+  # Now stitch them all together
+  owd <- getwd()
+  setwd('rmds/pfu_visit_control_sheets/')
+  system_text <- paste0('pdftk *.pdf cat output pfu_visit_control_sheets.pdf')
+  system(system_text)
+  setwd(owd)
+  
+  
+}
+
+
 # </pfu> ##############################################################################
 ##############################################################################
 ##############################################################################

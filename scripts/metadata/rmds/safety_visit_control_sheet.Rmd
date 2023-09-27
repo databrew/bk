@@ -137,9 +137,9 @@ out <- individuals %>%
                 Notes = notes,
                 VCS) %>%
   arrange(VCS, HhID) %>%
-  mutate(Ward = ifelse(Ward == 'Ramisi', 'Ram',
-                       ifelse(Ward == 'Pongwe kikoneni', 'PK', Ward))) %>%
-  mutate(Village = Hmisc::capitalize(tolower(Village)))
+  mutate(Ward = ifelse(Ward == 'RAMISI', 'RAM',
+                       ifelse(Ward == 'PONGWE KIKONENI', 'PK', Ward))) %>%
+  mutate(Village = toupper(Village))
 use_fake_names <- FALSE
 if(use_fake_names){
   fake_names <- babynames::babynames
