@@ -35,7 +35,7 @@ is_production <- TRUE
 real_preselections <- TRUE
 folder <- 'kwale'
 # folder <- 'health_economics_testing'
-folder <- 'test_of_test'
+# folder <- 'test_of_test'
 if(folder == 'kwale'){
   geo_filter <- TRUE
 } else {
