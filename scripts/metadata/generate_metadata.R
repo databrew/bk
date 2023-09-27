@@ -1220,6 +1220,15 @@ individuals <- individuals %>% left_join(vcs_data)
 
 save(reason_out, individuals, households, v0demography, v0demography_repeat_individual, file = 'rmds/safety_tables.RData')
 
+# Write csv for Nika of safety visit control sheet data:
+# based on this request: https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1695832657929549
+if(FALSE){
+  nika <- individuals %>%
+    dplyr::select(hhid, extid, sex, dob, cluster, VCS) %>%
+    arrange(VCS)
+  write_csv(nika, '/tmp/safety_individuals.csv')
+}
+
 # Render the visit 0 household health economics visit control sheet
 # options(kableExtra.latex.load_packages = FALSE)
 
