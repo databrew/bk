@@ -1643,7 +1643,7 @@ pk_preselected_ids <- pk_individuals$extid
 # Create list of PK individuals
 # Get the starting roster
 individuals <- v0demography_full_repeat_individual %>% 
-  left_join(v0demography %>% dplyr::select(hhid, start_time, cluster, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
+  left_join(v0demography_full %>% dplyr::select(hhid, start_time, cluster, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   mutate(cluster = add_zero(cluster, 2)) %>%
   dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid, cluster) %>%
   filter(extid %in% pk_preselected_ids) %>%
@@ -1664,6 +1664,30 @@ households <- individuals %>%
   arrange(cluster, hhid)
 # Remove cluster variable from individuals (not specified)
 individuals$cluster <- NULL
+
+# Fake names
+if(FALSE){
+  fake_names <- babynames::babynames
+  fake_names <- fake_names$name
+  names1 <- paste0(sample(fake_names, nrow(individuals), replace = TRUE))
+  names2 <- paste0(sample(fake_names, nrow(individuals), replace = TRUE))
+  names_both <- paste0(names1, ' ', names2)
+  for(i in 1:nrow(individuals)){
+    individuals$firstname[i] <- names1[i]
+    individuals$lastname[i] <- names2[i]
+    individuals$fullname_dob[i] <- paste0(
+      names_both[i], 
+      ' | ',
+      unlist(strsplit(individuals$fullname_dob[i], '| ', fixed = TRUE))[2]
+    )
+    individuals$fullname_id[i] <- paste0(
+      names_both[i], 
+      ' (',
+      individuals$extid[i],
+      ')'
+    )
+  }
+}
 
 # Write csvs
 if(!dir.exists('pk_metadata')){
