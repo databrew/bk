@@ -33,9 +33,9 @@ library(readr)
 is_production <- TRUE
 # folder <- 'kwale_testing'
 real_preselections <- TRUE
-folder <- 'kwale'
+# folder <- 'kwale'
 # folder <- 'health_economics_testing'
-# folder <- 'test_of_test'
+folder <- 'test_of_test'
 if(folder == 'kwale'){
   geo_filter <- TRUE
 } else {
@@ -627,6 +627,8 @@ intervention_assignment <- read_csv('../../analyses/randomization/outputs/interv
 pryr::mem_used()
 
 
+
+
 ##############################################################################
 ##############################################################################
 ##############################################################################
@@ -1120,6 +1122,8 @@ individuals <- individuals %>% filter(!is.na(hhid),
                                       !is.na(cluster))
 households <- households %>% filter(!is.na(hhid),
                                     !is.na(cluster))
+# Save object for use in ICF
+safety_individuals <- individuals
 # Write csvs
 if(!dir.exists('safety_metadata')){
   dir.create('safety_metadata')
@@ -1410,6 +1414,9 @@ if(nrow(right) > 0){
 # If ever eos, always eos
 ever_eos <- efficacy %>% filter(efficacy_status == 'eos') %>% filter(!is.na(extid)) %>% dplyr::pull(extid)
 
+# Save for use in ICF metadata
+efficacy_individuals <- individuals
+
 # Keep only individuals who are currently "in" or "out" of efficacy
 individuals <- individuals %>% 
   filter(!extid %in% ever_eos) %>%
@@ -1689,6 +1696,9 @@ if(FALSE){
   }
 }
 
+# Save an object for use in the later ICF data
+pk_individuals <- individuals
+
 # Write csvs
 if(!dir.exists('pk_metadata')){
   dir.create('pk_metadata')
@@ -1698,6 +1708,129 @@ write_csv(households, 'pk_metadata/household_data.csv')
 # </pk> ##############################################################################
 
 
+
+##############################################################################
+##############################################################################
+##############################################################################
+# <ICF> ##############################################################################
+
+# Card: https://trello.com/c/QcPUTNmb/2083-create-metadata-files-needed-for-se-pk-icf-verification-resolution-forms
+# Specs: https://docs.google.com/spreadsheets/d/1VWFP-SMKrUDmrLzGfAeEJF1ZJcSXyrgIeMjSahDqH38/edit#gid=702340429
+# Per specs, "this file should be one row per unique individual extid from safey, safetynew, efficacy, and pk; also irrelevant fields can be populated with NA"
+
+# Get each individual in safety and safetynew
+icf_safety <-
+  bind_rows(
+    safety_repeat_individual %>%
+      filter(!is.na(lastname), !is.na(dob)) %>%
+      mutate(dob = lubridate::as_datetime(dob)) %>%
+      left_join(safety %>% dplyr::select(hhid, KEY, visit,start_time), by = c('PARENT_KEY' = 'KEY')) %>%
+      mutate(start_time = lubridate::as_datetime(start_time)) %>%
+      dplyr::select(extid, firstname, lastname, sex, dob, hhid, visit, start_time),
+    safetynew_repeat_individual %>%
+      filter(!is.na(lastname), !is.na(dob)) %>%
+      mutate(dob = lubridate::as_datetime(dob)) %>%
+      left_join(safetynew %>% dplyr::select(hhid, visit, KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
+      mutate(start_time = lubridate::as_datetime(start_time)) %>%
+      dplyr::select(extid, firstname, lastname, sex, dob, hhid, visit, start_time)) %>%
+  mutate(fullname_id = paste0(firstname, ' ', lastname, ' | ', extid)) %>%
+  # keep only the most recent
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE)
+
+# Get each individual in efficacy
+icf_efficacy <- efficacy %>%
+  mutate(start_time = lubridate::as_datetime(start_time)) %>%
+  dplyr::select(extid, firstname, lastname, sex, dob, hhid, visit, start_time) %>%
+  mutate(fullname_id = paste0(firstname, ' ', lastname, ' | ', extid)) %>%
+  # keep only the most recent
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) 
+# Get each individual in pk
+icf_pk <- pkday0 %>%
+  mutate(start_time = lubridate::as_datetime(start_time)) %>%
+  dplyr::select(extid, firstname, lastname, sex, dob, hhid, start_time) %>%
+  mutate(fullname_id = paste0(firstname, ' ', lastname, ' | ', extid)) %>%
+  # keep only the most recent
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) 
+# Combine the safety, safetynew, pk, and efficacy individuals into one dataframe
+icf_individuals <- bind_rows(icf_pk, # pk first, since the "safety_icf_type" depends on knowing whether someone is in pk or not
+                             icf_efficacy,
+                             icf_safety) %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE)
+
+# Get most recent non-NA ind_read_sign_name variable, if available
+right <-   bind_rows(
+  safety_repeat_individual %>%
+    filter(!is.na(ind_read_sign_name)) %>%
+    left_join(safety %>% dplyr::select(hhid, KEY, visit, cluster,start_time), by = c('PARENT_KEY' = 'KEY')) %>%
+    mutate(start_time = lubridate::as_datetime(start_time)) %>%
+    dplyr::select(extid, ind_read_sign_name, start_time),
+  safetynew_repeat_individual %>%
+    filter(!is.na(ind_read_sign_name)) %>%
+    left_join(safetynew %>% dplyr::select(hhid, visit, cluster, KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
+    mutate(start_time = lubridate::as_datetime(start_time)) %>%
+    dplyr::select(extid, ind_read_sign_name, start_time)) %>%
+  arrange(desc(start_time)) %>%
+  filter(!is.na(ind_read_sign_name)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, read_sign_name = ind_read_sign_name)
+icf_individuals <- left_join(icf_individuals, right)
+# Get the most recent non-NA read_sign_name from efficacy, if available
+right <- efficacy %>%
+  filter(!is.na(read_sign_name)) %>%
+  arrange(desc(start_time)) %>%
+  filter(!is.na(read_sign_name)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, parent_read_sign_name = read_sign_name)
+icf_individuals <- left_join(icf_individuals, right)
+# Get the "safety_date", ie todays_date of safety form where ind_icf_completed = 1
+right <-   bind_rows(
+  safety_repeat_individual %>%
+    filter(!is.na(ind_icf_completed)) %>%
+    filter(ind_icf_completed == 1) %>%
+    left_join(safety %>% dplyr::select(hhid, KEY, visit, cluster,start_time, todays_date, wid), by = c('PARENT_KEY' = 'KEY')) %>%
+    mutate(start_time = lubridate::as_datetime(start_time)) %>%
+    dplyr::select(extid, age,  ind_icf_completed, start_time, todays_date, wid),
+  safetynew_repeat_individual %>%
+    filter(!is.na(ind_icf_completed)) %>%
+    filter(ind_icf_completed == 1) %>%
+    left_join(safetynew %>% dplyr::select(hhid, visit, cluster, KEY, start_time, todays_date, wid), by = c('PARENT_KEY' = 'KEY')) %>%
+    mutate(start_time = lubridate::as_datetime(start_time)) %>%
+    dplyr::select(extid, age, ind_icf_completed, start_time, todays_date, wid)) %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  mutate(safety_icf_type = ifelse(age >= 18, 'Adult',
+                                  ifelse(age >= 12, 'Assent and parent Legal Guardian',
+                                         ifelse(age < 12, 'Parent Legal Guardian', NA)))) %>%
+  dplyr::select(extid, todays_date, safety_age = age, safety_icf_type, safety_cl = wid) 
+icf_individuals <- left_join(icf_individuals, right)
+# Best known current safety_status
+right <- safety_individuals %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, safety_status = starting_safety_status)
+icf_individuals <- left_join(icf_individuals, right)
+# Get date of efficacy form where icf_completed = 1
+right <- efficacy %>%
+  arrange(desc(start_time)) %>%
+  filter(icf_completed == 1) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, efficacy_date = todays_date, efficacy_age = age, efficacy_cl = wid) %>%
+  mutate(efficacy_icf_type = ifelse(efficacy_age >=12 & efficacy_age < 18, 'Asset and parent Legual Guardian',
+                                    ifelse(efficacy_age < 12, 'Parent Legal Guardian', NA)))
+icf_individuals <- left_join(icf_individuals, right)
+# Get best known efficacy status
+right <- efficacy_individuals %>%
+  dplyr::select(extid, efficacy_status = starting_efficacy_status)
+icf_individuals <- left_join(icf_individuals, right)
+# Get date of pkday0 form
+
+# </ICF> ##############################################################################
+##############################################################################
+##############################################################################
+##############################################################################
 
 # Combine them all into one
 file.remove('efficacy_metadata.zip')
