@@ -42,6 +42,9 @@ if(folder == 'kwale'){
   geo_filter <- FALSE
 }
 
+# Nuke the folder prior to data retrieval
+unlink(folder, recursive = TRUE)
+
 
 if(folder %in% c('health_economics_testing', 'test_of_test', 'kwale')){
   real_preselections <- TRUE
@@ -87,7 +90,8 @@ if(start_fresh){
   datasets <- c('v0demography', 'safetynew', 'safety', 'efficacy', 'pfu',
                 'pkday0', 'pkdays123',
                 'pkfollowup',
-                'healtheconbaseline', 'healtheconnew', 'healtheconmonthly')
+                'healtheconbaseline', 'healtheconnew', 'healtheconmonthly',
+                'sepk_icf_verification', 'sepk_icf_resolution')
   datasets_names <- datasets
   
   # Loop through each dataset and retrieve
@@ -297,7 +301,28 @@ if(start_fresh){
   error = {
     load('empty_objects/healtheconmonthly.RData')
   })
-
+  # sepk_icf_verification
+  tryCatch({
+    sepk_icf_verification <- read_csv(paste0(middle_path, 'sepk_icf_verification/sepk_icf_verification.csv'))
+    if(save_empty_objects){
+      sepk_icf_verification <- sepk_icf_verification %>% rr()
+      save(sepk_icf_verification, file = 'empty_objects/sepk_icf_verification.RData')
+    }
+  },
+  error = {
+    load('empty_objects/sepk_icf_verification.RData')
+  })
+  # sepk_icf_resolution
+  tryCatch({
+    sepk_icf_resolution <- read_csv(paste0(middle_path, 'sepk_icf_resolution/sepk_icf_resolution.csv'))
+    if(save_empty_objects){
+      sepk_icf_resolution <- sepk_icf_resolution %>% rr()
+      save(sepk_icf_resolution, file = 'empty_objects/sepk_icf_resolution.RData')
+    }
+  },
+  error = {
+    load('empty_objects/sepk_icf_resolution.RData')
+  })
   # save(safety, safety_repeat_drug,
   #      safety_repeat_individual, safety_repeat_ae_symptom,
   #      safetynew, safetynew_repeat_individual,
@@ -372,6 +397,8 @@ if(start_fresh){
        use_real_v0,
        v0demography,
        v0demography_repeat_individual,
+       sepk_icf_verification,
+       sepk_icf_resolution,
        file = 'data.RData')
 } else {
   load('data.RData')
@@ -936,6 +963,7 @@ departures <- bind_rows(safety_departures, safety_deaths, efficacy_deaths)
 starting_roster <- v0demography_repeat_individual %>% 
   left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>%
+  filter(!is.na(extid)) %>%
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   mutate(remove = FALSE) %>%
@@ -1713,7 +1741,7 @@ write_csv(households, 'pk_metadata/household_data.csv')
 ##############################################################################
 ##############################################################################
 # <ICF> ##############################################################################
-
+gc()
 # Card: https://trello.com/c/QcPUTNmb/2083-create-metadata-files-needed-for-se-pk-icf-verification-resolution-forms
 # Specs: https://docs.google.com/spreadsheets/d/1VWFP-SMKrUDmrLzGfAeEJF1ZJcSXyrgIeMjSahDqH38/edit#gid=702340429
 # Per specs, "this file should be one row per unique individual extid from safey, safetynew, efficacy, and pk; also irrelevant fields can be populated with NA"
@@ -1737,7 +1765,6 @@ icf_safety <-
   # keep only the most recent
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE)
-
 # Get each individual in efficacy
 icf_efficacy <- efficacy %>%
   mutate(start_time = lubridate::as_datetime(start_time)) %>%
@@ -1760,7 +1787,14 @@ icf_individuals <- bind_rows(icf_pk, # pk first, since the "safety_icf_type" dep
                              icf_safety) %>%
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE)
-
+# Clean up columns in icf_individuals
+icf_individuals <- icf_individuals %>%
+  dplyr::select(extid, firstname, lastname,
+                fullname_id, hhid)
+# Get cluster
+icf_individuals <- left_join(icf_individuals,
+                             v0demography_full %>%
+                               dplyr::select(hhid, cluster = old_cluster_correct))
 # Get most recent non-NA ind_read_sign_name variable, if available
 right <-   bind_rows(
   safety_repeat_individual %>%
@@ -1805,7 +1839,7 @@ right <-   bind_rows(
   mutate(safety_icf_type = ifelse(age >= 18, 'Adult',
                                   ifelse(age >= 12, 'Assent and parent Legal Guardian',
                                          ifelse(age < 12, 'Parent Legal Guardian', NA)))) %>%
-  dplyr::select(extid, todays_date, safety_age = age, safety_icf_type, safety_cl = wid) 
+  dplyr::select(extid, safety_date = todays_date, safety_age = age, safety_icf_type, safety_cl = wid) 
 icf_individuals <- left_join(icf_individuals, right)
 # Best known current safety_status
 right <- safety_individuals %>%
@@ -1826,6 +1860,192 @@ right <- efficacy_individuals %>%
   dplyr::select(extid, efficacy_status = starting_efficacy_status)
 icf_individuals <- left_join(icf_individuals, right)
 # Get date of pkday0 form
+right <- pkday0 %>% dplyr::select(extid, start_time, todays_date, age, wid) %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, pk_date = todays_date, age, pk_cl = wid)
+icf_individuals <- left_join(icf_individuals, right)
+# Populate pk_icf_type variable
+icf_individuals <- icf_individuals %>%
+  mutate(pk_icf_type = ifelse(extid %in% pkday0$extid, 'Adult', NA))
+# Get best known PK status
+right <- 
+  bind_rows(
+    pkday0 %>% dplyr::select(start_time, extid, pk_status),
+    pkdays123 %>% dplyr::select(start_time, extid, pk_status),
+    pkfollowup %>% dplyr::select(start_time, extid, pk_status)
+  ) %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, pk_status)
+icf_individuals <- left_join(icf_individuals, right)
+# safety_icf_status
+# most updated ${icf_stat} from the sepk_icf_verification form and sepk_icf_resolution form if ${study_select} = 'safety'
+right <- bind_rows(
+  sepk_icf_verification %>% filter(study_select == 'safety') %>%
+    dplyr::select(extid, icf_stat, start_time),
+  sepk_icf_resolution %>% filter(study_select == 'safety') %>%
+    dplyr::select(extid, icf_stat, start_time)
+) %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, safety_icf_status = icf_stat)
+icf_individuals <- left_join(icf_individuals, right)
+# efficacy_icf_status
+# most updated ${icf_stat} from the sepk_icf_verification form and sepk_icf_resolution form if ${study_select} = 'efficacy'
+right <- bind_rows(
+  sepk_icf_verification %>% filter(study_select == 'efficacy') %>%
+    dplyr::select(extid, icf_stat, start_time),
+  sepk_icf_resolution %>% filter(study_select == 'efficacy') %>%
+    dplyr::select(extid, icf_stat, start_time)
+) %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, safety_icf_status = icf_stat)
+icf_individuals <- left_join(icf_individuals, right)
+# pk_icf_status
+# most updated ${icf_stat} from the sepk_icf_verification form and sepk_icf_resolution form if ${study_select} = 'pk'
+right <- bind_rows(
+  sepk_icf_verification %>% filter(study_select == 'pk') %>%
+    dplyr::select(extid, icf_stat, start_time),
+  sepk_icf_resolution %>% filter(study_select == 'pk') %>%
+    dplyr::select(extid, icf_stat, start_time)
+) %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, safety_icf_status = icf_stat)
+icf_individuals <- left_join(icf_individuals, right)
+# safety_verification_date
+# todays_date of the earliest sepk_icf_verification form where ${study_select} = 'safety'
+right <- sepk_icf_verification %>%
+  filter(study_select == 'safety') %>%
+  arrange(start_time) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, safety_verification_date = todays_date)
+icf_individuals <- left_join(icf_individuals, right)
+# efficacy_verification_date
+# todays_date of the earliest sepk_icf_verification form where ${study_select} = 'efficacy'
+right <- sepk_icf_verification %>%
+  filter(study_select == 'efficacy') %>%
+  arrange(start_time) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, efficacy_verification_date = todays_date)
+icf_individuals <- left_join(icf_individuals, right)
+# pk_verification_date
+# todays_date of the earliest sepk_icf_verification form where ${study_select} = 'pk'
+right <- sepk_icf_verification %>%
+  filter(study_select == 'pk') %>%
+  arrange(start_time) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, pk_verification_date = todays_date)
+icf_individuals <- left_join(icf_individuals, right)
+# safety_errors
+# For sepk_icf_verification form where ${study_select} = 'safety': If "no" to any of the variables below, concat the number after the _ in a comma separated list (e.g., if icf_1 = 'no' and icf_5 ='no', this value should be '1, 5') 
+# icf_1, icf_2,  icf_3, icf_4, icf_5, icf_6 ....icf_24
+right <- sepk_icf_verification %>%
+  filter(study_select == 'safety') %>%
+  dplyr::select(extid, icf_1:icf_24) %>%
+  mutate(safety_errors = '')
+icf_columns <- paste0('icf_', 1:24)
+for(i in 1:nrow(right)){
+  sub_data <- right[i,]
+  error_list <- c()
+  for(j in 1:length(icf_columns)){
+    this_column <- icf_columns[j]
+    this_data <- sub_data %>% pull(this_column)
+    is_erroneous <- this_data == 'no' & !is.na(this_data)
+    if(is_erroneous){
+      error_list <- c(error_list, j)
+    }
+  }
+  right$safety_errors[i] <- paste0(error_list, collapse = ', ')
+}
+right <- right %>% dplyr::select(extid, safety_errors) %>%
+  # make sure only one row per observation
+  group_by(extid) %>%
+  summarise(safety_errors = paste0(safety_errors, collapse = '; '))
+icf_individuals <- left_join(icf_individuals, right)
+# efficacy_errors
+# For sepk_icf_verification form where ${study_select} = 'efficacy': If "no" to any of the variables below, concat the number after the _ in a comma separated list (e.g., if icf_1 = 'no' and icf_5 ='no', this value should be '1, 5') 
+# icf_1, icf_2,  icf_3, icf_4, icf_5, icf_6 ....icf_24
+right <- sepk_icf_verification %>%
+  filter(study_select == 'efficacy') %>%
+  dplyr::select(extid, icf_1:icf_24) %>%
+  mutate(efficacy_errors = '')
+icf_columns <- paste0('icf_', 1:24)
+for(i in 1:nrow(right)){
+  sub_data <- right[i,]
+  error_list <- c()
+  for(j in 1:length(icf_columns)){
+    this_column <- icf_columns[j]
+    this_data <- sub_data %>% pull(this_column)
+    is_erroneous <- this_data == 'no' & !is.na(this_data)
+    if(is_erroneous){
+      error_list <- c(error_list, j)
+    }
+  }
+  right$efficacy_errors[i] <- paste0(error_list, collapse = ', ')
+}
+right <- right %>% dplyr::select(extid, efficacy_errors) %>%
+  # make sure only one row per observation
+  group_by(extid) %>%
+  summarise(efficacy_errors = paste0(efficacy_errors, collapse = '; '))
+icf_individuals <- left_join(icf_individuals, right)
+# pk_errors
+# For sepk_icf_verification form where ${study_select} = 'pk': If "no" to any of the variables below, concat the number after the _ in a comma separated list (e.g., if icf_1 = 'no' and icf_5 ='no', this value should be '1, 5') 
+# icf_1, icf_2,  icf_3, icf_4, icf_5, icf_6 ....icf_24
+right <- sepk_icf_verification %>%
+  filter(study_select == 'pk') %>%
+  dplyr::select(extid, icf_1:icf_24) %>%
+  mutate(pk_errors = '')
+icf_columns <- paste0('icf_', 1:24)
+for(i in 1:nrow(right)){
+  sub_data <- right[i,]
+  error_list <- c()
+  for(j in 1:length(icf_columns)){
+    this_column <- icf_columns[j]
+    this_data <- sub_data %>% pull(this_column)
+    is_erroneous <- this_data == 'no' & !is.na(this_data)
+    if(is_erroneous){
+      error_list <- c(error_list, j)
+    }
+  }
+  right$pk_errors[i] <- paste0(error_list, collapse = ', ')
+}
+right <- right %>% dplyr::select(extid, pk_errors) %>%
+  # make sure only one row per observation
+  group_by(extid) %>%
+  summarise(pk_errors = paste0(pk_errors, collapse = '; '))
+icf_individuals <- left_join(icf_individuals, right)
+# safety_pages
+# errors_page_select in sepk_icf_verification form where ${study_select} = 'safety'
+right <- sepk_icf_verification %>%
+  filter(study_select == 'safety') %>%
+  group_by(extid) %>%
+  summarise(safety_pages = paste0(errors_page_select, collapse = ', '))
+icf_individuals <- left_join(icf_individuals, right)
+# efficacy_pages
+# errors_page_select in sepk_icf_verification form where ${study_select} = 'efficacy'
+right <- sepk_icf_verification %>%
+  filter(study_select == 'efficacy') %>%
+  group_by(extid) %>%
+  summarise(efficacy_pages = paste0(errors_page_select, collapse = ', '))
+icf_individuals <- left_join(icf_individuals, right)
+# pk_pages
+# errors_page_select in sepk_icf_verification form where ${study_select} = 'pk'
+right <- sepk_icf_verification %>%
+  filter(study_select == 'pk') %>%
+  group_by(extid) %>%
+  summarise(pk_pages = paste0(errors_page_select, collapse = ', '))
+icf_individuals <- left_join(icf_individuals, right)
+
+# Write csvs
+if(!dir.exists('icf_metadata')){
+  dir.create('icf_metadata')
+}
+write_csv(icf_individuals, 'icf_metadata/individual_data.csv')
+# </pk> ##############################################################################
+
 
 # </ICF> ##############################################################################
 ##############################################################################
@@ -1839,10 +2059,12 @@ file.remove('pfu_metadata.zip')
 file.remove('safety_metadata.zip')
 file.remove('ntd_metadata.zip')
 file.remove('pk_metadata.zip')
+file.remove('icf_metadata.zip')
 zip(zipfile = 'efficacy_metadata.zip', files = 'efficacy_metadata/')
 zip(zipfile = 'health_economics_metadata.zip', files = c('healtheconbaseline_metadata/', 'healtheconmonthly_metadata/'))
 zip(zipfile = 'pfu_metadata.zip', files = 'pfu_metadata/')
 zip(zipfile = 'safety_metadata.zip', files = 'safety_metadata/')
 zip(zipfile = 'ntd_metadata.zip', files = 'ntd_metadata/')
 zip(zipfile = 'pk_metadata.zip', files = 'pk_metadata/')
+zip(zipfile = 'icf_metadata.zip', files = 'icf_metadata/')
 
