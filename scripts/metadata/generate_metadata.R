@@ -1750,6 +1750,7 @@ gc()
 icf_safety <-
   bind_rows(
     safety_repeat_individual %>%
+      filter(person_present == 'yes') %>%
       filter(!is.na(lastname), !is.na(dob)) %>%
       mutate(dob = lubridate::as_datetime(dob)) %>%
       left_join(safety %>% dplyr::select(hhid, KEY, visit,start_time), by = c('PARENT_KEY' = 'KEY')) %>%
@@ -1768,6 +1769,7 @@ icf_safety <-
   mutate(dob = lubridate::as_datetime(dob))
 # Get each individual in efficacy
 icf_efficacy <- efficacy %>%
+  filter(person_present == 'yes') %>%
   mutate(start_time = lubridate::as_datetime(start_time)) %>%
   dplyr::select(extid, firstname, lastname, sex, dob, hhid, visit, start_time) %>%
   mutate(fullname_id = paste0(firstname, ' ', lastname, ' | ', extid)) %>%
