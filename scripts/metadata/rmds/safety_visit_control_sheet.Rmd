@@ -13,17 +13,22 @@ header-includes:
 - \usepackage{fancyhdr}
 - \pagestyle{fancy}
 - \usepackage{lastpage}
-- \fancyhead[CO,CE]{Safety visit control sheets. Visit 1}
+- \usepackage{multirow}
+- \usepackage{colortbl}
+- \usepackage[labelformat = empty]{caption}
+- \fancyhead[CO,CE]{Safety visit control sheets. Visit 1. Cluster $vcs$}
 - \fancyfoot[CO,CE]{This is a transitory document to assist the casual laborers with household identification.\\This document will not be retained in the study investigator site file (ISF).\\Bohemia Safety Visit Control Sheets Version 2.0. Date = \today\\}
 - \fancyfoot[LE,RO]{Page {\thepage} of \pageref{LastPage}}
 geometry: margin=2cm
 classoption: landscape
 params:
-  vcs: 03a
+  vcs: 02A
 always_allow_html: true
 ---
 
 \thispagestyle{fancy}
+
+
 
 
 ```{r, eval = FALSE, echo = FALSE}
@@ -140,7 +145,7 @@ out <- individuals %>%
   mutate(Ward = ifelse(Ward == 'RAMISI', 'RAM',
                        ifelse(Ward == 'PONGWE KIKONENI', 'PK', Ward))) %>%
   mutate(Village = toupper(Village))
-use_fake_names <- FALSE
+use_fake_names <- TRUE
 if(use_fake_names){
   fake_names <- babynames::babynames
   fake_names <- fake_names$name
@@ -159,19 +164,24 @@ for (i in 1:length(vcs_documents)) {
   this_cluster <- vcs_documents[i]
   this_data <- out %>% filter(VCS == this_cluster) %>%
     dplyr::select(-VCS)
+  black_rows <- (1:nrow(this_data))[1:nrow(this_data) %% 2 == 0]
   k <- kable(this_data, format = "latex",
               longtable = TRUE,
               booktabs = TRUE,
+             caption = paste0('Cluster ', params$vcs),
               #align = "c", 
              escape = TRUE,
           row.names = FALSE) %>%
       kable_styling(latex_options = c(#"scale_down",
-                'repeat_header'#,
+                'repeat_header',
 
-                                       # "striped"
+                                       "striped"
                                       ), 
                      # full_width = T,
                     font_size = 7) %>%
+    # footnote(general = paste0('Cluster ', this_cluster),
+    #          general_title = ' ') %>%
+    # row_spec(black_rows, color = 'white', background = 'black') %>%
     add_header_above(c(" " = 7, "Absences" = 2, " " = 1)) %>%
     column_spec(1,  width = "2em")  %>%
     column_spec(2,  width = "15em")  %>%

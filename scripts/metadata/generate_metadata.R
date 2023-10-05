@@ -652,7 +652,7 @@ intervention_assignment <- read_csv('../../analyses/randomization/outputs/interv
 # https://docs.google.com/spreadsheets/d/1mTqNFfnFLnP-WKJNupajVhTJPbbyV2a32kzyIxyGTMM/edit#gid=0
 #################################################################################################
 pryr::mem_used()
-
+gc()
 
 
 
@@ -1276,7 +1276,8 @@ if(FALSE){
     this_vcs <- vcs_list[a]
     message(a, ' of ', length(vcs_list), ' WD: ', getwd())
     rmarkdown::render('rmds/safety_visit_control_sheet.Rmd', params = list('vcs' = this_vcs),
-                      output_file = paste0( getwd(), '/safety_visit_control_sheets/', add_zero(this_vcs, 3), '.pdf'))
+                      output_file = paste0( getwd(), '/safety_visit_control_sheets/', add_zero(this_vcs, 3), '.pdf'),
+                      quiet = TRUE)
   }
   # Count how many pages in each document
   pdfs <- dir('rmds/safety_visit_control_sheets')
