@@ -2,62 +2,91 @@ library(dplyr)
 library(tidyr)
 
 v0 <- read.csv("../Downloads/v0.csv")
-vf <- v0 %>% select(firstname, sex)
-vf$firstname <- toupper(vf$firstname)
+v0dem <- read.csv("../Downloads/v0demography.csv")
 
-# Get frequency of names
-name_frequency <- table(vf$firstname)
+# Join ind and household datasets
+dat <- v0 %>%
+    left_join(v0dem %>% dplyr::select(KEY, todays_date, wid, hhid, cluster),
+            by = c('PARENT_KEY' = 'KEY')) %>%
+  select(firstname, sex, extid, cluster, hhid, wid)
 
-# Sort the frequency table in descending order
-sorted_frequency <- sort(name_frequency, decreasing = TRUE)
+# Keep names with more than 10 repetitions in data set
+dat10 <- dat %>%
+  group_by(firstname) %>%
+  filter(n() >= 10) %>%
+  ungroup()
 
-# Get the top 50 most common names
-top_100_names <- names(sorted_frequency)[1:100]
-print(top_100_names)
+dat10$firstname[dat10$firstname == ""] <- NA
+dat10 <- dat10[complete.cases(dat10), ]
 
-# Keep top 50 names
-keep <- c(
-"FATUMA", "MWANASHA", "ALI", "BAKARI", "MWANASITI", "JUMA", "MWANAKOMBO", "HAMISI", "MOHAMED", "MWANAMISI", "AMINA", "HASSAN", "OMARI", "SALIM", "SAUMU", "TIMA", "MARIAM", "ASHA", "HALIMA", "RAMA", "SULEIMAN", "ABDALLA", "SHEE", "KASSIM", "MOHAMMED", "REHEMA", "OMAR", "MWANAULU", "SAID", "ABDALLAH", "MWANAISHA", "SAIDI", "AISHA", "MWANAMKASI", "RIZIKI", "HAMADI", "MWANAJUMA", "RASHID", "MWANATUMU", "RUKIA", "MWANAIDI", "MWAJUMBE", "HADIJA", "MASUDI", "MWAKA", "IBRAHIM", "UMAZI", "KHADIJA", "MBWANA", "MWANAMKUU", "CHIZI", "HUSSEIN", "SALIMU", "NASSORO", "ISMAIL", "SOFIA", "MARY", "MWANAMVUA", "MEJUMAA", "BAHATI", "BIASHA", "LUVUNO", "ATHUMAN", "MLONGO", "JOSEPH", "MWANALIMA", "SALMA", "ABDUL", "YUSUF", "MBEYU", "ZAINAB", "ATHUMANI", "ISSA", "BINTI", "SHABAN", "HASSANI", "MARIAMU", "SALAMA", "MISHI", "ZULFA", "JOHN", "MWANDAZI", "ZUHURA", "ADAM", "DANIEL", "GRACE", "SAUM", "SWALEHE", "KOMBO", "MWANAPILI", "MWATIME", "NEEMA", "ABUBAKAR", "HAMAD", "NURU", "ESTHER", "MUSA", "ZAINABU", "MARINDA", "MWALIMU"
-)
-
-# Filter the data frame
-keep_names <- subset(vf,vf$firstname %in% keep)
+# Make all uppercase
+dat10$firstname <- toupper(dat10$firstname)
 
 # Create a table with first name and number for each gender in names gender table (ngt)
-ngt <- keep_names %>%
-  group_by(firstname, sex) %>%
-  summarize(count = n()) %>%
+ngt <- dat10 %>%
+  group_by(firstname = firstname, sex) %>%
+  summarise(count = n()) %>%
   pivot_wider(names_from = sex, values_from = count, values_fill = 0)
-
-# Calculate the total count for each row
-ngt <- ngt %>%
-  mutate(total = Female + Male)
 
 # Calculate the percentage of females and males for each row
 ngt <- ngt %>%
-  mutate(female_percentage = (Female / total) * 100)
-ngt <- ngt %>%
-  mutate(male_percentage = (Male / total) * 100)
+  mutate(total = Male + Female) %>%
+  mutate(female_percentage = round((Female / total) * 100, 2)) %>%
+  mutate(male_percentage = round((Male / total) * 100, 2))
 
 # Create column with likely gender for each first name (ie names where 90-99.9% of participants are from one gender)
 ngt <- ngt %>%
-  mutate(likely_gender = ifelse(female_percentage >= 90 & female_percentage <= 99.9, 'female',
-                                ifelse(male_percentage >= 90 & male_percentage <= 99.9, 'male', 'NA')))
+  mutate(likely_gender = ifelse(female_percentage >= 90 & female_percentage <= 99.9, 'Female',
+                                ifelse(male_percentage >= 90 & male_percentage <= 99.9, 'Male', 'NA')))
 # Drop those that are <90% and 100% male or female
-mf <- ngt %>%  filter(likely_gender %in% c('male', 'female'))
-
-# Prepare main dataset 
-v0mini <- v0 %>% select(firstname, lastname, extid, sex)
-v0mini$sex <- tolower(v0mini$sex)
+mf <- ngt %>%  filter(likely_gender %in% c('Male', 'Female'))
 
 # Join with main dataset
-merged <- left_join(mf, v0mini, by = "firstname")
+mismatch <- left_join(mf, dat10, by = "firstname")
 
 # Create column 'gender_mismatch' with TRUE if v0 gender doesn't match likely_gender
-merged <- merged %>%
+mismatch <- mismatch %>%
   mutate(gender_mismatch = sex != likely_gender) %>%
-  select(firstname, lastname, extid, sex, likely_gender, gender_mismatch) %>%
+  select(firstname, extid, sex, likely_gender, gender_mismatch, hhid, cluster, wid) %>%
   filter(gender_mismatch == TRUE)
 
+# Fix HHID/Cluster
+mismatch$hhid <- ifelse(nchar(mismatch$hhid) == 4, paste0("0", mismatch$hhid), mismatch$hhid)
+mismatch$cluster <- ifelse(nchar(mismatch$cluster) == 1, paste0("0", mismatch$cluster), mismatch$cluster)
 
+wid <- table(mismatch$wid)
 
+#################
+
+# Flag potential age issues for hh_head < 16 years, bday is todays_date 
+dat2 <- v0 %>%
+    left_join(v0dem %>% dplyr::select(KEY, todays_date, wid, hhid, cluster),
+            by = c('PARENT_KEY' = 'KEY')) %>%
+  select(firstname, extid, cluster, hhid, wid, age, dob, hh_head_yn, todays_date)
+
+dat2$firstname[dat2$firstname == ""] <- NA
+dat2 <- dat2[complete.cases(dat2), ]
+
+young_head <- dat2 %>%
+  mutate(young_head = hh_head_yn =='yes' & age <16) %>%
+  filter(young_head == TRUE)
+
+bdaytoday <- dat2 %>% filter(todays_date == dob)
+
+# Group the data by household_id and dob, then count the number of individuals with the same DOB in each household
+dob_counts <- dat2 %>%
+  group_by(hhid, dob) %>%
+  summarise(num_individuals = n()) %>%
+  ungroup()
+
+# Filter households where more than one individual shares the same DOB
+anomalies <- dob_counts %>%
+  filter(num_individuals > 1)
+
+anomalies$hhid <- ifelse(nchar(anomalies$hhid) == 4, paste0("0", anomalies$hhid), anomalies$hhid)
+
+###
+write.csv(mismatch, "namegendermismatch.csv", row.names = FALSE)
+write.csv(bdaytoday, "bdaytoday.csv", row.names = FALSE)
+write.csv(young_head, "young_hh_head.csv", row.names = FALSE)
+write.csv(anomalies, "multiple_same_dob.csv", row.names = FALSE)
