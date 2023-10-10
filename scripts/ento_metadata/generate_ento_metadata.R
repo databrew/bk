@@ -121,8 +121,8 @@ out <-
 filter_by_dates <- FALSE
 if(filter_by_dates){
   out <- out %>% filter(
-    todays_date >= as.Date('2023-09-12'),
-    todays_date <= as.Date('2023-09-14')
+    todays_date >= as.Date('2023-10-03'),
+    todays_date <= as.Date('2023-10-05')
   )
 }
 
