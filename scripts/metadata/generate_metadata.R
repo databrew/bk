@@ -63,7 +63,6 @@ if(is_production){
 raw_or_clean <- 'clean'
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 start_fresh <- TRUE
-save_empty_objects <- FALSE # for one-off creation of empty objects (so as to make script work in production before some forms have any submitted data)
 
 rr <- function(x){
   message('removing ', nrow(x), ' rows')
@@ -110,9 +109,6 @@ if(start_fresh){
   if(!dir.exists('health_economics_testing')){
     dir.create('health_economics_testing')
   }
-  if(!dir.exists('empty_objects')){
-    dir.create('empty_objects')
-  }
 
   for(i in 1:length(datasets)){
     this_dataset <- datasets[i]
@@ -141,13 +137,6 @@ if(start_fresh){
     safety_repeat_drug <- read_csv(paste0(middle_path, 'safety/safety-repeat_drug.csv'))
     safety_repeat_individual <- read_csv(paste0(middle_path, 'safety/safety-repeat_individual.csv'))
     safety_repeat_ae_symptom <- read_csv(paste0(middle_path, 'safety/safety-repeat_ae_symptom.csv'))
-    if(save_empty_objects){
-      safety <- safety %>% rr()
-      safety_repeat_drug <- safety_repeat_drug %>% rr()
-      safety_repeat_individual <- safety_repeat_individual %>% rr()
-      safety_repeat_ae_symptom <- safety_repeat_ae_symptom %>% rr()
-      save(safety,safety_repeat_drug,safety_repeat_individual, safety_repeat_ae_symptom, file = 'empty_objects/safety.RData')
-    }
   }, error = function(e){
     load('empty_objects/safety.RData')
   })
@@ -155,11 +144,6 @@ if(start_fresh){
   tryCatch({
     safetynew <- read_csv(paste0(middle_path, 'safetynew/safetynew.csv'))
     safetynew_repeat_individual <- read_csv(paste0(middle_path, 'safetynew/safetynew-repeat_individual.csv'))
-    if(save_empty_objects){
-      safetynew <- safetynew %>% rr()
-      safetynew_repeat_individual <- safetynew_repeat_individual %>% rr()
-      save(safetynew, safetynew_repeat_individual, file = 'empty_objects/safetynew.RData')
-    }
   }, error = function(e){
     load('empty_objects/safetynew.RData')
   })
@@ -167,17 +151,10 @@ if(start_fresh){
   if(use_real_v0){
     v0demography <- read_csv(paste0(middle_path, 'v0demography/v0demography.csv'))
     v0demography_repeat_individual <- read_csv(paste0(middle_path, 'v0demography/v0demography-repeat_individual.csv'))
-    # # save(v0demography, v0demography_repeat_individual, file = 'real_v0.RData')
-    # load('real_v0.RData')
   } else {
     tryCatch({
       v0demography <- read_csv(paste0(middle_path, 'v0demography/v0demography.csv'))
       v0demography_repeat_individual <- read_csv(paste0(middle_path, 'v0demography/v0demography-repeat_individual.csv'))
-      if(save_empty_objects){
-        v0demography <- v0demography %>% rr()
-        v0demography_repeat_individual <- v0demography_repeat_individual %>% rr()
-        save(v0demography, v0demography_repeat_individual, file = 'empty_objects/v0demography.RData')
-      }
     },
     error = function(e){
       load('empty_objects/v0demography.RData')
@@ -187,34 +164,20 @@ if(start_fresh){
   # efficacy
   tryCatch({
     efficacy <- read_csv(paste0(middle_path, 'efficacy/efficacy.csv'))
-    if(save_empty_objects){
-      efficacy <- efficacy %>% rr()
-      save(efficacy, file = 'empty_objects/efficacy.RData')
-    }
-  },
-  error = function(e){
+
+  },error = function(e){
     load('empty_objects/efficacy.RData')
   })
   # pregnancy follow-up
   tryCatch({
     pfu <- read_csv(paste0(middle_path, 'pfu/pfu.csv'))
     pfu_repeat_preg_symptom <- read_csv(paste0(middle_path, 'pfu/pfu-repeat_preg_symptom.csv'))
-    if(save_empty_objects){
-      pfu <- pfu %>% rr()
-      pfu_repeat_preg_symptom <- pfu_repeat_preg_symptom %>% rr()
-      save(pfu, pfu_repeat_preg_symptom, file = 'empty_objects/pfu.RData')
-    }
-  },
-  error = function(e){
+  },error = function(e){
     load('empty_objects/pfu.RData')
   })
   # pkday0
   tryCatch({
     pkday0 <- read_csv(paste0(middle_path, 'pkday0/pkday0.csv'))
-    if(save_empty_objects){
-      pkday0 <- pkday0 %>% rr()
-      save(pkday0, file = 'empty_objects/pkday0.RData')
-    }
   },
   error = function(e){
     load('empty_objects/pkday0.RData')
@@ -222,10 +185,6 @@ if(start_fresh){
   # pkdays123
   tryCatch({
     pkdays123 <- read_csv(paste0(middle_path, 'pkdays123/pkdays123.csv'))
-    if(save_empty_objects){
-      pkdays123 <- pkdays123 %>% rr()
-      save(pkdays123, file = 'empty_objects/pkdays123.RData')
-    }
   },
   error = function(e) {
     load('empty_objects/pkdays123.RData')
@@ -233,10 +192,6 @@ if(start_fresh){
   # pkfollowup
   tryCatch({
     pkfollowup <- read_csv(paste0(middle_path, 'pkfollowup/pkfollowup.csv'))
-    if(save_empty_objects){
-      pkfollowup <- pkfollowup %>% rr()
-      save(pkfollowup, file = 'empty_objects/pkfollowup.RData')
-    }
   },
   error = function(e){
     load('empty_objects/pkfollowup.RData')
@@ -247,13 +202,6 @@ if(start_fresh){
     healtheconnew_repeat_individual <- read_csv(paste0(middle_path, 'healtheconnew/healtheconnew-repeat_individual.csv'))
     healtheconnew_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconnew/healtheconnew-repeat_miss_work_school.csv'))
     healtheconnew_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconnew/healtheconnew-repeat_other_employment_details.csv'))
-    if(save_empty_objects){
-      healtheconnew <- healtheconnew %>% rr()
-      healtheconnew_repeat_individual <- healtheconnew_repeat_individual %>% rr()
-      healtheconnew_repeat_miss_work_school <- healtheconnew_repeat_miss_work_school %>% rr()
-      healtheconnew_repeat_other_employment_details <- healtheconnew_repeat_other_employment_details %>% rr()
-      save(healtheconnew, healtheconnew_repeat_individual, healtheconnew_repeat_miss_work_school, healtheconnew_repeat_other_employment_details, file = 'empty_objects/healtheconnew.RData')
-    }
   },
   error = function(e){
     load('empty_objects/healtheconnew.RData')
@@ -266,16 +214,6 @@ if(start_fresh){
     healtheconbaseline_repeat_individual <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_individual.csv'))
     healtheconbaseline_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_miss_work_school.csv'))
     healtheconbaseline_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_other_employment_details.csv'))
-    if(save_empty_objects){
-      healtheconbaseline <- healtheconbaseline %>% rr()
-      healtheconbaseline_repeat_cattle <- healtheconbaseline_repeat_cattle %>% rr()
-      healtheconbaseline_repeat_disease <- healtheconbaseline_repeat_disease %>% rr()
-      healtheconbaseline_repeat_individual <- healtheconbaseline_repeat_individual %>% rr()
-      healtheconbaseline_repeat_miss_work_school <- healtheconbaseline_repeat_miss_work_school %>% rr()
-      healtheconbaseline_repeat_other_employment_details <- healtheconbaseline_repeat_other_employment_details %>% rr()
-      save(healtheconbaseline, healtheconbaseline_repeat_cattle, healtheconbaseline_repeat_disease,
-           healtheconbaseline_repeat_individual, healtheconbaseline_repeat_miss_work_school, healtheconbaseline_repeat_other_employment_details, file = 'empty_objects/healtheconbaseline.RData')
-    }
   }, error = function(e){
     load('empty_objects/healtheconbaseline.RData')
   })
@@ -287,40 +225,20 @@ if(start_fresh){
     healtheconmonthly_repeat_individual <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_individual.csv'))
     healtheconmonthly_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_miss_work_school.csv'))
     healtheconmonthly_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_other_employment_details.csv'))
-    if(save_empty_objects){
-      healtheconmonthly <- healtheconmonthly %>% rr()
-      healtheconmonthly_repeat_cattle <- healtheconmonthly_repeat_cattle %>% rr()
-      healtheconmonthly_repeat_disease <- healtheconmonthly_repeat_disease %>% rr()
-      healtheconmonthly_repeat_individual <- healtheconmonthly_repeat_individual %>% rr()
-      healtheconmonthly_repeat_miss_work_school <- healtheconmonthly_repeat_miss_work_school %>% rr()
-      healtheconmonthly_repeat_other_employment_details <- healtheconmonthly_repeat_other_employment_details %>% rr()
-      save(healtheconmonthly, healtheconmonthly_repeat_cattle, healtheconmonthly_repeat_disease,
-           healtheconmonthly_repeat_individual, healtheconmonthly_repeat_miss_work_school, healtheconmonthly_repeat_other_employment_details, file = 'empty_objects/healtheconmonthly.RData')
-    }
-  },
-  error = function(e){
+  }, error = function(e){
     load('empty_objects/healtheconmonthly.RData')
   })
   # sepk_icf_verification
   tryCatch({
     sepk_icf_verification <- read_csv(paste0(middle_path, 'sepk_icf_verification/sepk_icf_verification.csv'))
-    if(save_empty_objects){
-      sepk_icf_verification <- sepk_icf_verification %>% rr()
-      save(sepk_icf_verification, file = 'empty_objects/sepk_icf_verification.RData')
-    }
-  },
-  error = function(e){
+  },error = function(e){
     load('empty_objects/sepk_icf_verification.RData')
   })
   # sepk_icf_resolution
   tryCatch({
     sepk_icf_resolution <- read_csv(paste0(middle_path, 'sepk_icf_resolution/sepk_icf_resolution.csv'))
-    if(save_empty_objects){
-      sepk_icf_resolution <- sepk_icf_resolution %>% rr()
-      save(sepk_icf_resolution, file = 'empty_objects/sepk_icf_resolution.RData')
-    }
-  },
-  error =function(e) {
+
+  }, error =function(e) {
     load('empty_objects/sepk_icf_resolution.RData')
   })
   # save(safety, safety_repeat_drug,
@@ -391,7 +309,6 @@ if(start_fresh){
        safety_repeat_individual,
        safetynew,
        safetynew_repeat_individual,
-       # save_empty_objects,
        start_fresh,
        this_dataset,
        use_real_v0,
@@ -614,7 +531,7 @@ v0demography <- v0demography %>%
 v0demography_full <- v0demography
 v0demography_full_repeat_individual <- v0demography_repeat_individual
 # Get the cluster numbers (even for the old, deprecated, removed clusters)
-old_clusters <- rgdal::readOGR('../../data_public/spatial/clusters', 'clusters')
+load('../../data_public/spatial/clusters.RData')
 
 # buffer clusters by 20 meters so as to
 old_clusters_projected <- spTransform(old_clusters, crs)
@@ -646,7 +563,9 @@ if(geo_filter){
 # actual randomization status
 assignments <- read_csv('../../analyses/randomization/outputs/assignments.csv') %>%
   mutate(cluster_number = add_zero(cluster_number, 2))
-intervention_assignment <- read_csv('../../analyses/randomization/outputs/intervention_assignment.csv')
+intervention_assignment <- cloudbrewr::aws_s3_get_table(
+    bucket = 'bohemia-lake-db',
+    key = 'bohemia_ext/intervention_assignment.csv')
 
 # End of prerequisites. Now beginning cohort-specific metadata generation
 # https://docs.google.com/spreadsheets/d/1mTqNFfnFLnP-WKJNupajVhTJPbbyV2a32kzyIxyGTMM/edit#gid=0
