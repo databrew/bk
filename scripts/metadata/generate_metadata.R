@@ -138,14 +138,14 @@ if(start_fresh){
     safety_repeat_individual <- read_csv(paste0(middle_path, 'safety/safety-repeat_individual.csv'))
     safety_repeat_ae_symptom <- read_csv(paste0(middle_path, 'safety/safety-repeat_ae_symptom.csv'))
   }, error = function(e){
-    load('empty_objects/safety.RData')
+    load('empty_objects/safety.RData', envir = .GlobalEnv)
   })
   # Safety new
   tryCatch({
     safetynew <- read_csv(paste0(middle_path, 'safetynew/safetynew.csv'))
     safetynew_repeat_individual <- read_csv(paste0(middle_path, 'safetynew/safetynew-repeat_individual.csv'))
   }, error = function(e){
-    load('empty_objects/safetynew.RData')
+    load('empty_objects/safetynew.RData', envir = .GlobalEnv)
   })
   #v0demography
   if(use_real_v0){
@@ -157,7 +157,7 @@ if(start_fresh){
       v0demography_repeat_individual <- read_csv(paste0(middle_path, 'v0demography/v0demography-repeat_individual.csv'))
     },
     error = function(e){
-      load('empty_objects/v0demography.RData')
+      load('empty_objects/v0demography.RData', envir = .GlobalEnv)
     })
   }
 
@@ -166,35 +166,35 @@ if(start_fresh){
     efficacy <- read_csv(paste0(middle_path, 'efficacy/efficacy.csv'))
 
   },error = function(e){
-    load('empty_objects/efficacy.RData')
+    load('empty_objects/efficacy.RData', envir = .GlobalEnv)
   })
   # pregnancy follow-up
   tryCatch({
     pfu <- read_csv(paste0(middle_path, 'pfu/pfu.csv'))
     pfu_repeat_preg_symptom <- read_csv(paste0(middle_path, 'pfu/pfu-repeat_preg_symptom.csv'))
   },error = function(e){
-    load('empty_objects/pfu.RData')
+    load('empty_objects/pfu.RData', envir = .GlobalEnv)
   })
   # pkday0
   tryCatch({
     pkday0 <- read_csv(paste0(middle_path, 'pkday0/pkday0.csv'))
   },
   error = function(e){
-    load('empty_objects/pkday0.RData')
+    load('empty_objects/pkday0.RData', envir = .GlobalEnv)
   })
   # pkdays123
   tryCatch({
     pkdays123 <- read_csv(paste0(middle_path, 'pkdays123/pkdays123.csv'))
   },
   error = function(e) {
-    load('empty_objects/pkdays123.RData')
+    load('empty_objects/pkdays123.RData', envir = .GlobalEnv)
   })
   # pkfollowup
   tryCatch({
     pkfollowup <- read_csv(paste0(middle_path, 'pkfollowup/pkfollowup.csv'))
   },
   error = function(e){
-    load('empty_objects/pkfollowup.RData')
+    load('empty_objects/pkfollowup.RData', envir = .GlobalEnv)
   })
   # healtheconnew
   tryCatch({
@@ -204,7 +204,7 @@ if(start_fresh){
     healtheconnew_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconnew/healtheconnew-repeat_other_employment_details.csv'))
   },
   error = function(e){
-    load('empty_objects/healtheconnew.RData')
+    load('empty_objects/healtheconnew.RData', envir = .GlobalEnv)
   })
   # healtheconbaseline
   tryCatch({
@@ -215,7 +215,7 @@ if(start_fresh){
     healtheconbaseline_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_miss_work_school.csv'))
     healtheconbaseline_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_other_employment_details.csv'))
   }, error = function(e){
-    load('empty_objects/healtheconbaseline.RData')
+    load('empty_objects/healtheconbaseline.RData', envir = .GlobalEnv)
   })
   # healtheconmonthly
   tryCatch({
@@ -226,20 +226,20 @@ if(start_fresh){
     healtheconmonthly_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_miss_work_school.csv'))
     healtheconmonthly_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_other_employment_details.csv'))
   }, error = function(e){
-    load('empty_objects/healtheconmonthly.RData')
+    load('empty_objects/healtheconmonthly.RData', envir = .GlobalEnv)
   })
   # sepk_icf_verification
   tryCatch({
     sepk_icf_verification <- read_csv(paste0(middle_path, 'sepk_icf_verification/sepk_icf_verification.csv'))
   },error = function(e){
-    load('empty_objects/sepk_icf_verification.RData')
+    load('empty_objects/sepk_icf_verification.RData', envir = .GlobalEnv)
   })
   # sepk_icf_resolution
   tryCatch({
     sepk_icf_resolution <- read_csv(paste0(middle_path, 'sepk_icf_resolution/sepk_icf_resolution.csv'))
 
   }, error =function(e) {
-    load('empty_objects/sepk_icf_resolution.RData')
+    load('empty_objects/sepk_icf_resolution.RData', envir = .GlobalEnv)
   })
   # save(safety, safety_repeat_drug,
   #      safety_repeat_individual, safety_repeat_ae_symptom,
