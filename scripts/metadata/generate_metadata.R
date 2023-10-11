@@ -530,15 +530,17 @@ v0demography <- v0demography %>%
 # out-of-cluster households / individuals
 v0demography_full <- v0demography
 v0demography_full_repeat_individual <- v0demography_repeat_individual
+
 # Get the cluster numbers (even for the old, deprecated, removed clusters)
 load('../../data_public/spatial/clusters.RData')
+old_clusters <- clusters; rm(clusters)
 
 # buffer clusters by 20 meters so as to
 old_clusters_projected <- spTransform(old_clusters, crs)
 old_clusters_projected_buffered <- rgeos::gBuffer(spgeom = old_clusters_projected, byid = TRUE, width = 50)
 o <- sp::over(households_sp_projected, polygons(old_clusters_projected_buffered))
 households_sp_projected@data$not_in_old_cluster <- is.na(o)
-households_sp_projected@data$old_cluster_correct <- old_clusters_projected_buffered@data$cluster_nu[o]
+households_sp_projected@data$old_cluster_correct <- old_clusters_projected_buffered@data$cluster_number[o]
 v0demography_full <- left_join(v0demography_full, households_sp_projected@data %>% dplyr::select(hhid, not_in_old_cluster, old_cluster_correct))
 v0demography_full <- v0demography_full %>%
   arrange(desc(todays_date)) %>%
