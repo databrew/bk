@@ -13,7 +13,7 @@ dat <- v0 %>%
 # Keep names with more than 10 repetitions in data set
 dat10 <- dat %>%
   group_by(firstname) %>%
-  filter(n() >= 10) %>%
+  filter(n() >= 5) %>%
   ungroup()
 
 dat10$firstname[dat10$firstname == ""] <- NA
@@ -36,8 +36,8 @@ ngt <- ngt %>%
 
 # Create column with likely gender for each first name (ie names where 90-99.9% of participants are from one gender)
 ngt <- ngt %>%
-  mutate(likely_gender = ifelse(female_percentage >= 90 & female_percentage <= 99.9, 'Female',
-                                ifelse(male_percentage >= 90 & male_percentage <= 99.9, 'Male', 'NA')))
+  mutate(likely_gender = ifelse(female_percentage >= 80 & female_percentage <= 99.9, 'Female',
+                                ifelse(male_percentage >= 80 & male_percentage <= 99.9, 'Male', 'NA')))
 # Drop those that are <90% and 100% male or female
 mf <- ngt %>%  filter(likely_gender %in% c('Male', 'Female'))
 
@@ -54,7 +54,13 @@ mismatch <- mismatch %>%
 mismatch$hhid <- ifelse(nchar(mismatch$hhid) == 4, paste0("0", mismatch$hhid), mismatch$hhid)
 mismatch$cluster <- ifelse(nchar(mismatch$cluster) == 1, paste0("0", mismatch$cluster), mismatch$cluster)
 
+# See which WIDs are making the most mistakes
 wid <- table(mismatch$wid)
+wid <- as.data.frame(wid)
+wid <- wid[order(wid$Freq), ] 
+wid <- wid %>% filter(Freq > 2)
+
+write.csv(wid, 'cl_genderissues.csv')
 
 #################
 
@@ -85,8 +91,23 @@ anomalies <- dob_counts %>%
 
 anomalies$hhid <- ifelse(nchar(anomalies$hhid) == 4, paste0("0", anomalies$hhid), anomalies$hhid)
 
+v0dem$hhid <- as.character(v0dem$hhid)
+v0dem$hhid <- ifelse(nchar(v0dem$hhid) == 4, paste0("0", v0dem$hhid), v0dem$hhid)
+
+anomalies <- anomalies %>% left_join(v0dem %>% dplyr::select(wid, hhid),
+            by = c('hhid' = 'hhid'))
+
+# See which WIDs are making the most mistakes
+wid2 <- table(anomalies$wid)
+wid2 <- as.data.frame(wid2)
+wid2 <- wid2[order(wid2$Freq), ]
+wid2 <- wid2 %>% filter(Freq > 3)
+
+write.csv(wid2, "cl_dobrepeats.csv")
+
 ###
 write.csv(mismatch, "namegendermismatch.csv", row.names = FALSE)
 write.csv(bdaytoday, "bdaytoday.csv", row.names = FALSE)
 write.csv(young_head, "young_hh_head.csv", row.names = FALSE)
 write.csv(anomalies, "multiple_same_dob.csv", row.names = FALSE)
+
