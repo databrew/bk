@@ -565,9 +565,15 @@ if(geo_filter){
 # actual randomization status
 assignments <- read_csv('../../analyses/randomization/outputs/assignments.csv') %>%
   mutate(cluster_number = add_zero(cluster_number, 2))
-intervention_assignment <- cloudbrewr::aws_s3_get_table(
+if('ia.RData' %in% dir()){
+  load('ia.RData')
+} else {
+  intervention_assignment <- cloudbrewr::aws_s3_get_table(
     bucket = 'bohemia-lake-db',
     key = 'bohemia_ext/intervention_assignment.csv')
+  save(intervention_assignment, file = 'ia.RData')
+}
+
 
 # End of prerequisites. Now beginning cohort-specific metadata generation
 # https://docs.google.com/spreadsheets/d/1mTqNFfnFLnP-WKJNupajVhTJPbbyV2a32kzyIxyGTMM/edit#gid=0
@@ -1985,7 +1991,6 @@ if(!dir.exists('icf_metadata')){
   dir.create('icf_metadata')
 }
 write_csv(icf_individuals, 'icf_metadata/individual_data.csv')
-# </pk> ##############################################################################
 
 
 # </ICF> ##############################################################################
