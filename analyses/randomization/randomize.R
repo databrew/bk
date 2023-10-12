@@ -214,6 +214,7 @@ if(start_fresh){
 # Read in inputs from Almudena
 health_economics_clusters <- read_delim('inputs/HEcon_clusters.csv', delim = ';') %>% filter(!is.na(cluster))
 health_economics_households <- read_delim('inputs/HEcon_hhs.csv', delim = ';')
+health_economics_backup_households <- read_delim('inputs/HEcon_backup_hhs.csv') # https://bohemiakenya.slack.com/archives/C058WT0ADBN/p1697125840508679
 # # sanity check on locations of households
 # sanity <- health_economics_households %>%
 #   left_join(v0demography %>% dplyr::select(geo_cluster_num, hhid)) %>%
@@ -231,6 +232,10 @@ if(!file.exists(file_name)){
 file_name <- 'outputs/health_economics_households.csv'
 if(!file.exists(file_name)){
   write_csv(health_economics_households, file_name)
+}
+file_name <- 'outputs/health_economics_backup_households.csv'
+if(!file.exists(file_name)){
+  write_csv(health_economics_backup_households, file_name)
 }
 
 

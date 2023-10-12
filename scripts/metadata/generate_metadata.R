@@ -658,6 +658,9 @@ starting_roster$starting_hecon_status[starting_roster$extid %in% ever_eos] <- 'e
 health_economics_clusters <- read_csv('../../analyses/randomization/outputs/health_economics_clusters.csv')
 health_economics_households <- read_csv('../../analyses/randomization/outputs/health_economics_households.csv') %>%
   mutate(hhid = add_zero(hhid, 5))
+health_economics_backup_households <- read_csv('../../analyses/randomization/outputs/health_economics_backup_households.csv') %>%
+  mutate(hhid = add_zero(hhid, 5))
+health_economics_households <- bind_rows(health_economics_households, health_economics_backup_households)
 ntd_efficacy_preselection <- read_csv('../../analyses/randomization/outputs/health_economics_ntd_efficacy_preselection.csv')
 ntd_safety_preselection <- read_csv('../../analyses/randomization/outputs/health_economics_ntd_safety_preselection.csv')
 # Paula's instructions (https://docs.google.com/document/d/1Tjpyh8O9oesnDiQgjEih1VpOIZFctpM7UA5aDK--N8o/edit)
