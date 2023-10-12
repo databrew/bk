@@ -54,7 +54,7 @@ if(folder %in% c('health_economics_testing', 'test_of_test', 'kwale')){
 }
 
 if(is_production){
-  Sys.setenv(PIPELINE_STAGE = 'production') 
+  Sys.setenv(PIPELINE_STAGE = 'production')
   # raw_or_clean <- 'clean'
 } else {
   Sys.setenv(PIPELINE_STAGE = 'develop')
@@ -62,8 +62,7 @@ if(is_production){
 }
 raw_or_clean <- 'clean'
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
-start_fresh <- FALSE
-save_empty_objects <- FALSE # for one-off creation of empty objects (so as to make script work in production before some forms have any submitted data)
+start_fresh <- TRUE
 
 rr <- function(x){
   message('removing ', nrow(x), ' rows')
@@ -79,13 +78,13 @@ if(start_fresh){
       role_name = 'cloudbrewr-aws-role',
       profile_name =  'cloudbrewr-aws-role',
       pipeline_stage = env_pipeline_stage)
-    
+
   }, error = function(e){
     logger::log_error('AWS Login Failed')
     stop(e$message)
   })
-  
-  
+
+
   # Define datasets for which I'm retrieving data
   datasets <- c('v0demography', 'safetynew', 'safety', 'efficacy', 'pfu',
                 'pkday0', 'pkdays123',
@@ -93,7 +92,7 @@ if(start_fresh){
                 'healtheconbaseline', 'healtheconnew', 'healtheconmonthly',
                 'sepk_icf_verification', 'sepk_icf_resolution')
   datasets_names <- datasets
-  
+
   # Loop through each dataset and retrieve
   # bucket <- 'databrew.org'
   # folder <- 'kwale'
@@ -110,10 +109,7 @@ if(start_fresh){
   if(!dir.exists('health_economics_testing')){
     dir.create('health_economics_testing')
   }
-  if(!dir.exists('empty_objects')){
-    dir.create('empty_objects')
-  }
-  
+
   for(i in 1:length(datasets)){
     this_dataset <- datasets[i]
     object_keys <- glue::glue('/{folder}/{raw_or_clean}-form/{this_dataset}',
@@ -131,115 +127,74 @@ if(start_fresh){
       output_dir = output_dir
     )
   }
-  
+
   # Read in the datasets
   middle_path <- glue::glue('{folder}/{raw_or_clean}-form/')
-  
+
   # Safety
   tryCatch({
     safety <- read_csv(paste0(middle_path, 'safety/safety.csv'))
     safety_repeat_drug <- read_csv(paste0(middle_path, 'safety/safety-repeat_drug.csv'))
     safety_repeat_individual <- read_csv(paste0(middle_path, 'safety/safety-repeat_individual.csv'))
     safety_repeat_ae_symptom <- read_csv(paste0(middle_path, 'safety/safety-repeat_ae_symptom.csv'))
-    if(save_empty_objects){
-      safety <- safety %>% rr()
-      safety_repeat_drug <- safety_repeat_drug %>% rr()
-      safety_repeat_individual <- safety_repeat_individual %>% rr()
-      safety_repeat_ae_symptom <- safety_repeat_ae_symptom %>% rr()
-      save(safety,safety_repeat_drug,safety_repeat_individual, safety_repeat_ae_symptom, file = 'empty_objects/safety.RData')
-    }
-  }, error = {
-    load('empty_objects/safety.RData')
+  }, error = function(e){
+    load('empty_objects/safety.RData', envir = .GlobalEnv)
   })
   # Safety new
   tryCatch({
     safetynew <- read_csv(paste0(middle_path, 'safetynew/safetynew.csv'))
     safetynew_repeat_individual <- read_csv(paste0(middle_path, 'safetynew/safetynew-repeat_individual.csv'))
-    if(save_empty_objects){
-      safetynew <- safetynew %>% rr()
-      safetynew_repeat_individual <- safetynew_repeat_individual %>% rr()
-      save(safetynew, safetynew_repeat_individual, file = 'empty_objects/safetynew.RData')
-    }
-  }, error = {
-    load('empty_objects/safetynew.RData')
+  }, error = function(e){
+    load('empty_objects/safetynew.RData', envir = .GlobalEnv)
   })
   #v0demography
   if(use_real_v0){
-    # v0demography <- read_csv(paste0(middle_path, 'v0demography/v0demography.csv'))
-    # v0demography_repeat_individual <- read_csv(paste0(middle_path, 'v0demography/v0demography-repeat_individual.csv'))
-    # save(v0demography, v0demography_repeat_individual, file = 'real_v0.RData')
-    load('real_v0.RData')
+    v0demography <- read_csv(paste0(middle_path, 'v0demography/v0demography.csv'))
+    v0demography_repeat_individual <- read_csv(paste0(middle_path, 'v0demography/v0demography-repeat_individual.csv'))
   } else {
     tryCatch({
       v0demography <- read_csv(paste0(middle_path, 'v0demography/v0demography.csv'))
       v0demography_repeat_individual <- read_csv(paste0(middle_path, 'v0demography/v0demography-repeat_individual.csv'))
-      if(save_empty_objects){
-        v0demography <- v0demography %>% rr()
-        v0demography_repeat_individual <- v0demography_repeat_individual %>% rr()
-        save(v0demography, v0demography_repeat_individual, file = 'empty_objects/v0demography.RData')
-      }
     },
-    error = {
-      load('empty_objects/v0demography.RData')
+    error = function(e){
+      load('empty_objects/v0demography.RData', envir = .GlobalEnv)
     })
   }
 
   # efficacy
   tryCatch({
     efficacy <- read_csv(paste0(middle_path, 'efficacy/efficacy.csv'))
-    if(save_empty_objects){
-      efficacy <- efficacy %>% rr()
-      save(efficacy, file = 'empty_objects/efficacy.RData')
-    }
-  },
-  error = {
-    load('empty_objects/efficacy.RData')
+
+  },error = function(e){
+    load('empty_objects/efficacy.RData', envir = .GlobalEnv)
   })
   # pregnancy follow-up
   tryCatch({
     pfu <- read_csv(paste0(middle_path, 'pfu/pfu.csv'))
     pfu_repeat_preg_symptom <- read_csv(paste0(middle_path, 'pfu/pfu-repeat_preg_symptom.csv'))
-    if(save_empty_objects){
-      pfu <- pfu %>% rr()
-      pfu_repeat_preg_symptom <- pfu_repeat_preg_symptom %>% rr()
-      save(pfu, pfu_repeat_preg_symptom, file = 'empty_objects/pfu.RData')
-    }
-  },
-  error = {
-    load('empty_objects/pfu.RData')
+  },error = function(e){
+    load('empty_objects/pfu.RData', envir = .GlobalEnv)
   })
   # pkday0
   tryCatch({
     pkday0 <- read_csv(paste0(middle_path, 'pkday0/pkday0.csv'))
-    if(save_empty_objects){
-      pkday0 <- pkday0 %>% rr()
-      save(pkday0, file = 'empty_objects/pkday0.RData')
-    }
-  }, 
-  error = {
-    load('empty_objects/pkday0.RData')
+  },
+  error = function(e){
+    load('empty_objects/pkday0.RData', envir = .GlobalEnv)
   })
   # pkdays123
   tryCatch({
     pkdays123 <- read_csv(paste0(middle_path, 'pkdays123/pkdays123.csv'))
-    if(save_empty_objects){
-      pkdays123 <- pkdays123 %>% rr()
-      save(pkdays123, file = 'empty_objects/pkdays123.RData')
-    }
   },
-  error = {
-    load('empty_objects/pkdays123.RData')
+  error = function(e) {
+    load('empty_objects/pkdays123.RData', envir = .GlobalEnv)
   })
   # pkfollowup
   tryCatch({
     pkfollowup <- read_csv(paste0(middle_path, 'pkfollowup/pkfollowup.csv'))
-    if(save_empty_objects){
-      pkfollowup <- pkfollowup %>% rr()
-      save(pkfollowup, file = 'empty_objects/pkfollowup.RData')
-    }
   },
-  error = {
-    load('empty_objects/pkfollowup.RData')
+  error = function(e){
+    load('empty_objects/pkfollowup.RData', envir = .GlobalEnv)
   })
   # healtheconnew
   tryCatch({
@@ -247,16 +202,9 @@ if(start_fresh){
     healtheconnew_repeat_individual <- read_csv(paste0(middle_path, 'healtheconnew/healtheconnew-repeat_individual.csv'))
     healtheconnew_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconnew/healtheconnew-repeat_miss_work_school.csv'))
     healtheconnew_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconnew/healtheconnew-repeat_other_employment_details.csv'))
-    if(save_empty_objects){
-      healtheconnew <- healtheconnew %>% rr()
-      healtheconnew_repeat_individual <- healtheconnew_repeat_individual %>% rr()
-      healtheconnew_repeat_miss_work_school <- healtheconnew_repeat_miss_work_school %>% rr()
-      healtheconnew_repeat_other_employment_details <- healtheconnew_repeat_other_employment_details %>% rr()
-      save(healtheconnew, healtheconnew_repeat_individual, healtheconnew_repeat_miss_work_school, healtheconnew_repeat_other_employment_details, file = 'empty_objects/healtheconnew.RData')
-    }
   },
-  error = {
-    load('empty_objects/healtheconnew.RData')
+  error = function(e){
+    load('empty_objects/healtheconnew.RData', envir = .GlobalEnv)
   })
   # healtheconbaseline
   tryCatch({
@@ -266,18 +214,8 @@ if(start_fresh){
     healtheconbaseline_repeat_individual <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_individual.csv'))
     healtheconbaseline_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_miss_work_school.csv'))
     healtheconbaseline_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconbaseline/healtheconbaseline-repeat_other_employment_details.csv'))
-    if(save_empty_objects){
-      healtheconbaseline <- healtheconbaseline %>% rr()
-      healtheconbaseline_repeat_cattle <- healtheconbaseline_repeat_cattle %>% rr()
-      healtheconbaseline_repeat_disease <- healtheconbaseline_repeat_disease %>% rr()
-      healtheconbaseline_repeat_individual <- healtheconbaseline_repeat_individual %>% rr()
-      healtheconbaseline_repeat_miss_work_school <- healtheconbaseline_repeat_miss_work_school %>% rr()
-      healtheconbaseline_repeat_other_employment_details <- healtheconbaseline_repeat_other_employment_details %>% rr()
-      save(healtheconbaseline, healtheconbaseline_repeat_cattle, healtheconbaseline_repeat_disease,
-           healtheconbaseline_repeat_individual, healtheconbaseline_repeat_miss_work_school, healtheconbaseline_repeat_other_employment_details, file = 'empty_objects/healtheconbaseline.RData')
-    }
-  }, error = {
-    load('empty_objects/healtheconbaseline.RData')
+  }, error = function(e){
+    load('empty_objects/healtheconbaseline.RData', envir = .GlobalEnv)
   })
   # healtheconmonthly
   tryCatch({
@@ -287,41 +225,21 @@ if(start_fresh){
     healtheconmonthly_repeat_individual <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_individual.csv'))
     healtheconmonthly_repeat_miss_work_school <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_miss_work_school.csv'))
     healtheconmonthly_repeat_other_employment_details <- read_csv(paste0(middle_path, 'healtheconmonthly/healtheconmonthly-repeat_other_employment_details.csv'))
-    if(save_empty_objects){
-      healtheconmonthly <- healtheconmonthly %>% rr()
-      healtheconmonthly_repeat_cattle <- healtheconmonthly_repeat_cattle %>% rr()
-      healtheconmonthly_repeat_disease <- healtheconmonthly_repeat_disease %>% rr()
-      healtheconmonthly_repeat_individual <- healtheconmonthly_repeat_individual %>% rr()
-      healtheconmonthly_repeat_miss_work_school <- healtheconmonthly_repeat_miss_work_school %>% rr()
-      healtheconmonthly_repeat_other_employment_details <- healtheconmonthly_repeat_other_employment_details %>% rr()
-      save(healtheconmonthly, healtheconmonthly_repeat_cattle, healtheconmonthly_repeat_disease,
-           healtheconmonthly_repeat_individual, healtheconmonthly_repeat_miss_work_school, healtheconmonthly_repeat_other_employment_details, file = 'empty_objects/healtheconmonthly.RData')
-    }
-  },
-  error = {
-    load('empty_objects/healtheconmonthly.RData')
+  }, error = function(e){
+    load('empty_objects/healtheconmonthly.RData', envir = .GlobalEnv)
   })
   # sepk_icf_verification
   tryCatch({
     sepk_icf_verification <- read_csv(paste0(middle_path, 'sepk_icf_verification/sepk_icf_verification.csv'))
-    if(save_empty_objects){
-      sepk_icf_verification <- sepk_icf_verification %>% rr()
-      save(sepk_icf_verification, file = 'empty_objects/sepk_icf_verification.RData')
-    }
-  },
-  error = {
-    load('empty_objects/sepk_icf_verification.RData')
+  },error = function(e){
+    load('empty_objects/sepk_icf_verification.RData', envir = .GlobalEnv)
   })
   # sepk_icf_resolution
   tryCatch({
     sepk_icf_resolution <- read_csv(paste0(middle_path, 'sepk_icf_resolution/sepk_icf_resolution.csv'))
-    if(save_empty_objects){
-      sepk_icf_resolution <- sepk_icf_resolution %>% rr()
-      save(sepk_icf_resolution, file = 'empty_objects/sepk_icf_resolution.RData')
-    }
-  },
-  error = {
-    load('empty_objects/sepk_icf_resolution.RData')
+
+  }, error =function(e) {
+    load('empty_objects/sepk_icf_resolution.RData', envir = .GlobalEnv)
   })
   # save(safety, safety_repeat_drug,
   #      safety_repeat_individual, safety_repeat_ae_symptom,
@@ -391,7 +309,6 @@ if(start_fresh){
        safety_repeat_individual,
        safetynew,
        safetynew_repeat_individual,
-       # save_empty_objects,
        start_fresh,
        this_dataset,
        use_real_v0,
@@ -412,7 +329,7 @@ add_zero <- function (x, n) {
     adders <- ifelse(adders < 0, 0, adders)
     for (i in 1:length(x)) {
       if (!is.na(x[i])) {
-        x[i] <- paste0(paste0(rep("0", adders[i]), collapse = ""), 
+        x[i] <- paste0(paste0(rep("0", adders[i]), collapse = ""),
                        x[i], collapse = "")
       }
     }
@@ -432,7 +349,7 @@ pkdays123 <- pkdays123 %>% mutate(hhid = add_zero(hhid, n = 5))
 pkfollowup <- pkfollowup %>% mutate(hhid = add_zero(hhid, n = 5))
 
 # Capitalize all names
-efficacy <- efficacy %>% 
+efficacy <- efficacy %>%
   mutate(member_select = toupper(member_select),
          person_string = toupper(person_string),
          firstname = toupper(firstname),
@@ -525,7 +442,7 @@ safety_repeat_individual <- safety_repeat_individual %>%
          fullname = toupper(fullname),
          dob_pulled = toupper(dob_pulled),
          taken = toupper(taken))
-  
+
 # safetynew
 safetynew <- safetynew %>%
   mutate(household_members = toupper(household_members))
@@ -578,7 +495,7 @@ healtheconmonthly_repeat_other_employment_details <- healtheconmonthly_repeat_ot
 
 # Prior to beginning cohort-specific metadata generation, get the location of each house in v0demography and the cluster based on that location
 # (this is no longer necessary, since now there are geography variables added to v0demography by aryton)
-households_sp <- v0demography %>% 
+households_sp <- v0demography %>%
   arrange(desc(start_time)) %>%
   dplyr::filter(!is.na(Longitude)) %>%
   arrange(desc(todays_date)) %>%
@@ -592,7 +509,7 @@ households_sp <- v0demography %>%
   filter(!is.na(x))
 coordinates(households_sp) <- ~x+y
 load('../../data_public/spatial/new_clusters.RData')
-# buffer clusters by 20 meters so as to 
+# buffer clusters by 20 meters so as to
 p4s <- "+proj=utm +zone=37 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
 crs <- CRS(p4s)
 llcrs <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
@@ -606,26 +523,28 @@ households_sp_projected@data$cluster_correct <- clusters_projected_buffered@data
 v0demography <- left_join(v0demography, households_sp_projected@data %>% dplyr::select(hhid, not_in_cluster, cluster_correct))
 v0demography <- v0demography %>%
   arrange(desc(todays_date)) %>%
-  dplyr::distinct(hhid, .keep_all = TRUE) 
-# Remove those outside of cluster boundaries 
+  dplyr::distinct(hhid, .keep_all = TRUE)
+# Remove those outside of cluster boundaries
 # But first save a copy of the FULL v0demography set
 # since the pk data (and downstream pfu) is allowed to contain
 # out-of-cluster households / individuals
 v0demography_full <- v0demography
 v0demography_full_repeat_individual <- v0demography_repeat_individual
+
 # Get the cluster numbers (even for the old, deprecated, removed clusters)
 load('../../data_public/spatial/clusters.RData')
 old_clusters <- clusters; rm(clusters)
-# buffer clusters by 20 meters so as to 
+
+# buffer clusters by 20 meters so as to
 old_clusters_projected <- spTransform(old_clusters, crs)
 old_clusters_projected_buffered <- rgeos::gBuffer(spgeom = old_clusters_projected, byid = TRUE, width = 50)
 o <- sp::over(households_sp_projected, polygons(old_clusters_projected_buffered))
 households_sp_projected@data$not_in_old_cluster <- is.na(o)
-households_sp_projected@data$old_cluster_correct <- old_clusters_projected_buffered@data$cluster_nu[o]
+households_sp_projected@data$old_cluster_correct <- old_clusters_projected_buffered@data$cluster_number[o]
 v0demography_full <- left_join(v0demography_full, households_sp_projected@data %>% dplyr::select(hhid, not_in_old_cluster, old_cluster_correct))
 v0demography_full <- v0demography_full %>%
   arrange(desc(todays_date)) %>%
-  dplyr::distinct(hhid, .keep_all = TRUE) 
+  dplyr::distinct(hhid, .keep_all = TRUE)
 
 if(geo_filter){
   v0demography <- v0demography %>%
@@ -642,11 +561,13 @@ if(geo_filter){
   v0demography_full$cluster <- add_zero(v0demography_full$cluster, 2)
 }
 
-# Prepare some external datasets 
+# Prepare some external datasets
 # actual randomization status
 assignments <- read_csv('../../analyses/randomization/outputs/assignments.csv') %>%
   mutate(cluster_number = add_zero(cluster_number, 2))
-intervention_assignment <- read_csv('../../analyses/randomization/outputs/intervention_assignment.csv')
+intervention_assignment <- cloudbrewr::aws_s3_get_table(
+    bucket = 'bohemia-lake-db',
+    key = 'bohemia_ext/intervention_assignment.csv')
 
 # End of prerequisites. Now beginning cohort-specific metadata generation
 # https://docs.google.com/spreadsheets/d/1mTqNFfnFLnP-WKJNupajVhTJPbbyV2a32kzyIxyGTMM/edit#gid=0
@@ -662,7 +583,7 @@ gc()
 # <Health economics> ##############################################################################
 
 # First, create individual data based solely on v0demography
-starting_roster <- v0demography_repeat_individual %>% 
+starting_roster <- v0demography_repeat_individual %>%
   left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
@@ -682,15 +603,15 @@ starting_roster <- starting_roster %>%
                               extid, ')')) %>%
   dplyr::rename(fullname_id = roster_name) %>%
   mutate(hecon_name = paste0(firstname, '-', lastname, '-', extid))
-# Get the starting health economics status of each individual 
+# Get the starting health economics status of each individual
 # This should be most recent hecon_individual_status, which should be overridden and turned to eos if in the heconmonthly form hecon_household_status = eos
-starting_hecon_statuses <- 
+starting_hecon_statuses <-
   bind_rows(
-    healtheconnew_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>% 
+    healtheconnew_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
       left_join(healtheconnew %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY')),
-    healtheconbaseline_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>% 
+    healtheconbaseline_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
       left_join(healtheconbaseline %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY')),
-    healtheconmonthly_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>% 
+    healtheconmonthly_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
       left_join(healtheconmonthly %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY'))
   ) %>%
   filter(!is.na(hecon_individual_status)) %>%
@@ -702,7 +623,7 @@ starting_hecon_statuses <-
 starting_roster <- left_join(starting_roster, starting_hecon_statuses) %>%
   mutate(starting_hecon_status = ifelse(is.na(starting_hecon_status), 'out', starting_hecon_status))
 # if in the heconmonthly form hecon_household_status = eos, the individual should be eos
-household_eos <- 
+household_eos <-
   bind_rows(
     healtheconmonthly %>% mutate(start_time = as.POSIXct(start_time)) %>% dplyr::select(hhid, start_time, hecon_household_status),
     healtheconbaseline %>% mutate(start_time = as.POSIXct(start_time)) %>% dplyr::select(hhid, start_time, hecon_household_status)
@@ -712,13 +633,13 @@ if(nrow(household_eos) > 0){
   starting_roster$starting_hecon_status[starting_roster$hhid %in% household_eos$hhid] <- 'eos'
 }
 # If ever eos, always eos
-ever_eos <- 
+ever_eos <-
   bind_rows(
-    healtheconnew_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>% 
+    healtheconnew_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
       left_join(healtheconnew %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY')),
-    healtheconbaseline_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>% 
+    healtheconbaseline_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
       left_join(healtheconbaseline %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY')),
-    healtheconmonthly_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>% 
+    healtheconmonthly_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
       left_join(healtheconmonthly %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY'))
   ) %>%
   filter(!is.na(hecon_individual_status)) %>%
@@ -738,7 +659,7 @@ starting_roster <- starting_roster %>%
   mutate(ntd_safety_preselected = ifelse(extid %in% ntd_safety_preselection$extid, 1, 0)) %>%
   mutate(ntd_efficacy_preselected = ifelse(extid %in% ntd_efficacy_preselection$extid, 1, 0))
 # Get visit 1 safety status
-v1_safety_status <- 
+v1_safety_status <-
   bind_rows(
     safety_repeat_individual %>%
       left_join(safety %>% dplyr::select(KEY, visit, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
@@ -759,16 +680,16 @@ v1_safety_status <-
 # be NA per https://bohemiakenya.slack.com/archives/C058WT0ADBN/p1691172066177829?thread_ts=1691171197.538939&cid=C058WT0ADBN
 starting_roster <- left_join(starting_roster, v1_safety_status)
 # Deal with migrations / deaths
-healthecon_departures <- 
+healthecon_departures <-
   bind_rows(
-    healtheconbaseline_repeat_individual %>% 
+    healtheconbaseline_repeat_individual %>%
       left_join(healtheconbaseline %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
     mutate(extid = as.character(extid)) %>%
       mutate(start_time = as.POSIXct(start_time)) %>%
       filter(!is.na(person_absent_reason)) %>%
       filter(person_absent_reason != 'Absent') %>%
       dplyr::select(start_time, extid, person_absent_reason),
-    healtheconmonthly_repeat_individual %>% 
+    healtheconmonthly_repeat_individual %>%
       left_join(healtheconmonthly %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
     mutate(extid = as.character(extid)) %>%
       mutate(start_time = as.POSIXct(start_time)) %>%
@@ -808,15 +729,15 @@ households <- starting_roster %>%
   summarise(roster = paste0(roster_name[dead == 0 & migrated == 0], collapse = ', '),
             num_members = length(which(dead == 0 & migrated == 0))) %>%
   # get cluster
-  left_join(v0demography %>% 
+  left_join(v0demography %>%
               dplyr::select(hhid, cluster)) %>%
   # get intervention
   left_join(assignments %>% dplyr::select(cluster = cluster_number,
                                           arm = assignment)) %>%
   # get interventions
-  left_join(intervention_assignment) 
+  left_join(intervention_assignment)
 # Get household heads and geographic information
-heads <- v0demography_repeat_individual %>% 
+heads <- v0demography_repeat_individual %>%
   filter(hh_head_yn == 'yes') %>%
   left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   dplyr::select(hhid, start_time, firstname, lastname, extid) %>%
@@ -830,9 +751,9 @@ households <- households %>%
 visits_done <- healtheconbaseline %>%
   mutate(visit = 'V1', hhid = as.character(hhid)) %>%
   dplyr::select(hhid, visit) %>%
-  bind_rows(healtheconmonthly %>% 
+  bind_rows(healtheconmonthly %>%
               mutate(hhid = as.character(hhid)) %>%
-              dplyr::select(hhid, visit)) %>% 
+              dplyr::select(hhid, visit)) %>%
   group_by(hhid) %>%
   summarise(visits_done = paste0(sort(unique(visit)), collapse = ', '))
 # Get baseline in/out status
@@ -843,15 +764,15 @@ right <- healtheconbaseline %>%
               mutate(start_time = as.POSIXct(start_time)) %>%
               dplyr::select(start_time, hhid, hecon_hh_status = hecon_household_status)) %>%
   arrange(desc(start_time)) %>%
-  dplyr::distinct(hhid, .keep_all = TRUE) 
+  dplyr::distinct(hhid, .keep_all = TRUE)
 visits_done <- left_join(visits_done, right)
 households <- left_join(households, visits_done)
-# If NA hecon_hh_status, this means that the household did not have any  visit, and 
+# If NA hecon_hh_status, this means that the household did not have any  visit, and
 # should be considered "out"
 households <- households %>%
   mutate(hecon_hh_status = ifelse(is.na(hecon_hh_status), 'out', hecon_hh_status))
 
-# Get hecon_hh_preselected, 
+# Get hecon_hh_preselected,
 households <- households %>%
   mutate(hecon_hh_preselected = ifelse(hhid %in% health_economics_households$hhid, 1, 0))
   # Get hecon_members
@@ -944,7 +865,7 @@ safety_deaths <- safety_repeat_individual %>%
   dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>% mutate(type = 'Died')
 # Get efficacy departures (but ignore migrations, per project instructions)
 # https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1690186129913529?thread_ts=1689946560.024259&cid=C042KSRLYUA
-efficacy_departures <- efficacy %>% 
+efficacy_departures <- efficacy %>%
   filter(!is.na(lastname), !is.na(dob)) %>%
   mutate(firstname = as.character(firstname), lastname = as.character(lastname),
          sex = as.character(sex), extid = as.character(extid)) %>%
@@ -960,7 +881,7 @@ efficacy_deaths <- efficacy_departures %>%
 departures <- bind_rows(safety_departures, safety_deaths, efficacy_deaths)
 # events <- bind_rows(arrivals, departures) %>% arrange(todays_date)
 # Get the starting roster
-starting_roster <- v0demography_repeat_individual %>% 
+starting_roster <- v0demography_repeat_individual %>%
   left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>%
   filter(!is.na(extid)) %>%
@@ -998,7 +919,7 @@ roster <- bind_rows(
   mutate(dead = ifelse(is.na(dead), 0, dead),
          migrated = ifelse(is.na(migrated), 0, migrated))
 # Get household heads and geographic information
-heads <- v0demography_repeat_individual %>% 
+heads <- v0demography_repeat_individual %>%
   filter(hh_head_yn == 'yes') %>%
   left_join(v0demography %>% dplyr::select(hhid, start_time, KEY, village, ward), by = c('PARENT_KEY' = 'KEY')) %>%
   dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid, village, ward) %>%
@@ -1007,19 +928,19 @@ heads <- v0demography_repeat_individual %>%
   mutate(household_head = paste0(firstname, ' ', lastname)) %>%
   dplyr::select(hhid, household_head, village, ward)
 # Get number of visits done
-visits_done <- 
+visits_done <-
   safety %>%
   group_by(hhid = as.character(hhid)) %>%
   summarise(visits_done = paste0(sort(unique(visit)), collapse = ', '))
 # Build up the metadata, starting with the household IDs
-households <- roster %>% 
+households <- roster %>%
   group_by(hhid) %>%
   # summarise(roster = paste0(roster_name, collapse = ', '),
   #           num_members = n()) %>%
   summarise(roster = paste0(roster_name[dead == 0 & migrated == 0], collapse = ', '),
             num_members = length(which(dead == 0 & migrated == 0))) %>%
   # get cluster
-  left_join(v0demography %>% 
+  left_join(v0demography %>%
               dplyr::distinct(hhid, .keep_all = TRUE) %>%
               dplyr::select(hhid, cluster))
 # get assignments
@@ -1039,7 +960,7 @@ individuals <- roster %>%
   # get intervention, village, ward, cluster
   left_join(households %>% dplyr::select(hhid, intervention, village, ward, cluster))
 # Get starting safety status
-starter <- 
+starter <-
   bind_rows(
     v0demography_repeat_individual %>%
       left_join(v0demography %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
@@ -1064,32 +985,32 @@ starter <-
 right <- starter %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   filter(!is.na(extid), !is.na(safety_status)) %>%
-  dplyr::select(extid, starting_safety_status = safety_status, starting_pregnancy_status) 
+  dplyr::select(extid, starting_safety_status = safety_status, starting_pregnancy_status)
 # Any individual who is not in the above gets an "out" assignation
 individuals <- left_join(individuals, right) %>%
   mutate(starting_safety_status = ifelse(is.na(starting_safety_status), 'out', starting_safety_status))
 # Double check: any individual who was ever eos is always eos
-ever_eos <- starter %>% 
+ever_eos <- starter %>%
   filter(!is.na(safety_status)) %>%
-  filter(safety_status == 'eos') %>% 
+  filter(safety_status == 'eos') %>%
   filter(!is.na(extid)) %>%
   # dplyr::distinct(extid) %>%
   pull(extid)
 individuals$starting_safety_status[individuals$extid %in% ever_eos] <- 'eos'
 # Double check: any individual who was ever pregnant is always safety eos and in pfu
-ever_pregnant <- 
+ever_pregnant <-
   bind_rows(
     safety_repeat_individual %>% filter(!is.na(pregnancy_status)) %>%
       filter(pregnancy_status == 'in') %>%
       dplyr::select(extid),
-    pfu %>% 
+    pfu %>%
       dplyr::select(extid)) %>%
   pull(extid)
 individuals$starting_safety_status[individuals$extid %in% ever_pregnant] <- 'eos'
 individuals$starting_pregnancy_status[individuals$extid %in% ever_pregnant] <- 'in'
 
 # Get starting weight
-starting_weights <- 
+starting_weights <-
   bind_rows(
     safety_repeat_individual %>% filter(!is.na(current_weight)) %>%
       left_join(safety %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
@@ -1112,9 +1033,9 @@ starting_weights <-
   dplyr::select(extid, starting_weight)
 individuals <- left_join(individuals, starting_weights)
 # Get starting height
-starting_heights <- 
+starting_heights <-
   bind_rows(
-    safety_repeat_individual %>% 
+    safety_repeat_individual %>%
       mutate(height = ifelse(is.na(height), height_short, height)) %>%
       filter(!is.na(height)) %>%
       left_join(safety %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
@@ -1138,7 +1059,7 @@ individuals <- left_join(individuals, starting_heights)
 starting_safety_statuses <- individuals %>%
   dplyr::select(extid, starting_safety_status)
 # Add the efficacy dead
-starting_safety_statuses <- 
+starting_safety_statuses <-
   bind_rows(
     dead_in_safety,
     starting_safety_statuses
@@ -1163,7 +1084,7 @@ write_csv(individuals, 'safety_metadata/individual_data.csv')
 # https://docs.google.com/spreadsheets/d/1nco1rPFVk9ZgevR02FdjDF1D8m3jyu9n104vpPXYQ5Q/edit#gid=0
 
 # For the visit control sheets, we need to show the "reason" someone is out
-obvious_screening <- 
+obvious_screening <-
   bind_rows(
     safety_repeat_individual %>% left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
       dplyr::select(extid, start_time, obvious_screening) %>%
@@ -1200,8 +1121,8 @@ reason_out <- individuals %>%
   mutate(in_parentheses = ifelse(!is.na(obvious_screening),
                                  obvious_screening,
                                  in_parentheses)) %>%
-  mutate(in_parentheses = ifelse(!extid %in% ever_present & hhid %in% household_ever_visited$hhid, 
-                                 'absent', 
+  mutate(in_parentheses = ifelse(!extid %in% ever_present & hhid %in% household_ever_visited$hhid,
+                                 'absent',
                                  in_parentheses)) %>%
   mutate(in_parentheses = ifelse(is.na(in_parentheses), '',
                                  paste0(' (', in_parentheses, ')'))) %>%
@@ -1223,7 +1144,7 @@ cl_per_cluster <- cl_per_cluster %>%
 # Assign a "vcs" to each individual (ie, which sub-group they are part of)
 vcs_list <- list()
 for(i in 1:nrow(cl_per_cluster)){
-  this_input <- cl_per_cluster[i,]  
+  this_input <- cl_per_cluster[i,]
   these_households <- households %>%
     filter(cluster == this_input$cluster)
   these_individuals <- individuals %>%
@@ -1321,7 +1242,7 @@ save.image('temp.RData')
 # <Efficacy> ##############################################################################
 
 # Get the starting roster
-starting_roster <- v0demography_repeat_individual %>% 
+starting_roster <- v0demography_repeat_individual %>%
   left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>%
   arrange(desc(start_time)) %>%
@@ -1343,7 +1264,7 @@ if(nrow(efficacy_departures) > 0){
 starting_roster <- starting_roster %>%
   filter(migrated != 1, dead != 1)
 
-roster <- starting_roster %>%  
+roster <- starting_roster %>%
   arrange(desc(start_time)) %>%
   # keep only the most recent case
   dplyr::distinct(extid, .keep_all = TRUE) %>%
@@ -1391,7 +1312,7 @@ individuals$efficacy_preselected <- ifelse(individuals$extid %in% efficacy_prese
 efficacy_ids <- sort(unique(individuals$extid[individuals$efficacy_preselected == 1]))
 # Get some further efficacy status variables
 # starting_efficacy_status
-right <- 
+right <-
   efficacy %>% arrange(desc(start_time)) %>%
   filter(!is.na(efficacy_status)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
@@ -1405,7 +1326,7 @@ individuals <- left_join(individuals, right) %>%
                                            'out',
                                            starting_efficacy_status))
 # efficacy_absent_most_recent_visit
-right <- 
+right <-
   efficacy %>% arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   filter(!is.na(person_absent), !is.na(extid)) %>%
@@ -1418,7 +1339,7 @@ if(nrow(right) > 0){
   individuals$efficacy_absent_most_recent_visit <- 0
 }
 # efficacy_most_recent_visit_present
-right <- 
+right <-
   efficacy %>% arrange(desc(start_time)) %>%
   filter(!is.na(person_present_continue)) %>%
   filter(person_present_continue == 1) %>%
@@ -1428,7 +1349,7 @@ right <-
                 efficacy_most_recent_present_date = todays_date) %>%
   mutate(efficacy_most_recent_present_date = paste0('.', as.character(efficacy_most_recent_present_date))) %>%
   mutate(extid = as.character(extid))
-individuals <- left_join(individuals, right) 
+individuals <- left_join(individuals, right)
 # efficacy_visits_done
 # (this includes absent visits) https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1690378013017559?thread_ts=1690307177.615709&cid=C042KSRLYUA
 right <- efficacy %>%
@@ -1436,7 +1357,7 @@ right <- efficacy %>%
   group_by(extid) %>%
   summarise(efficacy_visits_done = paste0(sort(unique(visit)), collapse = ', '))
 if(nrow(right) > 0){
-  individuals <- left_join(individuals, right) 
+  individuals <- left_join(individuals, right)
 } else {
   individuals$efficacy_visits_done <- ""
 }
@@ -1447,7 +1368,7 @@ ever_eos <- efficacy %>% filter(efficacy_status == 'eos') %>% filter(!is.na(exti
 efficacy_individuals <- individuals
 
 # Keep only individuals who are currently "in" or "out" of efficacy
-individuals <- individuals %>% 
+individuals <- individuals %>%
   filter(!extid %in% ever_eos) %>%
   filter(!is.na(starting_efficacy_status)) %>%
   filter(starting_efficacy_status %in% c('in', 'out'))
@@ -1494,16 +1415,16 @@ if(FALSE){
     rmarkdown::render('rmds/efficacy_visit_control_sheet.Rmd', params = list('vcs' = this_vcs),
                       output_file = paste0( getwd(), '/efficacy_visit_control_sheets/', add_zero(this_vcs, 3), '.pdf'))
   }
-  
- 
+
+
   # Now stitch them all together
   owd <- getwd()
   setwd('rmds/efficacy_visit_control_sheets/')
   system_text <- paste0('pdftk *.pdf cat output efficacy_visit_control_sheets.pdf')
   system(system_text)
   setwd(owd)
-  
-  
+
+
 }
 # </Efficacy> ##############################################################################
 ##############################################################################
@@ -1517,7 +1438,7 @@ pryr::mem_used()
 
 # Get anyone who was ever pregnant
 # (no need for safetynew since they would be excluded from safety and therefore pregnancy in the first place)
-pfu_in <-   
+pfu_in <-
   bind_rows(
     pfu %>% filter(!is.na(pregnancy_status)) %>%
       dplyr::select(start_time, extid, pregnancy_status) %>% mutate(form = 'pfu') %>%
@@ -1541,7 +1462,7 @@ pfu_in <-
   filter(pregnancy_status == 'in')
 
 # Get the starting roster # THIS PART NEEDS FIXING, SINCE IT INCLUDES ONLY IN-CLUSTER HOUSHOLDS (it should include all since pk can add to pfu but is not in-cluster)
-starting_roster <- v0demography_full_repeat_individual %>% 
+starting_roster <- v0demography_full_repeat_individual %>%
   dplyr::select(PARENT_KEY, firstname, lastname, dob, sex, extid) %>%
   left_join(v0demography_full %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   mutate(dob = lubridate::as_datetime(dob)) %>%
@@ -1564,7 +1485,7 @@ starting_roster <- v0demography_full_repeat_individual %>%
   dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>%
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
-  mutate(remove = FALSE) 
+  mutate(remove = FALSE)
 # Go through each departure and flag people as dead or migrated
 starting_roster$dead <- starting_roster$migrated <- 0
 pfu_departures <- pfu %>%
@@ -1579,7 +1500,7 @@ if(nrow(pfu_departures) > 0){
 starting_roster <- starting_roster %>%
   filter(migrated != 1, dead != 1)
 
-roster <- starting_roster %>%  
+roster <- starting_roster %>%
   arrange(desc(start_time)) %>%
   # keep only the most recent case
   dplyr::distinct(extid, .keep_all = TRUE) %>%
@@ -1600,7 +1521,7 @@ individuals <- left_join(individuals, starting_heights)
 # starting_pregnancy_status
 # (in for everybody, already filtered in the pfu)
 individuals <- individuals %>% mutate(starting_pregnancy_status = 'in')
-# pregnancy_consecutive_absences	 ########################## 
+# pregnancy_consecutive_absences	 ##########################
 # individuals$pregnancy_consecutive_absences <- NA #sample(c(NA, 0:7), nrow(individuals), replace = TRUE)
 # See documentation at https://docs.google.com/document/d/1BVMsJE1KX0gG5Blu21HrGbuZ15x93cdRYiThyNp6jDQ/edit
 # July 31 2023: agreed with Xing to deprecate this in favor of "date of last non-absent pregnancy visit"
@@ -1609,9 +1530,9 @@ right <-  pfu %>%
   filter(!is.na(extid)) %>%
   group_by(extid) %>%
   summarise(pregnancy_visits_done = paste0(sort(unique(visit)), collapse = ', '))
-individuals <- left_join(individuals, right) 
-#pregnancy_most_recent_present_date	
-right <- 
+individuals <- left_join(individuals, right)
+#pregnancy_most_recent_present_date
+right <-
   pfu %>% arrange(desc(start_time)) %>%
   filter(!is.na(person_present_continue)) %>%
   filter(person_present_continue == 1) %>%
@@ -1620,7 +1541,7 @@ right <-
   dplyr::select(extid, #pregnancy_most_recent_visit_present,
                 pregnancy_most_recent_present_date = todays_date) %>%
   mutate(pregnancy_most_recent_present_date = paste0('.', as.character(pregnancy_most_recent_present_date)))
-individuals <- left_join(individuals, right) 
+individuals <- left_join(individuals, right)
 
 individuals <- individuals %>% filter(!is.na(hhid))
 
@@ -1647,16 +1568,16 @@ if(FALSE){
     rmarkdown::render('rmds/pfu_visit_control_sheet.Rmd', params = list('vcs' = this_vcs),
                       output_file = paste0( getwd(), '/pfu_visit_control_sheets/', add_zero(this_vcs, 3), '.pdf'))
   }
-  
-  
+
+
   # Now stitch them all together
   owd <- getwd()
   setwd('rmds/pfu_visit_control_sheets/')
   system_text <- paste0('pdftk *.pdf cat output pfu_visit_control_sheets.pdf')
   system(system_text)
   setwd(owd)
-  
-  
+
+
 }
 
 
@@ -1678,7 +1599,7 @@ pk_individuals <- read_csv('../../analyses/randomization/outputs/pk_individuals.
 pk_preselected_ids <- pk_individuals$extid
 # Create list of PK individuals
 # Get the starting roster
-individuals <- v0demography_full_repeat_individual %>% 
+individuals <- v0demography_full_repeat_individual %>%
   left_join(v0demography_full %>% dplyr::select(hhid, start_time, cluster, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   mutate(cluster = add_zero(cluster, 2)) %>%
   dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid, cluster) %>%
@@ -1687,7 +1608,7 @@ individuals <- v0demography_full_repeat_individual %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::mutate(fullname_dob = paste0(firstname, ' ', lastname, ' | ', dob)) %>%
   mutate(fullname_id = paste0(firstname, ' ', lastname, ' (',
-                              extid, ')')) %>%  
+                              extid, ')')) %>%
   dplyr::select(firstname, lastname,
                 fullname_dob,
                 fullname_id,
@@ -1712,12 +1633,12 @@ if(FALSE){
     individuals$firstname[i] <- names1[i]
     individuals$lastname[i] <- names2[i]
     individuals$fullname_dob[i] <- paste0(
-      names_both[i], 
+      names_both[i],
       ' | ',
       unlist(strsplit(individuals$fullname_dob[i], '| ', fixed = TRUE))[2]
     )
     individuals$fullname_id[i] <- paste0(
-      names_both[i], 
+      names_both[i],
       ' (',
       individuals$extid[i],
       ')'
@@ -1845,7 +1766,7 @@ right <-   bind_rows(
   mutate(safety_icf_type = ifelse(age >= 18, 'Adult',
                                   ifelse(age >= 12, 'Assent and parent Legal Guardian',
                                          ifelse(age < 12, 'Parent Legal Guardian', NA)))) %>%
-  dplyr::select(extid, safety_date = todays_date, safety_age = age, safety_icf_type, safety_cl = wid) 
+  dplyr::select(extid, safety_date = todays_date, safety_age = age, safety_icf_type, safety_cl = wid)
 icf_individuals <- left_join(icf_individuals, right)
 # Best known current safety_status
 right <- safety_individuals %>%
@@ -1875,7 +1796,7 @@ icf_individuals <- left_join(icf_individuals, right)
 icf_individuals <- icf_individuals %>%
   mutate(pk_icf_type = ifelse(extid %in% pkday0$extid, 'Adult', NA))
 # Get best known PK status
-right <- 
+right <-
   bind_rows(
     pkday0 %>% dplyr::select(start_time, extid, pk_status),
     pkdays123 %>% dplyr::select(start_time, extid, pk_status),
@@ -1952,7 +1873,7 @@ right <- sepk_icf_verification %>%
   dplyr::select(extid, pk_verification_date = todays_date)
 icf_individuals <- left_join(icf_individuals, right)
 # safety_errors
-# For sepk_icf_verification form where ${study_select} = 'safety': If "no" to any of the variables below, concat the number after the _ in a comma separated list (e.g., if icf_1 = 'no' and icf_5 ='no', this value should be '1, 5') 
+# For sepk_icf_verification form where ${study_select} = 'safety': If "no" to any of the variables below, concat the number after the _ in a comma separated list (e.g., if icf_1 = 'no' and icf_5 ='no', this value should be '1, 5')
 # icf_1, icf_2,  icf_3, icf_4, icf_5, icf_6 ....icf_24
 right <- sepk_icf_verification %>%
   filter(study_select == 'safety') %>%
@@ -1982,7 +1903,7 @@ right <- right %>% dplyr::select(extid, safety_errors) %>%
   summarise(safety_errors = paste0(safety_errors, collapse = '; '))
 icf_individuals <- left_join(icf_individuals, right)
 # efficacy_errors
-# For sepk_icf_verification form where ${study_select} = 'efficacy': If "no" to any of the variables below, concat the number after the _ in a comma separated list (e.g., if icf_1 = 'no' and icf_5 ='no', this value should be '1, 5') 
+# For sepk_icf_verification form where ${study_select} = 'efficacy': If "no" to any of the variables below, concat the number after the _ in a comma separated list (e.g., if icf_1 = 'no' and icf_5 ='no', this value should be '1, 5')
 # icf_1, icf_2,  icf_3, icf_4, icf_5, icf_6 ....icf_24
 right <- sepk_icf_verification %>%
   filter(study_select == 'efficacy') %>%
@@ -2010,7 +1931,7 @@ right <- right %>% dplyr::select(extid, efficacy_errors) %>%
   summarise(efficacy_errors = paste0(efficacy_errors, collapse = '; '))
 icf_individuals <- left_join(icf_individuals, right)
 # pk_errors
-# For sepk_icf_verification form where ${study_select} = 'pk': If "no" to any of the variables below, concat the number after the _ in a comma separated list (e.g., if icf_1 = 'no' and icf_5 ='no', this value should be '1, 5') 
+# For sepk_icf_verification form where ${study_select} = 'pk': If "no" to any of the variables below, concat the number after the _ in a comma separated list (e.g., if icf_1 = 'no' and icf_5 ='no', this value should be '1, 5')
 # icf_1, icf_2,  icf_3, icf_4, icf_5, icf_6 ....icf_24
 right <- sepk_icf_verification %>%
   filter(study_select == 'pk') %>%
@@ -2080,11 +2001,20 @@ file.remove('safety_metadata.zip')
 file.remove('ntd_metadata.zip')
 file.remove('pk_metadata.zip')
 file.remove('icf_metadata.zip')
-zip(zipfile = 'efficacy_metadata.zip', files = 'efficacy_metadata/')
-zip(zipfile = 'health_economics_metadata.zip', files = c('healtheconbaseline_metadata/', 'healtheconmonthly_metadata/'))
-zip(zipfile = 'pfu_metadata.zip', files = 'pfu_metadata/')
-zip(zipfile = 'safety_metadata.zip', files = 'safety_metadata/')
-zip(zipfile = 'ntd_metadata.zip', files = 'ntd_metadata/')
-zip(zipfile = 'pk_metadata.zip', files = 'pk_metadata/')
-zip(zipfile = 'icf_metadata.zip', files = 'icf_metadata/')
+
+dir.create('metadata_zip_files/')
+zip(zipfile = 'metadata_zip_files/efficacy_metadata.zip', files = 'efficacy_metadata/')
+zip(zipfile = 'metadata_zip_files/health_economics_metadata.zip', files = c('healtheconbaseline_metadata/', 'healtheconmonthly_metadata/'))
+zip(zipfile = 'metadata_zip_files/pfu_metadata.zip', files = 'pfu_metadata/')
+zip(zipfile = 'metadata_zip_files/safety_metadata.zip', files = 'safety_metadata/')
+zip(zipfile = 'metadata_zip_files/ntd_metadata.zip', files = 'ntd_metadata/')
+zip(zipfile = 'metadata_zip_files/pk_metadata.zip', files = 'pk_metadata/')
+zip(zipfile = 'metadata_zip_files/icf_metadata.zip', files = 'icf_metadata/')
+
+
+cloudbrewr::aws_s3_bulk_store(
+  bucket = 'bohemia-lake-db',
+  prefix = '/metadata_zip_files',
+  target_dir = 'metadata_zip_files'
+)
 
