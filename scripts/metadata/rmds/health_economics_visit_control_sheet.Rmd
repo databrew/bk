@@ -124,6 +124,11 @@ households <- households %>%
   group_by(VCS) %>%
   mutate(index = cumsum(dummy)) %>%
   ungroup %>%
+  mutate(head_first_name = unlist(lapply(strsplit(household_head, ' '), function(x){x[1]}))) %>%
+  mutate(head_last_name = unlist(lapply(strsplit(household_head, ' '), function(x){x[length(x)]}))) %>%
+  mutate(head_first_name = stringr::str_replace_all(head_first_name, "[^[:alnum:]]", "")) %>%
+  mutate(head_last_name = stringr::str_replace_all(head_last_name, "[^[:alnum:]]", "")) %>%
+  mutate(`Head of Hh` = paste0(head_first_name, ' ', head_last_name)) %>%
   dplyr::select(
     VCS, 
     `No.` = index,
@@ -133,9 +138,9 @@ households <- households %>%
     `Head of Hh sub` = hh_sub,
     `Hh members` = num_members,
     `NTD-preselected members` = n_ntd,
-    `Cattle-owning` = own_cattle
+    `Cattle-owning` = own_cattle,
+    `Head of Hh`
   ) %>%
-  mutate(`Head of Hh` = stringr::str_replace_all(`Head of Hh`, "[^[:alnum:]]", "")) %>%
   mutate(
     `1` = '',
       `2` = '',
@@ -231,10 +236,10 @@ for (i in 1:length(vcs_documents)) {
                     font_size = 7) %>%
     add_header_above(c(" " = 8, "Absences" = 3, " " = 5)) %>%
     column_spec(1,  width = "1em")  %>%
-    column_spec(2,  width = "3em")  %>%
-    column_spec(3,  width = "5em")  %>%
-    column_spec(4,  width = "15em")  %>%
-    column_spec(5,  width = "9em")  %>%
+    column_spec(2,  width = "2em")  %>%
+    column_spec(3,  width = "10em")  %>%
+    column_spec(4,  width = "13em")  %>%
+    column_spec(5,  width = "13em")  %>%
     column_spec(6,  width = "3em")  %>%
     column_spec(7,  width = "5em")  %>%
     column_spec(8,  width = "3em")  %>%
@@ -244,7 +249,7 @@ for (i in 1:length(vcs_documents)) {
     column_spec(12,  width = "3em")  %>%
     column_spec(13,  width = "3em")  %>%
     column_spec(14,  width = "3em")  %>%
-    column_spec(15,  width = "13em")  
+    column_spec(15,  width = "10em")  
   
   # Individual table
     k2 <- kable(these_persons, format = "latex",
@@ -262,8 +267,8 @@ for (i in 1:length(vcs_documents)) {
     add_header_above(c(" " = 6, "Absences" = 3, " " = 3)) %>%
     column_spec(1,  width = "1em")  %>%
     column_spec(2,  width = "5em")  %>%
-    column_spec(3,  width = "5em")  %>%
-    column_spec(4,  width = "8em")  %>%
+    column_spec(3,  width = "12em")  %>%
+    column_spec(4,  width = "15em")  %>%
     column_spec(5,  width = "3em")  %>%
     column_spec(6,  width = "3em")  %>%
     column_spec(7,  width = "1em")  %>%
@@ -271,7 +276,7 @@ for (i in 1:length(vcs_documents)) {
     column_spec(9,  width = "1em")  %>%
     column_spec(10,  width = "4em")  %>%
     column_spec(11,  width = "5em")  %>%
-    column_spec(12,  width = "27em")  
+    column_spec(12,  width = "22em")  
     
     # New members tabble
     new_members <- tibble(
