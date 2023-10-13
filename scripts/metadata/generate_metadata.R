@@ -22,15 +22,16 @@ library(data.table)
 library(sf)
 library(sp)
 library(lubridate)
-library(readr)
 library(pdftools)
 library(rmarkdown)
 library(knitr)
 library(kableExtra)
 library(readr)
 
+# to create rmd output
+dir.create('rmds', recursive = TRUE)
+
 # Define production
-is_production <- TRUE
 # folder <- 'kwale_testing'
 real_preselections <- TRUE
 folder <- 'kwale'
@@ -53,13 +54,6 @@ if(folder %in% c('health_economics_testing', 'test_of_test', 'kwale')){
   use_real_v0 <- FALSE
 }
 
-if(is_production){
-  Sys.setenv(PIPELINE_STAGE = 'production')
-  # raw_or_clean <- 'clean'
-} else {
-  Sys.setenv(PIPELINE_STAGE = 'develop')
-  # raw_or_clean <- 'raw'
-}
 raw_or_clean <- 'clean'
 env_pipeline_stage <- Sys.getenv("PIPELINE_STAGE")
 start_fresh <- TRUE
@@ -291,7 +285,7 @@ if(start_fresh){
        healtheconnew_repeat_miss_work_school,
        healtheconnew_repeat_other_employment_details,
        # i,
-       is_production,
+       # is_production,
        middle_path,
        object_keys,
        output_dir,
@@ -690,14 +684,14 @@ healthecon_departures <-
   bind_rows(
     healtheconbaseline_repeat_individual %>%
       left_join(healtheconbaseline %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
-    mutate(extid = as.character(extid)) %>%
+      mutate(extid = as.character(extid)) %>%
       mutate(start_time = as.POSIXct(start_time)) %>%
       filter(!is.na(person_absent_reason)) %>%
       filter(person_absent_reason != 'Absent') %>%
       dplyr::select(start_time, extid, person_absent_reason),
     healtheconmonthly_repeat_individual %>%
       left_join(healtheconmonthly %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
-    mutate(extid = as.character(extid)) %>%
+      mutate(extid = as.character(extid)) %>%
       mutate(start_time = as.POSIXct(start_time)) %>%
       filter(!is.na(person_absent_reason)) %>%
       filter(person_absent_reason != 'Absent') %>%
@@ -781,7 +775,7 @@ households <- households %>%
 # Get hecon_hh_preselected,
 households <- households %>%
   mutate(hecon_hh_preselected = ifelse(hhid %in% health_economics_households$hhid, 1, 0))
-  # Get hecon_members
+# Get hecon_members
 households$hecon_members <- households$roster
 # Create the herd preselected variable (just random values for now)
 households <- households %>%
@@ -1517,8 +1511,8 @@ roster <- starting_roster %>%
 individuals <- roster %>%
   dplyr::mutate(fullname_dob = paste0(firstname, ' ', lastname, ' | ', dob)) %>%
   dplyr::rename(fullname_id = roster_name) #%>%
-  # # get intervention, village, ward, cluster
-  # left_join(households %>% dplyr::select(hhid, intervention, village, ward, cluster))
+# # get intervention, village, ward, cluster
+# left_join(households %>% dplyr::select(hhid, intervention, village, ward, cluster))
 # Get starting weight
 # (generated in safety section)
 individuals <- left_join(individuals, starting_weights)
@@ -2015,11 +2009,3 @@ zip(zipfile = 'metadata_zip_files/safety_metadata.zip', files = 'safety_metadata
 zip(zipfile = 'metadata_zip_files/ntd_metadata.zip', files = 'ntd_metadata/')
 zip(zipfile = 'metadata_zip_files/pk_metadata.zip', files = 'pk_metadata/')
 zip(zipfile = 'metadata_zip_files/icf_metadata.zip', files = 'icf_metadata/')
-
-
-cloudbrewr::aws_s3_bulk_store(
-  bucket = 'bohemia-lake-db',
-  prefix = '/metadata_zip_files',
-  target_dir = 'metadata_zip_files'
-)
-
