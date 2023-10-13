@@ -128,7 +128,7 @@ households <- households %>%
   mutate(head_last_name = unlist(lapply(strsplit(household_head, ' '), function(x){x[length(x)]}))) %>%
   mutate(head_first_name = stringr::str_replace_all(head_first_name, "[^[:alnum:]]", "")) %>%
   mutate(head_last_name = stringr::str_replace_all(head_last_name, "[^[:alnum:]]", "")) %>%
-  mutate(`Head of Hh` = paste0(head_first_name, ' ', head_last_name)) %>%
+  mutate(household_head = paste0(head_first_name, ' ', head_last_name)) %>%
   dplyr::select(
     VCS, 
     `No.` = index,
@@ -138,9 +138,7 @@ households <- households %>%
     `Head of Hh sub` = hh_sub,
     `Hh members` = num_members,
     `NTD-preselected members` = n_ntd,
-    `Cattle-owning` = own_cattle,
-    `Head of Hh`
-  ) %>%
+    `Cattle-owning` = own_cattle  ) %>%
   mutate(
     `1` = '',
       `2` = '',
@@ -237,11 +235,11 @@ for (i in 1:length(vcs_documents)) {
     add_header_above(c(" " = 8, "Absences" = 3, " " = 5)) %>%
     column_spec(1,  width = "1em")  %>%
     column_spec(2,  width = "2em")  %>%
-    column_spec(3,  width = "10em")  %>%
-    column_spec(4,  width = "13em")  %>%
-    column_spec(5,  width = "13em")  %>%
+    column_spec(3,  width = "9em")  %>%
+    column_spec(4,  width = "11em")  %>%
+    column_spec(5,  width = "11em")  %>%
     column_spec(6,  width = "3em")  %>%
-    column_spec(7,  width = "5em")  %>%
+    column_spec(7,  width = "4em")  %>%
     column_spec(8,  width = "3em")  %>%
     column_spec(9,  width = "1em")  %>%
     column_spec(10,  width = "1em")  %>%
