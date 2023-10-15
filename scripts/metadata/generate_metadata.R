@@ -529,13 +529,30 @@ v0demography_full_repeat_individual <- v0demography_repeat_individual
 load('../../data_public/spatial/clusters.RData')
 old_clusters <- clusters; rm(clusters)
 
-# buffer clusters by 20 meters so as to
+# see which households are in which clusters with NO buffering first
 old_clusters_projected <- spTransform(old_clusters, crs)
+o <- sp::over(households_sp_projected, polygons(old_clusters_projected))
+households_sp_projected@data$cluster_geo <- old_clusters_projected$cluster_number[o]
+# for households which are not strictly in the cluster boundaries, associate them
+# with a cluster if within 50 meters
 old_clusters_projected_buffered <- rgeos::gBuffer(spgeom = old_clusters_projected, byid = TRUE, width = 50)
 o <- sp::over(households_sp_projected, polygons(old_clusters_projected_buffered))
 households_sp_projected@data$not_in_old_cluster <- is.na(o)
-households_sp_projected@data$old_cluster_correct <- old_clusters_projected_buffered@data$cluster_number[o]
+households_sp_projected@data$cluster_with_buffer <- 
+  old_clusters_projected_buffered@data$cluster_number[o]
+households_sp_projected@data$old_cluster_correct <- 
+  ifelse(is.na(households_sp_projected@data$cluster_geo),
+         households_sp_projected@data$cluster_with_buffer,
+         households_sp_projected@data$cluster_geo)
+# old_cluster_correct is the right variable for geographic location, not geo_cluster_num
+# since geo_cluster_num was calculated using a faulty method which put households which
+# were within the buffer of >1 cluster into the wrong cluster at times
+# So, let's fix v0demography
+v0demography <- v0demography %>% dplyr::select(-geo_cluster_num) %>%
+  left_join(households_sp_projected@data %>% dplyr::select(hhid, geo_cluster_num = old_cluster_correct))
 v0demography_full <- left_join(v0demography_full, households_sp_projected@data %>% dplyr::select(hhid, not_in_old_cluster, old_cluster_correct))
+v0demography_full$geo_cluster_num <- v0demography_full$old_cluster_correct
+
 v0demography_full <- v0demography_full %>%
   arrange(desc(todays_date)) %>%
   dplyr::distinct(hhid, .keep_all = TRUE)
