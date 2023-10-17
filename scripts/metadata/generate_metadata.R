@@ -1074,6 +1074,30 @@ individuals <- individuals %>% filter(!is.na(hhid),
                                       !is.na(cluster))
 households <- households %>% filter(!is.na(hhid),
                                     !is.na(cluster))
+# Temporary / one-off removal of some individuals:
+# https://trello.com/c/5YPVFZVM/2106-manual-safety-updates
+if(FALSE){
+  affected_households <- c(25053,
+                           70068,
+                           81066,
+                           03087,
+                           34016,
+                           11001,
+                           30036)
+  individuals <- individuals %>%
+    mutate(remove = hhid %in% affected_households & starting_safety_status == 'in') %>%
+    filter(!remove)
+  # Recalculate roster and num_members
+  updated_hh <- individuals %>%    
+    group_by(hhid) %>%
+    summarise(roster = paste0(fullname_id, collapse = ', '),
+              num_members = n())
+  households <- households %>%
+    dplyr::select(-roster, -num_members)
+  write_csv(households, '~/Desktop/household_data.csv')
+  write_csv(individuals, '~/Desktop/individual_data.csv')
+  }
+
 # Save object for use in ICF
 safety_individuals <- individuals
 # Write csvs
