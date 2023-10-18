@@ -135,7 +135,7 @@ out <- individuals %>%
   mutate(Ward = ifelse(Ward == 'RAMISI', 'RAM',
                        ifelse(Ward == 'PONGWE KIKONENI', 'PK', Ward))) %>%
   mutate(Village = toupper(Village))
-use_fake_names <- TRUE
+use_fake_names <- FALSE
 if(use_fake_names){
   fake_names <- babynames::babynames
   fake_names <- fake_names$name
