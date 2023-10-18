@@ -84,7 +84,7 @@ if(start_fresh){
                 'pkday0', 'pkdays123',
                 'pkfollowup',
                 'healtheconbaseline', 'healtheconnew', 'healtheconmonthly',
-                'sepk_icf_verification', 'sepk_icf_resolution')
+                'sepk_icf_verification', 'sepk_icf_resolution', 'lab', 'lab2')
   datasets_names <- datasets
 
   # Loop through each dataset and retrieve
@@ -234,6 +234,22 @@ if(start_fresh){
 
   }, error =function(e) {
     load('empty_objects/sepk_icf_resolution.RData', envir = .GlobalEnv)
+  })
+  
+  # lab
+  tryCatch({
+    lab <- read_csv(paste0(middle_path, 'lab/lab.csv'))
+    
+  }, error =function(e) {
+    load('empty_objects/lab.RData', envir = .GlobalEnv)
+  })
+  
+  # lab2
+  tryCatch({
+    lab2 <- read_csv(paste0(middle_path, 'lab2/lab2.csv'))
+    
+  }, error =function(e) {
+    load('empty_objects/lab2.RData', envir = .GlobalEnv)
   })
   # save(safety, safety_repeat_drug,
   #      safety_repeat_individual, safety_repeat_ae_symptom,
@@ -1391,7 +1407,7 @@ if(nrow(right) > 0){
 # If ever eos, always eos
 ever_eos <- efficacy %>% filter(efficacy_status == 'eos') %>% filter(!is.na(extid)) %>% dplyr::pull(extid)
 
-# Save for use in ICF metadata
+# Save for use in ICF metadata # Check this, too many people...
 efficacy_individuals <- individuals
 
 # Keep only individuals who are currently "in" or "out" of efficacy
@@ -1416,6 +1432,21 @@ individuals <- individuals %>% filter(!is.na(hhid),
                                       !is.na(cluster))
 households <- households %>% filter(!is.na(hhid),
                                     !is.na(cluster))
+
+# Recalculate eligibility based on updated v0demography (changes to dates of birth, etc.)
+date_of_enrollment <- as.Date('2023-10-01')
+people <- individuals %>%   mutate(age_at_enrollment  = date_of_enrollment - dob) %>%
+  mutate(age_at_enrollment = age_at_enrollment / 365.25) %>%
+  mutate(efficacy_eligible = age_at_enrollment >= 5.0 & age_at_enrollment < 15.0) %>%
+  filter(efficacy_eligible)
+individuals <- individuals %>%
+  filter(extid %in% people$extid)
+# temporary analysis
+if(FALSE){
+  out <- individuals %>%
+    group_by(cluster) %>%
+    tally
+}
 
 # Write csvs
 if(!dir.exists('efficacy_metadata')){
