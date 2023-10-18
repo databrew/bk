@@ -300,6 +300,7 @@ if(start_fresh){
        healtheconnew_repeat_individual,
        healtheconnew_repeat_miss_work_school,
        healtheconnew_repeat_other_employment_details,
+       lab, lab2,
        # i,
        # is_production,
        middle_path,
@@ -501,6 +502,8 @@ healtheconmonthly_repeat_disease <- healtheconmonthly_repeat_disease %>% filter(
 healtheconmonthly_repeat_individual <- healtheconmonthly_repeat_individual %>% filter(PARENT_KEY %in% healtheconmonthly$KEY)
 healtheconmonthly_repeat_miss_work_school <- healtheconmonthly_repeat_miss_work_school %>% filter(PARENT_KEY %in% healtheconmonthly$KEY)
 healtheconmonthly_repeat_other_employment_details <- healtheconmonthly_repeat_other_employment_details %>% filter(PARENT_KEY %in% healtheconmonthly$KEY)
+lab <- lab %>%  filter(todays_date >= start_from)
+lab2 <- lab2 %>%  filter(todays_date >= start_from)
 
 
 # Prior to beginning cohort-specific metadata generation, get the location of each house in v0demography and the cluster based on that location
@@ -2049,6 +2052,173 @@ write_csv(icf_individuals, 'icf_metadata/individual_data.csv')
 ##############################################################################
 ##############################################################################
 ##############################################################################
+
+# <LAB> ####################################################################
+# forms lab and lab2 consume the same metadata
+# One row per participant extid from efficacy and pk. For efficacy, values should come from the enrollment visit, (where icf_completed == 1)
+# (Note the color coded variables coming from the different forms)
+individuals <- 
+  bind_rows(
+    efficacy %>%
+      # only enrollment visit
+      filter(icf_completed == 1) %>%
+      mutate(start_time = lubridate::as_datetime(start_time)) %>%
+      mutate(cluster = as.character(cluster)) %>%
+      mutate(dob = lubridate::as_datetime(dob)) %>%
+      arrange(start_time, .keep_all = TRUE) %>%
+      mutate(sample = dbs_barcode) %>%
+      mutate(sample = as.character(sample)) %>%
+      mutate(study = 'efficacy') %>%
+      mutate(icf_type = ifelse(minor_assent_status != 'Parent Legal Guardian & Assent', 'Parent Legal Guardian', minor_assent_status)) %>%
+      mutate(icf_type = as.character(icf_type)) %>%
+      mutate(wid = as.character(wid), todays_date = as.Date(todays_date)) %>%
+      dplyr::select(extid, start_time, dob, sample, study, icf_type, cl_sample = wid, date_sample = todays_date, visit, cluster),
+    bind_rows(
+      pkday0 %>%
+        mutate(start_time = lubridate::as_datetime(start_time)) %>%
+        mutate(dob = lubridate::as_datetime(dob)) %>%
+        arrange(start_time, .keep_all = TRUE) %>%
+        mutate(s1qr = as.character(s1qr),
+               s2qr = as.character(s2qr),
+               s3qr = as.character(s3qr),
+               s4qr = as.character(s4qr),
+               s5qr = as.character(s5qr),
+               s6qr = as.character(s6qr)) %>%
+        mutate(sample = 
+                 ifelse(!is.na(s1qr), s1qr,
+                        ifelse(!is.na(s2qr), s2qr,
+                               ifelse(!is.na(s3qr), s3qr,
+                                      ifelse(!is.na(s4qr), s4qr,
+                                             ifelse(!is.na(s5qr), s5qr,
+                                                    ifelse(!is.na(s6qr), s6qr,
+                                                    NA))))))) %>%
+        mutate(sample = as.character(sample)) %>%
+        mutate(wid = as.character(wid), todays_date = as.Date(todays_date)) %>%
+        mutate(cluster = as.character(cluster)) %>%
+        mutate(pk_sample_number =as.character(
+          ifelse(!is.na(s1qr), 'Sample 1',
+                 ifelse(!is.na(s2qr), 'Sample 2',
+                        ifelse(!is.na(s3qr), 'Sample 3',
+                               ifelse(!is.na(s4qr), 'Sample 4',
+                                      ifelse(!is.na(s5qr), 'Sample 5',
+                                             ifelse(!is.na(s6qr), 'Sample 6', NA)))))))) %>%
+        mutate(time_sample_collection = start_time) %>%
+        
+        dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection),
+      pkdays123 %>%
+        # deal with todays_date
+        mutate(todays_date = if_else(sample_collected_at_time == 'no',
+                                     date_of_sample, todays_date)) %>%
+        mutate(start_time = lubridate::as_datetime(start_time)) %>%
+        mutate(dob = lubridate::as_datetime(dob)) %>%
+        arrange(start_time, .keep_all = TRUE) %>%
+          mutate(sample = label) %>%
+        mutate(sample = as.character(sample)) %>%
+        mutate(wid = as.character(wid), todays_date = as.Date(todays_date)) %>%
+        mutate(cluster = as.character(cluster)) %>%
+        mutate(pk_sample_number = as.character(sample_number_print)) %>%
+        mutate(time_sample_collection = if_else(sample_collected_at_time == 'no', lubridate::as_datetime(time_of_sample), lubridate::as_datetime(time_blood_samples_formatted))) %>%
+        mutate(num_aliquots = ifelse(two_samples == 'both', 2,
+                                     ifelse(two_samples %in% c('only aliquot 1', 'only aliquot 2', 1, ifelse(two_samples == 'none', 0, NA))))) %>%
+        dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, num_aliquots)
+    ) %>%
+      mutate(study = 'pk',
+             icf_type = 'Safety Adult ICF & PK ICF') 
+  ) %>%
+  # keep only one row per extid
+  arrange(start_time) %>%
+  # reformat date of birth
+  mutate(dob = paste0('.', as.character(dob)))
+# Get ages as of efficacy enrollment or pkday0
+ages <- 
+  bind_rows(
+    efficacy %>% dplyr::select(extid, age) %>% mutate(age = as.numeric(age)),
+    pkday0 %>% dplyr::select(extid, age) %>% mutate(age = as.numeric(age))
+  ) %>%
+  dplyr::distinct(extid, .keep_all = TRUE)
+individuals <- left_join(individuals, ages)
+# Get icf_status_efficacy, which is the
+# most recent icf_stat coming from sepk_icf_verification or sepk_icf_resolution for this extid where study_select == efficacy
+right <- bind_rows(
+  sepk_icf_verification %>%
+    dplyr::select(extid, start_time, study_select, icf_stat) %>%
+    mutate(start_time = lubridate::as_datetime(start_time)) %>%
+    filter(study_select == 'efficacy'),
+  sepk_icf_resolution %>%
+    dplyr::select(extid, start_time, study_select, icf_stat) %>%
+    mutate(start_time = lubridate::as_datetime(start_time)) %>%
+    filter(study_select == 'efficacy')
+) %>% # keep only most recent
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, icf_status_efficacy = icf_stat)
+individuals <- left_join(individuals, right)
+# get icf_status_pk, which is the 
+# most recent icf_stat coming from sepk_icf_verification or sepk_icf_resolution for this extid where study_select == pk
+right <- bind_rows(
+  sepk_icf_verification %>%
+    dplyr::select(extid, start_time, study_select, icf_stat) %>%
+    mutate(start_time = lubridate::as_datetime(start_time)) %>%
+    filter(study_select == 'pk'),
+  sepk_icf_resolution %>%
+    dplyr::select(extid, start_time, study_select, icf_stat) %>%
+    mutate(start_time = lubridate::as_datetime(start_time)) %>%
+    filter(study_select == 'pk')
+) %>% # keep only most recent
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, icf_status_safety = icf_stat)
+individuals <- left_join(individuals, right)
+# get icf_status_safety, which is the 
+# most recent icf_stat coming from sepk_icf_verification or sepk_icf_resolution for this extid where study_select == safety
+right <- bind_rows(
+  sepk_icf_verification %>%
+    dplyr::select(extid, start_time, study_select, icf_stat) %>%
+    mutate(start_time = lubridate::as_datetime(start_time)) %>%
+    filter(study_select == 'safety'),
+  sepk_icf_resolution %>%
+    dplyr::select(extid, start_time, study_select, icf_stat) %>%
+    mutate(start_time = lubridate::as_datetime(start_time)) %>%
+    filter(study_select == 'safety')
+) %>% # keep only most recent
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, icf_status_pk = icf_stat)
+individuals <- left_join(individuals, right)
+# get whether in or not certain preselections
+individuals <- individuals %>%
+  mutate(efficacy_preselected = ifelse(extid %in% efficacy_selection$extid, 'yes', 'no'),
+         pk_preselected = ifelse(extid %in% pk_individuals$extid, 'yes', 'no')) 
+# get lab-derived variables
+right <- 
+  bind_rows(
+    lab %>% 
+      mutate(sample = as.character(sample),
+             sample_status = as.character(sample_status),
+             start_time = lubridate::as_datetime(start_time),
+             efficacy_reason = as.character(efficacy_reason),
+             pk_reason = as.character(pk_reason),
+             incidences = paste0(match_tracking_incidence_select, ';', match_tracking_incidence_select2)) %>%
+      dplyr::select(sample, sample_status, start_time, efficacy_reason,
+                          pk_reason, incidences),
+    lab2 %>%
+      mutate(sample = as.character(sample),
+             sample_status = as.character(sample_status),
+             start_time = lubridate::as_datetime(start_time),
+             efficacy_reason = as.character(efficacy_reason),
+             pk_reason = as.character(pk_reason)) %>%      
+      dplyr::select(sample, sample_status, start_time, efficacy_reason,
+                           pk_reason)
+  ) %>%
+  mutate(quarantine_reasons = paste0(efficacy_reason, ';', pk_reason)) %>%
+  dplyr::select(-efficacy_reason, -pk_reason) %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(sample, .keep_all = TRUE) %>%
+  dplyr::select(-start_time)
+# join by sample
+individuals <- left_join(individuals, right)
+
+# <LAB> ####################################################################
 
 # Combine them all into one
 file.remove('efficacy_metadata.zip')
