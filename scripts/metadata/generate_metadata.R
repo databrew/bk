@@ -567,7 +567,10 @@ households_sp_projected@data$old_cluster_correct <-
 # since geo_cluster_num was calculated using a faulty method which put households which
 # were within the buffer of >1 cluster into the wrong cluster at times
 # So, let's fix v0demography
-v0demography <- v0demography %>% dplyr::select(-geo_cluster_num) %>%
+if('geo_cluster_num' %in% names(v0demography)){
+  v0demography <- v0demography %>% dplyr::select(-geo_cluster_num) 
+}
+v0demography <- v0demography %>%
   left_join(households_sp_projected@data %>% dplyr::select(hhid, geo_cluster_num = old_cluster_correct))
 v0demography_full <- left_join(v0demography_full, households_sp_projected@data %>% dplyr::select(hhid, not_in_old_cluster, old_cluster_correct))
 v0demography_full$geo_cluster_num <- v0demography_full$old_cluster_correct
@@ -2072,13 +2075,11 @@ write_csv(icf_individuals, 'icf_metadata/individual_data.csv')
 
 # <LAB> ####################################################################
 # forms lab and lab2 consume the same metadata
-# One row per participant extid from efficacy and pk. For efficacy, values should come from the enrollment visit, (where icf_completed == 1)
+# One row per sample. 
 # (Note the color coded variables coming from the different forms)
-individuals <- 
+samples <- 
   bind_rows(
     efficacy %>%
-      # only enrollment visit
-      filter(icf_completed == 1) %>%
       mutate(start_time = lubridate::as_datetime(start_time)) %>%
       mutate(cluster = as.character(cluster)) %>%
       mutate(dob = lubridate::as_datetime(dob)) %>%
@@ -2086,10 +2087,13 @@ individuals <-
       mutate(sample = dbs_barcode) %>%
       mutate(sample = as.character(sample)) %>%
       mutate(study = 'efficacy') %>%
-      mutate(icf_type = ifelse(minor_assent_status != 'Parent Legal Guardian & Assent', 'Parent Legal Guardian', minor_assent_status)) %>%
+      # improved instructions on icf_type : https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1697670524086009?thread_ts=1697666580.519149&cid=C042KSRLYUA
+      mutate(icf_type = ifelse(!is.na(minor_assent_status),
+                               'Parent Legal Guardian & Assent',
+                               'Parent Legal Guardian')) %>%
       mutate(icf_type = as.character(icf_type)) %>%
       mutate(wid = as.character(wid), todays_date = as.Date(todays_date)) %>%
-      dplyr::select(extid, start_time, dob, sample, study, icf_type, cl_sample = wid, date_sample = todays_date, visit, cluster),
+      dplyr::select(extid, start_time, dob, sample, study, icf_type, cl_sample = wid, date_sample = todays_date, visit, cluster, age),
     bind_rows(
       pkday0 %>%
         mutate(start_time = lubridate::as_datetime(start_time)) %>%
@@ -2119,9 +2123,20 @@ individuals <-
                                ifelse(!is.na(s4qr), 'Sample 4',
                                       ifelse(!is.na(s5qr), 'Sample 5',
                                              ifelse(!is.na(s6qr), 'Sample 6', NA)))))))) %>%
-        mutate(time_sample_collection = start_time) %>%
-        
-        dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection),
+        mutate(s1q3 = as.character(s1q3),
+               s2q3 = as.character(s2q3),
+               s3q3 = as.character(s3q3),
+               s4q3 = as.character(s4q3),
+               s5q3 = as.character(s5q3),
+               s6q3 = as.character(s6q3)) %>%
+        mutate(time_sample_collection =as.character(
+          ifelse(!is.na(s1qr), s1q3,
+                 ifelse(!is.na(s2qr), s2q3,
+                        ifelse(!is.na(s3qr), s3q3,
+                               ifelse(!is.na(s4qr), s4q3,
+                                      ifelse(!is.na(s5qr), s5q3,
+                                             ifelse(!is.na(s6qr), s6q3, NA)))))))) %>%
+        dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, age),
       pkdays123 %>%
         # deal with todays_date
         mutate(todays_date = if_else(sample_collected_at_time == 'no',
@@ -2135,25 +2150,22 @@ individuals <-
         mutate(cluster = as.character(cluster)) %>%
         mutate(pk_sample_number = as.character(sample_number_print)) %>%
         mutate(time_sample_collection = if_else(sample_collected_at_time == 'no', lubridate::as_datetime(time_of_sample), lubridate::as_datetime(time_blood_samples_formatted))) %>%
-        mutate(num_aliquots = ifelse(two_samples == 'both', 2,
-                                     ifelse(two_samples %in% c('only aliquot 1', 'only aliquot 2', 1, ifelse(two_samples == 'none', 0, NA))))) %>%
-        dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, num_aliquots)
+        mutate(time_sample_collection = as.character(time_sample_collection)) %>%
+        mutate(num_aliquots = ifelse(is.na(two_samples), NA,
+                                            ifelse(two_samples == 'yes', 2,
+                                                   ifelse(two_samples %in% c('only aliquot 1', 'only aliquot 2'), 1, 
+                                                          ifelse(two_samples == 'none', 0, NA))))) %>%
+        dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, num_aliquots, age)
     ) %>%
       mutate(study = 'pk',
              icf_type = 'Safety Adult ICF & PK ICF') 
   ) %>%
-  # keep only one row per extid
+  # keep only one row per sample
   arrange(start_time) %>%
+  dplyr::distinct(sample, .keep_all  = TRUE) %>%
   # reformat date of birth
-  mutate(dob = paste0('.', as.character(dob)))
-# Get ages as of efficacy enrollment or pkday0
-ages <- 
-  bind_rows(
-    efficacy %>% dplyr::select(extid, age) %>% mutate(age = as.numeric(age)),
-    pkday0 %>% dplyr::select(extid, age) %>% mutate(age = as.numeric(age))
-  ) %>%
-  dplyr::distinct(extid, .keep_all = TRUE)
-individuals <- left_join(individuals, ages)
+  mutate(dob = paste0('.', as.character(dob))) %>%
+  filter(!is.na(sample))
 # Get icf_status_efficacy, which is the
 # most recent icf_stat coming from sepk_icf_verification or sepk_icf_resolution for this extid where study_select == efficacy
 right <- bind_rows(
@@ -2169,7 +2181,7 @@ right <- bind_rows(
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::select(extid, icf_status_efficacy = icf_stat)
-individuals <- left_join(individuals, right)
+samples <- left_join(samples, right)
 # get icf_status_pk, which is the 
 # most recent icf_stat coming from sepk_icf_verification or sepk_icf_resolution for this extid where study_select == pk
 right <- bind_rows(
@@ -2185,7 +2197,7 @@ right <- bind_rows(
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::select(extid, icf_status_safety = icf_stat)
-individuals <- left_join(individuals, right)
+samples <- left_join(samples, right)
 # get icf_status_safety, which is the 
 # most recent icf_stat coming from sepk_icf_verification or sepk_icf_resolution for this extid where study_select == safety
 right <- bind_rows(
@@ -2201,9 +2213,9 @@ right <- bind_rows(
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::select(extid, icf_status_pk = icf_stat)
-individuals <- left_join(individuals, right)
+samples <- left_join(samples, right)
 # get whether in or not certain preselections
-individuals <- individuals %>%
+samples <- samples %>%
   mutate(efficacy_preselected = ifelse(extid %in% efficacy_selection$extid, 'yes', 'no'),
          pk_preselected = ifelse(extid %in% pk_individuals$extid, 'yes', 'no')) 
 # get lab-derived variables
@@ -2233,7 +2245,14 @@ right <-
   dplyr::distinct(sample, .keep_all = TRUE) %>%
   dplyr::select(-start_time)
 # join by sample
-individuals <- left_join(individuals, right)
+samples <- left_join(samples, right)
+
+# Write csvs
+if(!dir.exists('lab_metadata')){
+  dir.create('lab_metadata')
+}
+write_csv(samples, 'lab_metadata/lab_samples.csv')
+
 
 # <LAB> ####################################################################
 
@@ -2245,6 +2264,8 @@ file.remove('safety_metadata.zip')
 file.remove('ntd_metadata.zip')
 file.remove('pk_metadata.zip')
 file.remove('icf_metadata.zip')
+file.remove('lab_metadata.zip')
+
 
 dir.create('metadata_zip_files/')
 zip(zipfile = 'metadata_zip_files/efficacy_metadata.zip', files = 'efficacy_metadata/')
@@ -2254,3 +2275,4 @@ zip(zipfile = 'metadata_zip_files/safety_metadata.zip', files = 'safety_metadata
 zip(zipfile = 'metadata_zip_files/ntd_metadata.zip', files = 'ntd_metadata/')
 zip(zipfile = 'metadata_zip_files/pk_metadata.zip', files = 'pk_metadata/')
 zip(zipfile = 'metadata_zip_files/icf_metadata.zip', files = 'icf_metadata/')
+zip(zipfile = 'metadata_zip_files/lab_metadata.zip', files = 'lab_metadata/')
