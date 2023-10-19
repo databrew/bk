@@ -2076,7 +2076,23 @@ write_csv(icf_individuals, 'icf_metadata/individual_data.csv')
 # <LAB> ####################################################################
 # forms lab and lab2 consume the same metadata
 # One row per sample. 
-# (Note the color coded variables coming from the different forms)
+fix_pk_sample_id <- function(x){
+  x <- as.character(x)
+  if(length(x) < 1){
+    return(x)
+  } else if(is.na(x)){
+    return(x)
+    # detect the leading , non-0 issue
+  } else if(nchar(x) == 7 & length(unlist(strsplit(x, split = '-'))) == 3) {
+    x <- paste0('0', x)
+    x <- as.character(unlist(x))
+    names(x) <- NULL
+    return(x)
+  } else {
+    return(x)
+  }
+}
+fix_pk_sample_id <- Vectorize(fix_pk_sample_id)
 samples <- 
   bind_rows(
     efficacy %>%
@@ -2157,6 +2173,8 @@ samples <-
                                                           ifelse(two_samples == 'none', 0, NA))))) %>%
         dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, num_aliquots, age)
     ) %>%
+      # fix pk sample ids
+      mutate(sample = unlist(fix_pk_sample_id(sample))) %>%
       mutate(study = 'pk',
              icf_type = 'Safety Adult ICF & PK ICF') 
   ) %>%
@@ -2227,7 +2245,11 @@ right <-
              start_time = lubridate::as_datetime(start_time),
              efficacy_reason = as.character(efficacy_reason),
              pk_reason = as.character(pk_reason),
-             incidences = paste0(match_tracking_incidence_select, ';', match_tracking_incidence_select2)) %>%
+             incidences = ifelse(!is.na(match_tracking_incidence_select),
+                                 match_tracking_incidence_select,
+                                 ifelse(!is.na(match_tracking_incidence_select2),
+                                        match_tracking_incidence_select2,
+                                        NA))) %>%
       dplyr::select(sample, sample_status, start_time, efficacy_reason,
                           pk_reason, incidences),
     lab2 %>%
@@ -2239,13 +2261,19 @@ right <-
       dplyr::select(sample, sample_status, start_time, efficacy_reason,
                            pk_reason)
   ) %>%
-  mutate(quarantine_reasons = paste0(efficacy_reason, ';', pk_reason)) %>%
+  mutate(quarantine_reasons = ifelse(!is.na(efficacy_reason),
+                                     efficacy_reason,
+                                     ifelse(!is.na(pk_reason),
+                                            pk_reason, NA))) %>%
   dplyr::select(-efficacy_reason, -pk_reason) %>%
   arrange(desc(start_time)) %>%
   dplyr::distinct(sample, .keep_all = TRUE) %>%
   dplyr::select(-start_time)
 # join by sample
 samples <- left_join(samples, right)
+
+# Clean up a bit
+samples <- samples %>% filter(!is.na(extid))
 
 # Write csvs
 if(!dir.exists('lab_metadata')){
