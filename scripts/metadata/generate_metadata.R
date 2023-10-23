@@ -469,7 +469,7 @@ v0demography_repeat_individual <- v0demography_repeat_individual %>%
          lastname = toupper(lastname))
 
 # Define a date after which to retrieve data
-start_from <- as.Date('2023-09-12')
+start_from <- as.Date('2020-09-12')
 efficacy <- efficacy %>% filter(todays_date >= start_from)
 pfu <- pfu %>% filter(todays_date >= start_from)
 pfu_repeat_preg_symptom <- pfu_repeat_preg_symptom %>% filter(PARENT_KEY %in% pfu$KEY)
@@ -1154,10 +1154,14 @@ obvious_screening <-
   bind_rows(
     safety_repeat_individual %>% left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
       dplyr::select(extid, start_time, obvious_screening) %>%
-      mutate(src = 'Safety'),
+      mutate(src = 'Safety',
+             obvious_screening = as.character(obvious_screening),
+             start_time = lubridate::as_datetime(start_time)),
     safetynew_repeat_individual %>% left_join(safetynew, by = c('PARENT_KEY' = 'KEY')) %>%
       dplyr::select(extid, start_time, obvious_screening) %>%
-      mutate(src = 'Safety')
+      mutate(src = 'Safety',
+             obvious_screening = as.character(obvious_screening),
+             start_time = lubridate::as_datetime(start_time))
   ) %>%
   filter(!is.na(obvious_screening)) %>%
   arrange(desc(start_time)) %>%
@@ -1831,19 +1835,28 @@ icf_individuals <- left_join(icf_individuals, right)
 # Get the "safety_date", ie todays_date of safety form where ind_icf_completed = 1
 right <-   bind_rows(
   safety_repeat_individual %>%
+    mutate(ind_icf_completed = as.character(ind_icf_completed)) %>%
     filter(!is.na(ind_icf_completed)) %>%
     filter(ind_icf_completed == 1) %>%
     left_join(safety %>% dplyr::select(hhid, KEY, visit, cluster,start_time, todays_date, wid), by = c('PARENT_KEY' = 'KEY')) %>%
-    mutate(start_time = lubridate::as_datetime(start_time)) %>%
+    mutate(start_time = lubridate::as_datetime(start_time),
+           age = as.numeric(age),
+           todays_date = as.Date(todays_date),
+           wid = as.character(wid)) %>%
     dplyr::select(extid, age,  ind_icf_completed, start_time, todays_date, wid),
   safetynew_repeat_individual %>%
     filter(!is.na(ind_icf_completed)) %>%
     filter(ind_icf_completed == 1) %>%
     left_join(safetynew %>% dplyr::select(hhid, visit, cluster, KEY, start_time, todays_date, wid), by = c('PARENT_KEY' = 'KEY')) %>%
-    mutate(start_time = lubridate::as_datetime(start_time)) %>%
+    mutate(start_time = lubridate::as_datetime(start_time),
+           age = as.numeric(age),
+           todays_date = as.Date(todays_date),
+           wid = as.character(wid)) %>%
+    mutate(ind_icf_completed = as.character(ind_icf_completed)) %>%
     dplyr::select(extid, age, ind_icf_completed, start_time, todays_date, wid)) %>%
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
+  mutate(age = as.numeric(age)) %>%
   mutate(safety_icf_type = ifelse(age >= 18, 'Adult',
                                   ifelse(age >= 12, 'Assent and parent Legal Guardian',
                                          ifelse(age < 12, 'Parent Legal Guardian', NA)))) %>%
@@ -2152,7 +2165,7 @@ samples <-
                                ifelse(!is.na(s4qr), s4q3,
                                       ifelse(!is.na(s5qr), s5q3,
                                              ifelse(!is.na(s6qr), s6q3, NA)))))))) %>%
-        dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, age),
+        dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, age, pkid = pk_id),
       pkdays123 %>%
         # deal with todays_date
         mutate(todays_date = if_else(sample_collected_at_time == 'no',
@@ -2171,7 +2184,7 @@ samples <-
                                             ifelse(two_samples == 'yes', 2,
                                                    ifelse(two_samples %in% c('only aliquot 1', 'only aliquot 2'), 1, 
                                                           ifelse(two_samples == 'none', 0, NA))))) %>%
-        dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, num_aliquots, age)
+        dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, num_aliquots, age, pkid = pk_id)
     ) %>%
       # fix pk sample ids
       mutate(sample = unlist(fix_pk_sample_id(sample))) %>%
