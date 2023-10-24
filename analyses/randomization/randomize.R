@@ -1144,6 +1144,8 @@ if(file.exists(file_path)){
   write_csv(efficacy_selection, file_path)
 }
 
+
+
 # One-off request for Carlos
 # https://trello.com/c/iSs67XrF/2000-efficacy-selection-with-additional-information
 # distance_to_edge
@@ -1157,6 +1159,9 @@ if(FALSE){
     arrange(cluster, priority_number)
   write_csv(carlos, '~/Desktop/efficacy_expanded.csv')
 }
+
+# Mid October 2023 change - removing from efficacy those whose updated ages (per v0demography corrections) make them ineligible for efficacy. The above file ("efficacy_selection.csv") was manually overwritten
+
 
 # Per Paula's instructions (https://docs.google.com/document/d/1Tjpyh8O9oesnDiQgjEih1VpOIZFctpM7UA5aDK--N8o/edit)
 # create "ntd_efficacy_preselected" variable for those who are both :
