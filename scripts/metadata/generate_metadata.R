@@ -2292,7 +2292,7 @@ samples <- samples %>% filter(!is.na(extid))
 if(!dir.exists('lab_metadata')){
   dir.create('lab_metadata')
 }
-write_csv(samples, 'lab_metadata/lab_samples.csv')
+write_csv(samples, 'lab_metadata/lab_data.csv')
 
 
 # <LAB> ####################################################################
