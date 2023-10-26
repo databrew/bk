@@ -996,7 +996,7 @@ if(FALSE){
   write_csv(nika, '/tmp/safety_individuals.csv')
 }
 
-# Render the visit 0 household health economics visit control sheet
+# Render the safety visit control sheet
 # options(kableExtra.latex.load_packages = FALSE)
 
 if(FALSE){
@@ -1065,11 +1065,15 @@ starting_roster <- v0demography_repeat_individual %>%
   left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
-  dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid)
+  dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>%
+  mutate(firstname = stringr::str_replace_all(firstname, "[^[:alnum:]]", "")) %>%
+  mutate(lastname = stringr::str_replace_all(lastname, "[^[:alnum:]]", "")) 
 # Add new individuals to the starting roster
 new_people <- healtheconnew_repeat_individual %>%
   left_join(healtheconnew %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>%
+  mutate(firstname = stringr::str_replace_all(firstname, "[^[:alnum:]]", "")) %>%
+  mutate(lastname = stringr::str_replace_all(lastname, "[^[:alnum:]]", "")) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   mutate(hhid = as.character(hhid))
 starting_roster <- bind_rows(starting_roster, new_people)
@@ -1222,6 +1226,8 @@ heads <- v0demography_repeat_individual %>%
   filter(hh_head_yn == 'yes') %>%
   left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   dplyr::select(hhid, start_time, firstname, lastname, extid) %>%
+  mutate(firstname = stringr::str_replace_all(firstname, "[^[:alnum:]]", "")) %>%
+  mutate(lastname = stringr::str_replace_all(lastname, "[^[:alnum:]]", "")) %>%
   arrange(desc(start_time)) %>%
   dplyr::distinct(hhid, .keep_all = TRUE) %>%
   mutate(household_head = paste0(firstname, ' ', lastname)) %>%
