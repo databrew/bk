@@ -2212,7 +2212,7 @@ samples <-
   arrange(start_time) %>%
   dplyr::distinct(sample, .keep_all  = TRUE) %>%
   # reformat date of birth
-  mutate(dob = paste0('.', as.character(dob))) %>%
+  # mutate(dob = paste0('.', as.character(dob))) %>%
   filter(!is.na(sample))
 # Get icf_status_efficacy, which is the
 # most recent icf_stat coming from sepk_icf_verification or sepk_icf_resolution for this extid where study_select == efficacy
