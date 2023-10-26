@@ -616,262 +616,6 @@ gc()
 
 
 
-##############################################################################
-##############################################################################
-##############################################################################
-# <Health economics> ##############################################################################
-
-# First, create individual data based solely on v0demography
-starting_roster <- v0demography_repeat_individual %>%
-  left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
-  arrange(desc(start_time)) %>%
-  dplyr::distinct(extid, .keep_all = TRUE) %>%
-  dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid)
-# Add new individuals to the starting roster
-new_people <- healtheconnew_repeat_individual %>%
-  left_join(healtheconnew %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
-  dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>%
-  dplyr::distinct(extid, .keep_all = TRUE) %>%
-  mutate(hhid = as.character(hhid))
-starting_roster <- bind_rows(starting_roster, new_people)
-starting_roster <- starting_roster %>%
-  arrange(desc(start_time)) %>%
-  dplyr::distinct(extid, .keep_all = TRUE) %>%
-  dplyr::mutate(fullname_dob = paste0(firstname, ' ', lastname, ' | ', dob)) %>%
-  mutate(roster_name = paste0(firstname, ' ', lastname, ' (',
-                              extid, ')')) %>%
-  dplyr::rename(fullname_id = roster_name) %>%
-  mutate(hecon_name = paste0(firstname, '-', lastname, '-', extid))
-# Get the starting health economics status of each individual
-# This should be most recent hecon_individual_status, which should be overridden and turned to eos if in the heconmonthly form hecon_household_status = eos
-starting_hecon_statuses <-
-  bind_rows(
-    healtheconnew_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
-      left_join(healtheconnew %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY')),
-    healtheconbaseline_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
-      left_join(healtheconbaseline %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY')),
-    healtheconmonthly_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
-      left_join(healtheconmonthly %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY'))
-  ) %>%
-  filter(!is.na(hecon_individual_status)) %>%
-  arrange(desc(start_time)) %>%
-  dplyr::distinct(extid, .keep_all = TRUE) %>%
-  dplyr::select(extid, starting_hecon_status = hecon_individual_status)
-# In the case of someone not being in the above dataset but being preselected for health economics
-# the status should be "out"
-starting_roster <- left_join(starting_roster, starting_hecon_statuses) %>%
-  mutate(starting_hecon_status = ifelse(is.na(starting_hecon_status), 'out', starting_hecon_status))
-# if in the heconmonthly form hecon_household_status = eos, the individual should be eos
-household_eos <-
-  bind_rows(
-    healtheconmonthly %>% mutate(start_time = as.POSIXct(start_time)) %>% dplyr::select(hhid, start_time, hecon_household_status),
-    healtheconbaseline %>% mutate(start_time = as.POSIXct(start_time)) %>% dplyr::select(hhid, start_time, hecon_household_status)
-  ) %>%
-  filter(hecon_household_status == 'eos')
-if(nrow(household_eos) > 0){
-  starting_roster$starting_hecon_status[starting_roster$hhid %in% household_eos$hhid] <- 'eos'
-}
-# If ever eos, always eos
-ever_eos <-
-  bind_rows(
-    healtheconnew_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
-      left_join(healtheconnew %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY')),
-    healtheconbaseline_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
-      left_join(healtheconbaseline %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY')),
-    healtheconmonthly_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
-      left_join(healtheconmonthly %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY'))
-  ) %>%
-  filter(!is.na(hecon_individual_status)) %>%
-  filter(hecon_individual_status == 'eos') %>%
-  filter(!is.na(extid)) %>%
-  dplyr::pull(extid)
-starting_roster$starting_hecon_status[starting_roster$extid %in% ever_eos] <- 'eos'
-
-# Read in Almudena-created health economics randomization data
-health_economics_clusters <- read_csv('../../analyses/randomization/outputs/health_economics_clusters.csv')
-health_economics_households <- read_csv('../../analyses/randomization/outputs/health_economics_households.csv') %>%
-  mutate(hhid = add_zero(hhid, 5))
-health_economics_backup_households <- read_csv('../../analyses/randomization/outputs/health_economics_backup_households.csv') %>%
-  mutate(hhid = add_zero(hhid, 5))
-health_economics_households <- bind_rows(health_economics_households, health_economics_backup_households)
-ntd_efficacy_preselection <- read_csv('../../analyses/randomization/outputs/health_economics_ntd_efficacy_preselection.csv')
-ntd_safety_preselection <- read_csv('../../analyses/randomization/outputs/health_economics_ntd_safety_preselection.csv')
-# Paula's instructions (https://docs.google.com/document/d/1Tjpyh8O9oesnDiQgjEih1VpOIZFctpM7UA5aDK--N8o/edit)
-starting_roster <- starting_roster %>%
-  mutate(ntd_safety_preselected = ifelse(extid %in% ntd_safety_preselection$extid, 1, 0)) %>%
-  mutate(ntd_efficacy_preselected = ifelse(extid %in% ntd_efficacy_preselection$extid, 1, 0))
-# Get visit 1 safety status
-v1_safety_status <-
-  bind_rows(
-    safety_repeat_individual %>%
-      left_join(safety %>% dplyr::select(KEY, visit, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
-      mutate(start_time = as.POSIXct(start_time), extid = as.character(extid), safety_status = as.character(safety_status)) %>%
-      dplyr::select(start_time, extid, safety_status, visit) %>% mutate(form = 'safety'),
-    safetynew_repeat_individual %>%
-      left_join(safetynew %>% dplyr::select(KEY, visit, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
-      mutate(start_time = as.POSIXct(start_time), extid = as.character(extid), safety_status = as.character(safety_status)) %>%
-      dplyr::select(start_time, extid, safety_status, visit) %>% mutate(form = 'safetynew')
-  ) %>%
-  # keep only visit 1
-  filter(visit == 'V1') %>%
-  # keep only most recent (relevant in case of duplicates)
-  arrange(desc(start_time)) %>%
-  dplyr::distinct(extid, .keep_all = TRUE) %>%
-  dplyr::select(extid, v1_safety_status = safety_status)
-# Join the safety statuses from v1; in the case of someone who doesn't have a v1 status, this should
-# be NA per https://bohemiakenya.slack.com/archives/C058WT0ADBN/p1691172066177829?thread_ts=1691171197.538939&cid=C058WT0ADBN
-starting_roster <- left_join(starting_roster, v1_safety_status)
-# Deal with migrations / deaths
-healthecon_departures <-
-  bind_rows(
-    healtheconbaseline_repeat_individual %>%
-      left_join(healtheconbaseline %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
-      mutate(extid = as.character(extid)) %>%
-      mutate(start_time = as.POSIXct(start_time)) %>%
-      filter(!is.na(person_absent_reason)) %>%
-      filter(person_absent_reason != 'Absent') %>%
-      dplyr::select(start_time, extid, person_absent_reason),
-    healtheconmonthly_repeat_individual %>%
-      left_join(healtheconmonthly %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
-      mutate(extid = as.character(extid)) %>%
-      mutate(start_time = as.POSIXct(start_time)) %>%
-      filter(!is.na(person_absent_reason)) %>%
-      filter(person_absent_reason != 'Absent') %>%
-      dplyr::select(start_time, extid, person_absent_reason)
-  )
-healthecon_deaths <- healthecon_departures %>%
-  filter(person_absent_reason == 'Died')
-healthecon_migrations <- healthecon_departures %>%
-  filter(person_absent_reason == 'Migrated')
-# Set all migrants and dead people to eos
-if(nrow(healthecon_deaths) > 0){
-  starting_roster$dead <- ifelse(starting_roster$extid %in% healthecon_deaths$extid, 1, 0)
-  starting_roster$dead[is.na(starting_roster$dead)] <- 0
-  starting_roster$starting_hecon_status <- ifelse(starting_roster$extid %in% healthecon_deaths$extid, 'eos', starting_roster$starting_hecon_status)
-} else {
-  starting_roster$dead <- 0
-}
-if(nrow(healthecon_migrations) > 0){
-  starting_roster$migrated <- ifelse(starting_roster$extid %in% healthecon_migrations$extid, 1, 0)
-  starting_roster$migrated[is.na(starting_roster$migrated)] <- 0
-  starting_roster$starting_hecon_status <- ifelse(starting_roster$extid %in% healthecon_migrations$extid, 'eos', starting_roster$starting_hecon_status)
-} else {
-  starting_roster$migrated <- 0
-}
-
-# Remove those who are dead and migrated
-starting_roster <- starting_roster %>%
-  filter(migrated != 1, dead != 1)
-
-# Now use individual data to make household data
-households <- starting_roster %>%
-  mutate(roster_name = paste0(firstname, ' ', lastname, ' (',
-                              extid, ')')) %>%
-  group_by(hhid) %>%
-  summarise(roster = paste0(roster_name[dead == 0 & migrated == 0], collapse = ', '),
-            num_members = length(which(dead == 0 & migrated == 0))) %>%
-  # get cluster
-  left_join(v0demography %>%
-              dplyr::select(hhid, cluster)) %>%
-  # get intervention
-  left_join(assignments %>% dplyr::select(cluster = cluster_number,
-                                          arm = assignment)) %>%
-  # get interventions
-  left_join(intervention_assignment)
-# Get household heads and geographic information
-heads <- v0demography_repeat_individual %>%
-  filter(hh_head_yn == 'yes') %>%
-  left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
-  dplyr::select(hhid, start_time, firstname, lastname, extid) %>%
-  arrange(desc(start_time)) %>%
-  dplyr::distinct(hhid, .keep_all = TRUE) %>%
-  mutate(household_head = paste0(firstname, ' ', lastname)) %>%
-  dplyr::select(hhid, household_head)
-households <- households %>%
-  left_join(heads)
-# Get visits done and baseline in/out status
-visits_done <- healtheconbaseline %>%
-  mutate(visit = 'V1', hhid = as.character(hhid)) %>%
-  dplyr::select(hhid, visit) %>%
-  bind_rows(healtheconmonthly %>%
-              mutate(hhid = as.character(hhid)) %>%
-              dplyr::select(hhid, visit)) %>%
-  group_by(hhid) %>%
-  summarise(visits_done = paste0(sort(unique(visit)), collapse = ', '))
-# Get baseline in/out status
-right <- healtheconbaseline %>%
-  mutate(start_time = as.POSIXct(start_time)) %>%
-  dplyr::select(start_time, hhid, hecon_hh_status = hecon_household_status) %>%
-  bind_rows(healtheconmonthly %>%
-              mutate(start_time = as.POSIXct(start_time)) %>%
-              dplyr::select(start_time, hhid, hecon_hh_status = hecon_household_status)) %>%
-  arrange(desc(start_time)) %>%
-  dplyr::distinct(hhid, .keep_all = TRUE)
-visits_done <- left_join(visits_done, right)
-households <- left_join(households, visits_done)
-# If NA hecon_hh_status, this means that the household did not have any  visit, and
-# should be considered "out"
-households <- households %>%
-  mutate(hecon_hh_status = ifelse(is.na(hecon_hh_status), 'out', hecon_hh_status))
-
-# Get hecon_hh_preselected,
-households <- households %>%
-  mutate(hecon_hh_preselected = ifelse(hhid %in% health_economics_households$hhid, 1, 0))
-# Get hecon_members
-households$hecon_members <- households$roster
-# Create the herd preselected variable (just random values for now)
-households <- households %>%
-  mutate(herd_preselected = ifelse(hhid %in% health_economics_households$hhid[health_economics_households$herd_preselected == 'yes'], 1, 0))
-# Keep only health economics households
-households <- households %>% filter(hhid %in% health_economics_households$hhid)
-starting_roster <- starting_roster %>% filter(hhid %in% households$hhid)
-
-# Reformat clusters and household IDs
-households <- households %>%
-  mutate(cluster = add_zero(cluster, 2))
-
-# Write NTD data before removing those who are out/eos for health econ ########################
-individuals <- starting_roster %>%
-  filter(extid %in% ntd_efficacy_preselection$extid |
-           extid %in% ntd_safety_preselection$extid)
-if(!dir.exists('ntd_metadata')){
-  dir.create('ntd_metadata')
-}
-write_csv(individuals, 'ntd_metadata/individual_data.csv')
-
-# Write health economic baseline data #########################################
-if(!dir.exists('healtheconbaseline_metadata')){
-  dir.create('healtheconbaseline_metadata')
-}
-write_csv(households, 'healtheconbaseline_metadata/household_data.csv')
-write_csv(starting_roster, 'healtheconbaseline_metadata/individual_data.csv')
-
-# Create "visit control sheets" for health economics based on these specifications:
-# https://docs.google.com/spreadsheets/d/1Ok1JAq4RhAv0dMnVRjl38Ig-6XdEyvBJbCtMzFql9k4/edit#gid=0
-save(households, individuals, v0demography, v0demography_repeat_individual, file = 'rmds/health_economics_tables.RData')
-
-# Render the visit 0 household health economics visit control sheet
-if(FALSE){
-  rmarkdown::render('rmds/health_economics_visit_control_sheet.Rmd')
-}
-
-# Write health economic monthly followup data  #########################################
-# Remove from health econ those who are out/eos
-households <- households %>% filter(!is.na(hecon_hh_status)) %>% filter(hecon_hh_status == 'in')
-starting_roster <- starting_roster %>% filter(hhid %in% households$hhid)
-
-if(!dir.exists('healtheconmonthly_metadata')){
-  dir.create('healtheconmonthly_metadata')
-}
-write_csv(households, 'healtheconmonthly_metadata/household_data.csv')
-write_csv(starting_roster, 'healtheconmonthly_metadata/individual_data.csv')
-
-
-pryr::mem_used()
-# </Health economics> ##############################################################################
-##############################################################################
-##############################################################################
-##############################################################################
 
 ##############################################################################
 ##############################################################################
@@ -1137,7 +881,7 @@ if(FALSE){
   write_csv(individuals, '~/Desktop/individual_data.csv')
   }
 
-# Save object for use in ICF
+# Save object for use in ICF and health economics followup
 safety_individuals <- individuals
 # Write csvs
 if(!dir.exists('safety_metadata')){
@@ -1309,6 +1053,279 @@ pryr::mem_used()
 
 
 save.image('temp.RData')
+
+
+##############################################################################
+##############################################################################
+##############################################################################
+# <Health economics> ##############################################################################
+
+# First, create individual data based solely on v0demography
+starting_roster <- v0demography_repeat_individual %>%
+  left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid)
+# Add new individuals to the starting roster
+new_people <- healtheconnew_repeat_individual %>%
+  left_join(healtheconnew %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
+  dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  mutate(hhid = as.character(hhid))
+starting_roster <- bind_rows(starting_roster, new_people)
+starting_roster <- starting_roster %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::mutate(fullname_dob = paste0(firstname, ' ', lastname, ' | ', dob)) %>%
+  mutate(roster_name = paste0(firstname, ' ', lastname, ' (',
+                              extid, ')')) %>%
+  dplyr::rename(fullname_id = roster_name) %>%
+  mutate(hecon_name = paste0(firstname, '-', lastname, '-', extid))
+# Get the starting health economics status of each individual
+# This should be most recent hecon_individual_status, which should be overridden and turned to eos if in the heconmonthly form hecon_household_status = eos
+starting_hecon_statuses <-
+  bind_rows(
+    healtheconnew_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
+      left_join(healtheconnew %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY')),
+    healtheconbaseline_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
+      left_join(healtheconbaseline %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY')),
+    healtheconmonthly_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
+      left_join(healtheconmonthly %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY'))
+  ) %>%
+  filter(!is.na(hecon_individual_status)) %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, starting_hecon_status = hecon_individual_status)
+# In the case of someone not being in the above dataset but being preselected for health economics
+# the status should be "out"
+starting_roster <- left_join(starting_roster, starting_hecon_statuses) %>%
+  mutate(starting_hecon_status = ifelse(is.na(starting_hecon_status), 'out', starting_hecon_status))
+# if in the heconmonthly form hecon_household_status = eos, the individual should be eos
+household_eos <-
+  bind_rows(
+    healtheconmonthly %>% mutate(start_time = as.POSIXct(start_time)) %>% dplyr::select(hhid, start_time, hecon_household_status),
+    healtheconbaseline %>% mutate(start_time = as.POSIXct(start_time)) %>% dplyr::select(hhid, start_time, hecon_household_status)
+  ) %>%
+  filter(hecon_household_status == 'eos')
+if(nrow(household_eos) > 0){
+  starting_roster$starting_hecon_status[starting_roster$hhid %in% household_eos$hhid] <- 'eos'
+}
+# If ever eos, always eos
+ever_eos <-
+  bind_rows(
+    healtheconnew_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
+      left_join(healtheconnew %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY')),
+    healtheconbaseline_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
+      left_join(healtheconbaseline %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY')),
+    healtheconmonthly_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
+      left_join(healtheconmonthly %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY'))
+  ) %>%
+  filter(!is.na(hecon_individual_status)) %>%
+  filter(hecon_individual_status == 'eos') %>%
+  filter(!is.na(extid)) %>%
+  dplyr::pull(extid)
+starting_roster$starting_hecon_status[starting_roster$extid %in% ever_eos] <- 'eos'
+
+# Read in Almudena-created health economics randomization data
+health_economics_clusters <- read_csv('../../analyses/randomization/outputs/health_economics_clusters.csv')
+health_economics_households <- read_csv('../../analyses/randomization/outputs/health_economics_households.csv') %>%
+  mutate(hhid = add_zero(hhid, 5))
+health_economics_backup_households <- read_csv('../../analyses/randomization/outputs/health_economics_backup_households.csv') %>%
+  mutate(hhid = add_zero(hhid, 5))
+health_economics_households <- bind_rows(health_economics_households, health_economics_backup_households)
+ntd_efficacy_preselection <- read_csv('../../analyses/randomization/outputs/health_economics_ntd_efficacy_preselection.csv')
+ntd_safety_preselection <- read_csv('../../analyses/randomization/outputs/health_economics_ntd_safety_preselection.csv')
+# Paula's instructions (https://docs.google.com/document/d/1Tjpyh8O9oesnDiQgjEih1VpOIZFctpM7UA5aDK--N8o/edit)
+starting_roster <- starting_roster %>%
+  mutate(ntd_safety_preselected = ifelse(extid %in% ntd_safety_preselection$extid, 1, 0)) %>%
+  mutate(ntd_efficacy_preselected = ifelse(extid %in% ntd_efficacy_preselection$extid, 1, 0))
+# Get visit 1 safety status
+v1_safety_status <-
+  bind_rows(
+    safety_repeat_individual %>%
+      left_join(safety %>% dplyr::select(KEY, visit, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
+      mutate(start_time = as.POSIXct(start_time), extid = as.character(extid), safety_status = as.character(safety_status)) %>%
+      dplyr::select(start_time, extid, safety_status, visit) %>% mutate(form = 'safety'),
+    safetynew_repeat_individual %>%
+      left_join(safetynew %>% dplyr::select(KEY, visit, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
+      mutate(start_time = as.POSIXct(start_time), extid = as.character(extid), safety_status = as.character(safety_status)) %>%
+      dplyr::select(start_time, extid, safety_status, visit) %>% mutate(form = 'safetynew')
+  ) %>%
+  # keep only visit 1
+  filter(visit == 'V1') %>%
+  # keep only most recent (relevant in case of duplicates)
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, v1_safety_status = safety_status)
+# Join the safety statuses from v1; in the case of someone who doesn't have a v1 status, this should
+# be NA per https://bohemiakenya.slack.com/archives/C058WT0ADBN/p1691172066177829?thread_ts=1691171197.538939&cid=C058WT0ADBN
+starting_roster <- left_join(starting_roster, v1_safety_status)
+# Deal with migrations / deaths
+healthecon_departures <-
+  bind_rows(
+    healtheconbaseline_repeat_individual %>%
+      left_join(healtheconbaseline %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
+      mutate(extid = as.character(extid)) %>%
+      mutate(start_time = as.POSIXct(start_time)) %>%
+      filter(!is.na(person_absent_reason)) %>%
+      filter(person_absent_reason != 'Absent') %>%
+      dplyr::select(start_time, extid, person_absent_reason),
+    healtheconmonthly_repeat_individual %>%
+      left_join(healtheconmonthly %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
+      mutate(extid = as.character(extid)) %>%
+      mutate(start_time = as.POSIXct(start_time)) %>%
+      filter(!is.na(person_absent_reason)) %>%
+      filter(person_absent_reason != 'Absent') %>%
+      dplyr::select(start_time, extid, person_absent_reason)
+  )
+healthecon_deaths <- healthecon_departures %>%
+  filter(person_absent_reason == 'Died')
+healthecon_migrations <- healthecon_departures %>%
+  filter(person_absent_reason == 'Migrated')
+# Set all migrants and dead people to eos
+if(nrow(healthecon_deaths) > 0){
+  starting_roster$dead <- ifelse(starting_roster$extid %in% healthecon_deaths$extid, 1, 0)
+  starting_roster$dead[is.na(starting_roster$dead)] <- 0
+  starting_roster$starting_hecon_status <- ifelse(starting_roster$extid %in% healthecon_deaths$extid, 'eos', starting_roster$starting_hecon_status)
+} else {
+  starting_roster$dead <- 0
+}
+if(nrow(healthecon_migrations) > 0){
+  starting_roster$migrated <- ifelse(starting_roster$extid %in% healthecon_migrations$extid, 1, 0)
+  starting_roster$migrated[is.na(starting_roster$migrated)] <- 0
+  starting_roster$starting_hecon_status <- ifelse(starting_roster$extid %in% healthecon_migrations$extid, 'eos', starting_roster$starting_hecon_status)
+} else {
+  starting_roster$migrated <- 0
+}
+
+# Remove those who are dead and migrated
+starting_roster <- starting_roster %>%
+  filter(migrated != 1, dead != 1)
+
+# Now use individual data to make household data
+households <- starting_roster %>%
+  mutate(roster_name = paste0(firstname, ' ', lastname, ' (',
+                              extid, ')')) %>%
+  group_by(hhid) %>%
+  summarise(roster = paste0(roster_name[dead == 0 & migrated == 0], collapse = ', '),
+            num_members = length(which(dead == 0 & migrated == 0))) %>%
+  # get cluster
+  left_join(v0demography %>%
+              dplyr::select(hhid, cluster)) %>%
+  # get intervention
+  left_join(assignments %>% dplyr::select(cluster = cluster_number,
+                                          arm = assignment)) %>%
+  # get interventions
+  left_join(intervention_assignment)
+# Get household heads and geographic information
+heads <- v0demography_repeat_individual %>%
+  filter(hh_head_yn == 'yes') %>%
+  left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
+  dplyr::select(hhid, start_time, firstname, lastname, extid) %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(hhid, .keep_all = TRUE) %>%
+  mutate(household_head = paste0(firstname, ' ', lastname)) %>%
+  dplyr::select(hhid, household_head)
+households <- households %>%
+  left_join(heads)
+# Get visits done and baseline in/out status
+visits_done <- healtheconbaseline %>%
+  mutate(visit = 'V1', hhid = as.character(hhid)) %>%
+  dplyr::select(hhid, visit) %>%
+  bind_rows(healtheconmonthly %>%
+              mutate(hhid = as.character(hhid)) %>%
+              dplyr::select(hhid, visit)) %>%
+  group_by(hhid) %>%
+  summarise(visits_done = paste0(sort(unique(visit)), collapse = ', '))
+# Get baseline in/out status
+right <- healtheconbaseline %>%
+  mutate(start_time = as.POSIXct(start_time)) %>%
+  dplyr::select(start_time, hhid, hecon_hh_status = hecon_household_status) %>%
+  bind_rows(healtheconmonthly %>%
+              mutate(start_time = as.POSIXct(start_time)) %>%
+              dplyr::select(start_time, hhid, hecon_hh_status = hecon_household_status)) %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(hhid, .keep_all = TRUE)
+visits_done <- left_join(visits_done, right)
+households <- left_join(households, visits_done)
+# If NA hecon_hh_status, this means that the household did not have any  visit, and
+# should be considered "out"
+households <- households %>%
+  mutate(hecon_hh_status = ifelse(is.na(hecon_hh_status), 'out', hecon_hh_status))
+
+# Get hecon_hh_preselected,
+households <- households %>%
+  mutate(hecon_hh_preselected = ifelse(hhid %in% health_economics_households$hhid, 1, 0))
+# Get hecon_members
+households$hecon_members <- households$roster
+# Create the herd preselected variable (just random values for now)
+households <- households %>%
+  mutate(herd_preselected = ifelse(hhid %in% health_economics_households$hhid[health_economics_households$herd_preselected == 'yes'], 1, 0))
+# Keep only health economics households
+households <- households %>% filter(hhid %in% health_economics_households$hhid)
+starting_roster <- starting_roster %>% filter(hhid %in% households$hhid)
+
+# Reformat clusters and household IDs
+households <- households %>%
+  mutate(cluster = add_zero(cluster, 2))
+
+# Write NTD data before removing those who are out/eos for health econ ########################
+individuals <- starting_roster %>%
+  filter(extid %in% ntd_efficacy_preselection$extid |
+           extid %in% ntd_safety_preselection$extid)
+if(!dir.exists('ntd_metadata')){
+  dir.create('ntd_metadata')
+}
+write_csv(individuals, 'ntd_metadata/individual_data.csv')
+
+# Write health economic baseline data #########################################
+if(!dir.exists('healtheconbaseline_metadata')){
+  dir.create('healtheconbaseline_metadata')
+}
+write_csv(households, 'healtheconbaseline_metadata/household_data.csv')
+write_csv(starting_roster, 'healtheconbaseline_metadata/individual_data.csv')
+
+# Create "visit control sheets" for health economics based on these specifications:
+# https://docs.google.com/spreadsheets/d/1Ok1JAq4RhAv0dMnVRjl38Ig-6XdEyvBJbCtMzFql9k4/edit#gid=0
+save(households, individuals, v0demography, v0demography_repeat_individual, file = 'rmds/health_economics_tables.RData')
+
+# Render the visit 0 household health economics visit control sheet
+if(FALSE){
+  rmarkdown::render('rmds/health_economics_visit_control_sheet.Rmd')
+}
+
+# Write health economic monthly followup data  #########################################
+# Remove from health econ those who are out/eos
+households <- households %>% filter(!is.na(hecon_hh_status)) %>% filter(hecon_hh_status == 'in')
+starting_roster <- starting_roster %>% filter(hhid %in% households$hhid)
+
+# Save objects for visit control sheet v2 and beyond
+save(households, starting_roster, healtheconbaseline, healtheconbaseline_repeat_individual, healtheconnew_repeat_individual, healtheconnew, individuals, v0demography, safety_individuals, v0demography_repeat_individual, file = 'rmds/health_economics_tables_followup.RData')
+
+# Render the follow-up visit household health economics visit control sheet
+if(FALSE){
+  rmarkdown::render('rmds/health_economics_followup_visit_control_sheet.Rmd')
+}
+
+
+
+if(!dir.exists('healtheconmonthly_metadata')){
+  dir.create('healtheconmonthly_metadata')
+}
+write_csv(households, 'healtheconmonthly_metadata/household_data.csv')
+write_csv(starting_roster, 'healtheconmonthly_metadata/individual_data.csv')
+
+
+pryr::mem_used()
+# </Health economics> ##############################################################################
+##############################################################################
+##############################################################################
+##############################################################################
+
+
+
+
+
 # <Efficacy> ##############################################################################
 
 # Get the starting roster
