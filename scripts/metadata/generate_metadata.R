@@ -1220,7 +1220,7 @@ households <- starting_roster %>%
   summarise(roster = paste0(roster_name[dead == 0 & migrated == 0], collapse = ', '),
             num_members = length(which(dead == 0 & migrated == 0))) %>%
   # get cluster
-  left_join(v0demography %>%
+  left_join(v0demography_full %>%
               dplyr::select(hhid, cluster)) %>%
   # get intervention
   left_join(assignments %>% dplyr::select(cluster = cluster_number,
@@ -1228,9 +1228,9 @@ households <- starting_roster %>%
   # get interventions
   left_join(intervention_assignment)
 # Get household heads and geographic information
-heads <- v0demography_repeat_individual %>%
+heads <- v0demography_full_repeat_individual %>%
   filter(hh_head_yn == 'yes') %>%
-  left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
+  left_join(v0demography_full %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   dplyr::select(hhid, start_time, firstname, lastname, extid) %>%
   mutate(firstname = stringr::str_replace_all(firstname, "[^[:alnum:]]", "")) %>%
   mutate(lastname = stringr::str_replace_all(lastname, "[^[:alnum:]]", "")) %>%
@@ -1312,7 +1312,7 @@ households <- households %>% filter(!is.na(hecon_hh_status)) %>% filter(hecon_hh
 starting_roster <- starting_roster %>% filter(hhid %in% households$hhid)
 
 # Save objects for visit control sheet v2 and beyond
-save(households, starting_roster, healtheconbaseline, healtheconbaseline_repeat_individual, healtheconnew_repeat_individual, healtheconnew, individuals, v0demography, safety_individuals, v0demography_repeat_individual, file = 'rmds/health_economics_tables_followup.RData')
+save(households, starting_roster, healtheconbaseline, healtheconbaseline_repeat_individual, healtheconnew_repeat_individual, healtheconnew, individuals, v0demography_full, safety_individuals, v0demography_full_repeat_individual, file = 'rmds/health_economics_tables_followup.RData')
 
 # Render the follow-up visit household health economics visit control sheet
 if(FALSE){

@@ -77,8 +77,8 @@ ntd_ids <- sort(unique(c(ntd_efficacy_preselection$extid, ntd_safety_preselectio
 # Keep only those which are in safety
 in_safety <- safety_individuals %>% filter(starting_safety_status == 'in') %>% pull(extid)
 ntd_ids <- ntd_ids[ntd_ids %in% in_safety]
-ndx <- v0demography_repeat_individual %>%
-  left_join(v0demography %>% dplyr::select(KEY, hhid), by = c('PARENT_KEY' = 'KEY')) %>%
+ndx <- v0demography_full_repeat_individual %>%
+  left_join(v0demography_full %>% dplyr::select(KEY, hhid), by = c('PARENT_KEY' = 'KEY')) %>%
   mutate(in_ntd = extid %in% ntd_ids) %>%
   group_by(hhid) %>%
   summarise(n_ntd = length(which(in_ntd)))
@@ -105,10 +105,10 @@ households <- left_join(households, exceptions) %>%
   mutate(VCS = ifelse(is.na(VCS), cluster, VCS))
 
 # Narrow down to just the columns specified here: https://docs.google.com/spreadsheets/d/1Ok1JAq4RhAv0dMnVRjl38Ig-6XdEyvBJbCtMzFql9k4/edit#gid=0
-subs <- v0demography_repeat_individual %>%
+subs <- v0demography_full_repeat_individual %>%
   filter(!is.na(hh_head_sub_yn)) %>%
   filter(hh_head_sub_yn == 'yes') %>%
-  left_join(v0demography %>% dplyr::select(KEY, hhid), by = c('PARENT_KEY' = 'KEY')) %>%
+  left_join(v0demography_full %>% dplyr::select(KEY, hhid), by = c('PARENT_KEY' = 'KEY')) %>%
   mutate(firstname = stringr::str_replace_all(firstname, "[^[:alnum:]]", "")) %>%
   mutate(lastname = stringr::str_replace_all(lastname, "[^[:alnum:]]", "")) %>%
   mutate(full_name = paste0(firstname, '  ', lastname)) %>%
@@ -124,7 +124,7 @@ households <- households %>%
   filter(hhid %in% households_in) %>%
   arrange(hhid) %>%
   # get some information from v0demograph
-  left_join(v0demography %>%
+  left_join(v0demography_full %>%
               dplyr::select(hhid, village)) %>%
   # get cattle ownership and herd enrollment from baseline from
   left_join(healtheconbaseline %>% dplyr::select(hhid, total_cattle, herd_eligible) %>% mutate(cattle_owning = ifelse(is.na(total_cattle), 'No', ifelse(total_cattle > 0, 'Yes', 'No')), herd_enrollment = ifelse(is.na(herd_eligible), 'No', ifelse(herd_eligible == 1, 'Yes', 'No')))  %>% dplyr::select(hhid, cattle_owning, herd_enrollment)) %>%
@@ -155,12 +155,13 @@ households <- households %>%
       `2` = '',
     Refused = '',
     `Date hh visit` = '',
+    `Herd enrolled` = '',
     Notes = ''
   ) 
 
 # Create the individual table too
-persons <- v0demography_repeat_individual %>%
-  left_join(v0demography %>% dplyr::select(hhid, village, cluster, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
+persons <- v0demography_full_repeat_individual %>%
+  left_join(v0demography_full %>% dplyr::select(hhid, village, cluster, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   mutate(firstname = stringr::str_replace_all(firstname, "[^[:alnum:]]", "")) %>%
   mutate(lastname = stringr::str_replace_all(lastname, "[^[:alnum:]]", "")) %>%
   mutate(full_name = paste0(firstname, ' ', lastname)) %>%
@@ -170,7 +171,7 @@ persons <- v0demography_repeat_individual %>%
 # Get the new individuals from health econ new
 new_persons <- starting_roster %>%
   filter(!extid %in% persons$extid) %>%
-  left_join(v0demography %>% dplyr::select(hhid, village, cluster)) %>%
+  left_join(v0demography_full %>% dplyr::select(hhid, village, cluster)) %>%
      mutate(firstname = stringr::str_replace_all(firstname, "[^[:alnum:]]", "")) %>%
   mutate(lastname = stringr::str_replace_all(lastname, "[^[:alnum:]]", "")) %>%
   mutate(full_name = paste0(firstname, ' ', lastname)) %>%
@@ -274,7 +275,8 @@ for (i in 1:length(vcs_documents)) {
     column_spec(11,  width = "1em")  %>%
     column_spec(12,  width = "2em")  %>%
     column_spec(13,  width = "4em")  %>%
-    column_spec(14,  width = "8em")  
+    column_spec(14,  width = "2em")  %>%
+    column_spec(15,  width = "8em")  
   
   # Individual table
     k2 <- kable(these_persons, format = "latex",
