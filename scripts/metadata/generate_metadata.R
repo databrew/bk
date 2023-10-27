@@ -910,7 +910,13 @@ obvious_screening <-
   filter(!is.na(obvious_screening)) %>%
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
-  dplyr::select(extid, obvious_screening)
+  dplyr::select(extid, obvious_screening) %>%
+  mutate(obvious_screening = dplyr::case_match(obvious_screening,
+                                           'Pregnant' ~ 'Visibly Pregnant',
+                                           'Witness' ~ 'No witness',
+                                           'Ill' ~ 'Severely ill',
+                                           'absent' ~ 'Absent',
+                                           .default = obvious_screening))
 ever_present <- safety_repeat_individual %>%
   filter(!is.na(person_present)) %>%
   filter(person_present == 'yes') %>%
@@ -935,7 +941,7 @@ reason_out <- individuals %>%
   mutate(in_parentheses = ifelse(!is.na(obvious_screening),
                                  obvious_screening,
                                  in_parentheses)) %>%
-  mutate(in_parentheses = ifelse(!extid %in% ever_present & hhid %in% household_ever_visited$hhid,
+  mutate(in_parentheses = ifelse(!extid %in% ever_present$extid & hhid %in% household_ever_visited$hhid,
                                  'absent',
                                  in_parentheses)) %>%
   mutate(in_parentheses = ifelse(is.na(in_parentheses), '',
