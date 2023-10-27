@@ -1067,8 +1067,8 @@ save.image('temp.RData')
 # <Health economics> ##############################################################################
 
 # First, create individual data based solely on v0demography
-starting_roster <- v0demography_repeat_individual %>%
-  left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
+starting_roster <- v0demography_full_repeat_individual %>%
+  left_join(v0demography_full %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>%
