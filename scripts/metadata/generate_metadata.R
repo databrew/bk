@@ -235,19 +235,19 @@ if(start_fresh){
   }, error =function(e) {
     load('empty_objects/sepk_icf_resolution.RData', envir = .GlobalEnv)
   })
-  
+
   # lab
   tryCatch({
     lab <- read_csv(paste0(middle_path, 'lab/lab.csv'))
-    
+
   }, error =function(e) {
     load('empty_objects/lab.RData', envir = .GlobalEnv)
   })
-  
+
   # lab2
   tryCatch({
     lab2 <- read_csv(paste0(middle_path, 'lab2/lab2.csv'))
-    
+
   }, error =function(e) {
     load('empty_objects/lab2.RData', envir = .GlobalEnv)
   })
@@ -557,9 +557,9 @@ households_sp_projected@data$cluster_geo <- old_clusters_projected$cluster_numbe
 old_clusters_projected_buffered <- rgeos::gBuffer(spgeom = old_clusters_projected, byid = TRUE, width = 50)
 o <- sp::over(households_sp_projected, polygons(old_clusters_projected_buffered))
 households_sp_projected@data$not_in_old_cluster <- is.na(o)
-households_sp_projected@data$cluster_with_buffer <- 
+households_sp_projected@data$cluster_with_buffer <-
   old_clusters_projected_buffered@data$cluster_number[o]
-households_sp_projected@data$old_cluster_correct <- 
+households_sp_projected@data$old_cluster_correct <-
   ifelse(is.na(households_sp_projected@data$cluster_geo),
          households_sp_projected@data$cluster_with_buffer,
          households_sp_projected@data$cluster_geo)
@@ -568,7 +568,7 @@ households_sp_projected@data$old_cluster_correct <-
 # were within the buffer of >1 cluster into the wrong cluster at times
 # So, let's fix v0demography
 if('geo_cluster_num' %in% names(v0demography)){
-  v0demography <- v0demography %>% dplyr::select(-geo_cluster_num) 
+  v0demography <- v0demography %>% dplyr::select(-geo_cluster_num)
 }
 v0demography <- v0demography %>%
   left_join(households_sp_projected@data %>% dplyr::select(hhid, geo_cluster_num = old_cluster_correct))
@@ -744,7 +744,8 @@ individuals <- roster %>%
   dplyr::mutate(fullname_dob = paste0(firstname, ' ', lastname, ' | ', dob)) %>%
   dplyr::rename(fullname_id = roster_name) %>%
   # get intervention, village, ward, cluster
-  left_join(households %>% dplyr::select(hhid, intervention, village, ward, cluster))
+  left_join(households %>% dplyr::select(hhid, intervention, cluster)) %>%
+  left_join(v0demography %>% dplyr::select(hhid, village, ward))
 # Get starting safety status
 starter <-
   bind_rows(
@@ -871,7 +872,7 @@ if(FALSE){
     mutate(remove = hhid %in% affected_households & starting_safety_status == 'in') %>%
     filter(!remove)
   # Recalculate roster and num_members
-  updated_hh <- individuals %>%    
+  updated_hh <- individuals %>%
     group_by(hhid) %>%
     summarise(roster = paste0(fullname_id, collapse = ', '),
               num_members = n())
@@ -1103,7 +1104,7 @@ starting_roster <- v0demography_full_repeat_individual %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>%
   mutate(firstname = stringr::str_replace_all(firstname, "[^[:alnum:]]", "")) %>%
-  mutate(lastname = stringr::str_replace_all(lastname, "[^[:alnum:]]", "")) 
+  mutate(lastname = stringr::str_replace_all(lastname, "[^[:alnum:]]", ""))
 # Add new individuals to the starting roster
 new_people <- healtheconnew_repeat_individual %>%
   left_join(healtheconnew %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
@@ -1209,14 +1210,16 @@ healthecon_departures <-
       mutate(start_time = as.POSIXct(start_time)) %>%
       filter(!is.na(person_absent_reason)) %>%
       filter(person_absent_reason != 'Absent') %>%
-      dplyr::select(start_time, extid, person_absent_reason),
+      dplyr::select(start_time, extid, person_absent_reason) %>%
+      dplyr::mutate(person_absent_reason = as.character(person_absent_reason)),
     healtheconmonthly_repeat_individual %>%
       left_join(healtheconmonthly %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
       mutate(extid = as.character(extid)) %>%
       mutate(start_time = as.POSIXct(start_time)) %>%
       filter(!is.na(person_absent_reason)) %>%
       filter(person_absent_reason != 'Absent') %>%
-      dplyr::select(start_time, extid, person_absent_reason)
+      dplyr::select(start_time, extid, person_absent_reason) %>%
+      dplyr::mutate(person_absent_reason = as.character(person_absent_reason))
   )
 healthecon_deaths <- healthecon_departures %>%
   filter(person_absent_reason == 'Died')
@@ -1408,7 +1411,8 @@ individuals <- roster %>%
   dplyr::mutate(fullname_dob = paste0(firstname, ' ', lastname, ' | ', dob)) %>%
   dplyr::rename(fullname_id = roster_name) %>%
   # get intervention, village, ward, cluster
-  left_join(households %>% dplyr::select(hhid, intervention, village, ward, cluster))
+  left_join(households %>% dplyr::select(hhid, intervention, cluster)) %>%
+  left_join(v0demography %>% dplyr::select(hhid, village, ward))
 # Get starting weight
 # (generated in safety section)
 individuals <- left_join(individuals, starting_weights)
@@ -2147,7 +2151,7 @@ write_csv(icf_individuals, 'icf_metadata/individual_data.csv')
 
 # <LAB> ####################################################################
 # forms lab and lab2 consume the same metadata
-# One row per sample. 
+# One row per sample.
 fix_pk_sample_id <- function(x){
   x <- as.character(x)
   if(length(x) < 1){
@@ -2165,7 +2169,7 @@ fix_pk_sample_id <- function(x){
   }
 }
 fix_pk_sample_id <- Vectorize(fix_pk_sample_id)
-samples <- 
+samples <-
   bind_rows(
     efficacy %>%
       mutate(start_time = lubridate::as_datetime(start_time)) %>%
@@ -2193,7 +2197,7 @@ samples <-
                s4qr = as.character(s4qr),
                s5qr = as.character(s5qr),
                s6qr = as.character(s6qr)) %>%
-        mutate(sample = 
+        mutate(sample =
                  ifelse(!is.na(s1qr), s1qr,
                         ifelse(!is.na(s2qr), s2qr,
                                ifelse(!is.na(s3qr), s3qr,
@@ -2241,14 +2245,14 @@ samples <-
         mutate(time_sample_collection = as.character(time_sample_collection)) %>%
         mutate(num_aliquots = ifelse(is.na(two_samples), NA,
                                             ifelse(two_samples == 'yes', 2,
-                                                   ifelse(two_samples %in% c('only aliquot 1', 'only aliquot 2'), 1, 
+                                                   ifelse(two_samples %in% c('only aliquot 1', 'only aliquot 2'), 1,
                                                           ifelse(two_samples == 'none', 0, NA))))) %>%
         dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, num_aliquots, age, pkid = pk_id)
     ) %>%
       # fix pk sample ids
       mutate(sample = unlist(fix_pk_sample_id(sample))) %>%
       mutate(study = 'pk',
-             icf_type = 'Safety Adult ICF & PK ICF') 
+             icf_type = 'Safety Adult ICF & PK ICF')
   ) %>%
   # keep only one row per sample
   arrange(start_time) %>%
@@ -2272,7 +2276,7 @@ right <- bind_rows(
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::select(extid, icf_status_efficacy = icf_stat)
 samples <- left_join(samples, right)
-# get icf_status_pk, which is the 
+# get icf_status_pk, which is the
 # most recent icf_stat coming from sepk_icf_verification or sepk_icf_resolution for this extid where study_select == pk
 right <- bind_rows(
   sepk_icf_verification %>%
@@ -2288,7 +2292,7 @@ right <- bind_rows(
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::select(extid, icf_status_safety = icf_stat)
 samples <- left_join(samples, right)
-# get icf_status_safety, which is the 
+# get icf_status_safety, which is the
 # most recent icf_stat coming from sepk_icf_verification or sepk_icf_resolution for this extid where study_select == safety
 right <- bind_rows(
   sepk_icf_verification %>%
@@ -2307,11 +2311,11 @@ samples <- left_join(samples, right)
 # get whether in or not certain preselections
 samples <- samples %>%
   mutate(efficacy_preselected = ifelse(extid %in% efficacy_selection$extid, 'yes', 'no'),
-         pk_preselected = ifelse(extid %in% pk_individuals$extid, 'yes', 'no')) 
+         pk_preselected = ifelse(extid %in% pk_individuals$extid, 'yes', 'no'))
 # get lab-derived variables
-right <- 
+right <-
   bind_rows(
-    lab %>% 
+    lab %>%
       mutate(sample = as.character(sample),
              sample_status = as.character(sample_status),
              start_time = lubridate::as_datetime(start_time),
@@ -2329,7 +2333,7 @@ right <-
              sample_status = as.character(sample_status),
              start_time = lubridate::as_datetime(start_time),
              efficacy_reason = as.character(efficacy_reason),
-             pk_reason = as.character(pk_reason)) %>%      
+             pk_reason = as.character(pk_reason)) %>%
       dplyr::select(sample, sample_status, start_time, efficacy_reason,
                            pk_reason)
   ) %>%
