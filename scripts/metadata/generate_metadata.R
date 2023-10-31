@@ -881,6 +881,9 @@ if(FALSE){
   write_csv(individuals, '~/Desktop/individual_data.csv')
   }
 
+# Save object for use in ICF and health economics followup
+safety_individuals <- individuals
+
 # Remove from safety households which contain 100% refused individuals
 # https://trello.com/c/mGoKfh7w/2071-update-metadata-script-safety-to-remove-from-safety-lists-all-individuals-from-households-with-100-refusals
 if(FALSE){
@@ -911,8 +914,7 @@ households <- households %>% filter(!hhid %in% all_refusals$hhid)
 individuals <- individuals %>% filter(hhid %in% households$hhid)
 }
 
-# Save object for use in ICF and health economics followup
-safety_individuals <- individuals
+
 # Write csvs
 if(!dir.exists('safety_metadata')){
   dir.create('safety_metadata')
