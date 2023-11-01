@@ -581,9 +581,11 @@ v0demography_full <- v0demography_full %>%
 
 if(geo_filter){
   v0demography <- v0demography %>%
-    filter(!geo_not_in_cluster) %>%
+    # filter(!geo_not_in_cluster) %>%
     # overwrite the cluster variable
     mutate(cluster = add_zero(geo_cluster_num, 2)) %>%
+    filter(!is.na(cluster)) %>%
+    filter(cluster %in% add_zero(unique(clusters_projected@data$cluster_nu), 2)) %>%
     filter(!is.na(geo_cluster_num))
   v0demography_full <- v0demography_full %>%
     filter(!not_in_old_cluster) %>%
@@ -675,6 +677,15 @@ starting_roster <- v0demography_repeat_individual %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   mutate(remove = FALSE) %>%
   mutate(index = 1:nrow(.))
+# save starting roster for nika
+if(FALSE){
+  nika <- starting_roster %>%
+    dplyr::select(hhid, dob, sex, extid) %>%
+    left_join(v0demography %>% dplyr::select(hhid, cluster = cluster_correct)) %>%
+    filter(!is.na(cluster), !is.na(hhid), !is.na(extid)) %>%
+    arrange(cluster, hhid, extid)
+  write_csv(nika, '/tmp/nika.csv')
+}
 # Go through each departure and flag people as dead or migrated
 starting_roster$dead <- starting_roster$migrated <- 0
 if(nrow(departures) > 0){
