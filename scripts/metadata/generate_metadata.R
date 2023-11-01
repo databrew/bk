@@ -2303,7 +2303,7 @@ right <- bind_rows(
 ) %>% # keep only most recent
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
-  dplyr::select(extid, icf_status_safety = icf_stat)
+  dplyr::select(extid, icf_status_pk = icf_stat)
 samples <- left_join(samples, right)
 # get icf_status_safety, which is the
 # most recent icf_stat coming from sepk_icf_verification or sepk_icf_resolution for this extid where study_select == safety
@@ -2319,7 +2319,7 @@ right <- bind_rows(
 ) %>% # keep only most recent
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
-  dplyr::select(extid, icf_status_pk = icf_stat)
+  dplyr::select(extid, icf_status_safety = icf_stat)
 samples <- left_join(samples, right)
 # get whether in or not certain preselections
 samples <- samples %>%
