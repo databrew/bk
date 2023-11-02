@@ -898,9 +898,10 @@ safety_individuals <- individuals
 
 # Remove from safety households which contain 100% refused individuals
 # https://trello.com/c/mGoKfh7w/2071-update-metadata-script-safety-to-remove-from-safety-lists-all-individuals-from-households-with-100-refusals
-if(FALSE){
+if(TRUE){
 dx <- safety_repeat_individual %>%
-  left_join(safety %>% dplyr::select(KEY, hhid), by = c('PARENT_KEY' = 'KEY')) %>%
+  left_join(safety %>% dplyr::select(KEY, hhid, visit), by = c('PARENT_KEY' = 'KEY')) %>%
+  filter(visit == 'V1') %>%
   # special categories for "refusal"
   mutate(is_refusal = (!is.na(obvious_screening) & obvious_screening == 'Refusal') |
            ind_icf_thumbprint == 'no' |
@@ -921,7 +922,7 @@ dx <- safety_repeat_individual %>%
   ungroup %>%
   mutate(p_refusals = n_refusals / n_individual_submissions * 100) %>%
   arrange(desc(p_refusals))
-all_refusals <- dx %>% filter(p_refusals == 100)
+all_refusals <- dx %>% filter(p_refusals == 100) %>% arrange(hhid)
 households <- households %>% filter(!hhid %in% all_refusals$hhid)
 individuals <- individuals %>% filter(hhid %in% households$hhid)
 }
@@ -997,40 +998,50 @@ reason_out <- individuals %>%
 # but by "sub-cluster" based on the number of fieldworkers in that cluster
 # this instruction has been provided at https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1695366280214239
 # Load the spreadsheet from the project
-if('cl_per_cluster.RData' %in% dir()){
-  load('cl_per_cluster.RData')
+
+if(FALSE){
+  # Set the above boolean as follows
+  # As of visit 2, just use previous division = TRUE
+  # As of visit 2 onwards, use balanced division = FALSE
+  load('vcs_data.RData')
 } else {
-  cl_per_cluster <- readxl::read_excel('inputs/CL per cluster for DBrew.xlsx')
-  save(cl_per_cluster, file = 'cl_per_cluster.RData')
+  if('cl_per_cluster.RData' %in% dir()){
+    load('cl_per_cluster.RData')
+  } else {
+    cl_per_cluster <- readxl::read_excel('inputs/CL per cluster for DBrew.xlsx')
+    save(cl_per_cluster, file = 'cl_per_cluster.RData')
+  }
+  cl_per_cluster <- cl_per_cluster %>%
+    mutate(cluster = add_zero(`Cluster assigned`, 2))
+  # Assign a "vcs" to each individual (ie, which sub-group they are part of)
+  vcs_list <- list()
+  for(i in 1:nrow(cl_per_cluster)){
+    this_input <- cl_per_cluster[i,]
+    these_households <- households %>%
+      filter(cluster == this_input$cluster)
+    these_individuals <- individuals %>%
+      filter(hhid %in% these_households$hhid) %>%
+      arrange(hhid)
+    n_hhs <- nrow(these_households)
+    n_individuals <- nrow(these_individuals)
+    n_cls <- this_input$`Total Cls in cluster`
+    hhs_per_cl <- ceiling(n_hhs / n_cls)
+    individuals_per_cl <- ceiling(n_individuals / n_cls)
+    # Define the division points
+    groupings <- rep(1:n_cls, each = individuals_per_cl)
+    groupings <- LETTERS[groupings]
+    groupings <- groupings[1:n_individuals]
+    out <- these_individuals %>% dplyr::select(hhid, cluster, extid) %>%
+      mutate(grp = groupings) %>%
+      mutate(vcs = paste0(add_zero(cluster, 2), grp)) %>%
+      dplyr::distinct(hhid, .keep_all = TRUE)
+    vcs_list[[i]] <- out
+  }
+  vcs_data <- bind_rows(vcs_list) %>%
+    dplyr::select(hhid, VCS = vcs)
 }
-cl_per_cluster <- cl_per_cluster %>%
-  mutate(cluster = add_zero(`Cluster assigned`, 2))
-# Assign a "vcs" to each individual (ie, which sub-group they are part of)
-vcs_list <- list()
-for(i in 1:nrow(cl_per_cluster)){
-  this_input <- cl_per_cluster[i,]
-  these_households <- households %>%
-    filter(cluster == this_input$cluster)
-  these_individuals <- individuals %>%
-    filter(hhid %in% these_households$hhid) %>%
-    arrange(hhid)
-  n_hhs <- nrow(these_households)
-  n_individuals <- nrow(these_individuals)
-  n_cls <- this_input$`Total Cls in cluster`
-  hhs_per_cl <- ceiling(n_hhs / n_cls)
-  individuals_per_cl <- ceiling(n_individuals / n_cls)
-  # Define the division points
-  groupings <- rep(1:n_cls, each = individuals_per_cl)
-  groupings <- LETTERS[groupings]
-  groupings <- groupings[1:n_individuals]
-  out <- these_individuals %>% dplyr::select(hhid, cluster, extid) %>%
-    mutate(grp = groupings) %>%
-    mutate(vcs = paste0(add_zero(cluster, 2), grp)) %>%
-    dplyr::distinct(hhid, .keep_all = TRUE)
-  vcs_list[[i]] <- out
-}
-vcs_data <- bind_rows(vcs_list) %>%
-  dplyr::select(hhid, VCS = vcs)
+
+
 # Add to individual dataframe
 individuals <- individuals %>% left_join(vcs_data)
 
@@ -1041,7 +1052,7 @@ save(reason_out, individuals, households, v0demography, v0demography_repeat_indi
 # based on this request: https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1695832657929549
 if(FALSE){
   nika <- individuals %>%
-    dplyr::select(hhid, extid, sex, dob, cluster, VCS) %>%
+    dplyr::select(hhid, extid, sex, dob, cluster, VCS, starting_safety_status) %>%
     arrange(VCS)
   write_csv(nika, '/tmp/safety_individuals.csv')
 }
