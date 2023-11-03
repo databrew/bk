@@ -999,7 +999,7 @@ reason_out <- individuals %>%
 # this instruction has been provided at https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1695366280214239
 # Load the spreadsheet from the project
 
-if(FALSE){
+if(TRUE){
   # Set the above boolean as follows
   # As of visit 2, just use previous division = TRUE
   # As of visit 2 onwards, use balanced division = FALSE
