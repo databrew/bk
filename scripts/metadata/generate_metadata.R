@@ -2345,11 +2345,11 @@ right <-
              start_time = lubridate::as_datetime(start_time),
              efficacy_reason = as.character(efficacy_reason),
              pk_reason = as.character(pk_reason),
-             incidences = ifelse(!is.na(match_tracking_incidence_select),
-                                 match_tracking_incidence_select,
-                                 ifelse(!is.na(match_tracking_incidence_select2),
-                                        match_tracking_incidence_select2,
-                                        NA))) %>%
+             incidences = case_when(
+               sample_status == 'Approved' ~ coalesce(match_tracking_incidence_select2, match_tracking_incidence_select),
+               sample_status == 'Pending' ~ pending_incidence_select,
+               sample_status == "Quarantine" ~ quarantine_incidence_select
+             )) %>%
       dplyr::select(sample, sample_status, start_time, efficacy_reason,
                           pk_reason, incidences),
     lab2 %>%
