@@ -273,7 +273,7 @@ for (i in 1:length(vcs_documents)) {
     column_spec(9,  width = "3em")  %>%
     column_spec(10,  width = "1em")  %>%
     column_spec(11,  width = "1em")  %>%
-    column_spec(12,  width = "2em")  %>%
+    column_spec(12,  width = "4em")  %>%
     column_spec(13,  width = "4em")  %>%
     column_spec(14,  width = "2em")  %>%
     column_spec(15,  width = "8em")  
