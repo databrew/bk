@@ -7,8 +7,8 @@ library(lubridate)
 library(readr)
 
 # Define production
-# folder <- 'kwale'
-folder <- 'test_of_test'
+folder <- 'kwale'
+# folder <- 'test_of_test'
 
 # Nuke the folder prior to data retrieval
 unlink(folder, recursive = TRUE)
@@ -141,6 +141,48 @@ ae <- safety_repeat_ae_symptom %>%
   left_join(safety %>% dplyr::select(KEY, hhid, todays_date, start_time),
             by = c('safety_key' = 'KEY')) %>%
   arrange(extid, start_time)
+
+# Refer to the spreadsheet that categorizes adverse events
+# https://bohemiakenya.slack.com/archives/C064F6TR1H6/p1698839198132699
+ae <- ae %>% mutate(symptom = toupper(symptom_name))
+symptom_names <- sort(unique(ae$symptom))
+ae <- ae %>%
+  mutate(symptom_category = case_when(
+    symptom == 'ABDOMINAL PAIN' ~ 'Gastrointestinal',
+    symptom == 'ASMA' ~ 'Respiratory',
+    symptom == 'BLEEDING' ~ 'Circulatory',
+    symptom == 'BREAST PAINS' ~ 'Musculoskeletal',
+    symptom == 'BROKEN BONE/OTHER INJURY' ~ 'Musculoskeletal',
+    symptom == 'CONSTIPATION' ~ 'Gastrointestinal',
+    symptom == 'COUGH' ~ 'Respiratory',
+    symptom == 'DIARRHEA' ~ 'Gastrointestinal',
+    symptom == 'DIZZINESS' ~ 'Sensory',
+    symptom == 'FATIGUE' ~ 'Systemic',
+    symptom == 'FELT TIRED AND SLEEPY' ~ 'Systemic',
+    symptom == 'FEVER' ~ 'Systemic',
+    symptom == 'FLUE' ~ 'Systemic',
+    symptom == 'GENERAL MALAISE' ~ 'Systemic',
+    symptom == 'HEADACHE' ~ 'Neurologic',
+    symptom == 'HUNGRY' ~ 'Gastrointestinal',
+    symptom == 'ITCHING' ~ 'Dermatologic',
+    symptom == 'JOINT PAIN' ~ 'Musculoskeletal',
+    symptom == 'LACK OF APPETITE' ~ 'Gastrointestinal',
+    symptom == 'MALARIA' ~ 'Systemic',
+    symptom == 'MUSCLE PAIN' ~ 'Musculoskeletal',
+    symptom == 'RASH' ~ 'Dermatologic',
+    symptom == 'RESPIRATORY DISEASE/LUNG CONDITION' ~ 'Respiratory',
+    symptom == 'SOMNOLENCE' ~ 'Neurologic',
+    symptom == 'STOMACH' ~ 'Gastrointestinal',
+    symptom == 'SWEATING' ~ 'Systemic',
+    symptom == 'TREMOR' ~ 'Neurologic',
+    symptom == 'URINE COLOUR RED' ~ 'Other',
+    symptom == 'VERTIGO' ~ 'Sensory',
+    symptom == 'VERY OKAY' ~ 'Other',
+    symptom == 'VISUAL ALTERATIONS' ~ 'Sensory',
+    symptom == 'VOMITING OR NAUSEA' ~ 'Gastrointestinal',
+    symptom == 'WOUNDS IN THE MOUTH' ~ 'Gastrointestinal',
+    .default = 'Other'
+  ))
 
 # Get drugs
 drugs <- 
@@ -294,6 +336,7 @@ visit_level <-
                 prescription_available,
                 num_drugs)
 
-save(visit_level,
+save(visit_level, safety,
+     safety_repeat_individual,
      individuals, drugs, ae,
      file = 'rmd_data.RData')

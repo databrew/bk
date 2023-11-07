@@ -17,7 +17,7 @@ header-includes:
 - \usepackage{colortbl}
 - \usepackage[labelformat = empty]{caption}
 - \fancyhead[CO,CE]{Adverse events}
-- \fancyfoot[CO,CE]{This is a transitory document to assist monitors with adverse event documentation. Date = \today\\}
+- \fancyfoot[CO,CE]{Date = \today\\}
 - \fancyfoot[LE,RO]{Page {\thepage} of \pageref{LastPage}}
 geometry: margin=2cm
 classoption: landscape
@@ -75,6 +75,7 @@ options(digits=8)
 library(kableExtra)
 library(readr)
 library(dplyr)
+library(ggplot2)
 # Define function for adding zero
 add_zero <- function (x, n) {
   x <- as.character(x)
@@ -95,6 +96,311 @@ add_zero <- function (x, n) {
 load('rmd_data.RData')
 ```
 
+# Aggregated information
+
+## Total events reported by visit
+
+```{r}
+ae %>%
+  dplyr::select(-KEY) %>%
+  left_join(visit_level) %>%
+  group_by(visit) %>%
+  tally %>%
+  knitr::kable()
+```
+
+
+
+## Adverse event symptom categories
+
+```{r}
+pd <- ae %>%
+  group_by(symptom_category) %>%
+  tally %>%
+  ungroup %>%
+  mutate(p = n / sum(n) * 100)
+ggplot(data = pd,
+       aes(x = symptom_category,
+           y = p)) +
+  geom_bar(stat = 'identity',
+           color = 'black',
+           fill = 'lightblue',
+           alpha = 0.5) +
+  theme_bw() +
+  labs(x = '',
+       y = 'Percentage') +
+  geom_text(aes(y = p + (0.04 * max(p)),
+                label = n )) +
+  coord_flip()
+```
+
+
+## Adverse event symptom categories by visit
+
+```{r}
+ae %>%
+  dplyr::select(-KEY) %>%
+  left_join(visit_level) %>%
+  group_by(visit, symptom_category) %>%
+  tally %>%
+  knitr::kable()
+```
+
+## Adverse events by sex
+
+```{r}
+ae %>%
+  left_join(safety_repeat_individual %>% dplyr::distinct(extid, .keep_all = TRUE) %>%dplyr::select(extid, sex)) %>%
+  group_by(sex) %>%
+  tally %>%
+  knitr::kable()
+```
+
+
+## Adverse event symptom categories by sex
+
+```{r}
+px <- ae %>% left_join(safety_repeat_individual %>% dplyr::distinct(extid, .keep_all = TRUE) %>%dplyr::select(extid, sex))
+pd <- px %>%
+  group_by(symptom_category, sex) %>%
+  tally %>%
+  ungroup %>%
+  group_by(sex) %>%
+  mutate(p = n / sum(n) * 100) %>% ungroup
+ggplot(data = pd,
+       aes(x = symptom_category,
+           y = p)) +
+  geom_bar(stat = 'identity',
+           color = 'black',
+           fill = 'lightblue',
+           alpha = 0.5) +
+  theme_bw() +
+  labs(x = '',
+       y = 'Percentage') +
+  geom_text(aes(y = p + (0.04 * max(p)),
+                label = n )) +
+  coord_flip() +
+  facet_wrap(~sex)
+```
+
+
+## Adverse event symptom categories by age group
+
+```{r}
+px <- ae %>% left_join(safety_repeat_individual %>% dplyr::distinct(extid, .keep_all = TRUE) %>%dplyr::select(extid, age)) %>%
+  mutate(age_group = ifelse(age <= 5, '00-05',
+                            ifelse(age <= 18,
+                                   '05.01-18',
+                                   ifelse(age <= 40,
+                                          '18.01-40',
+                                          ifelse(age <- 65,
+                                                 '40.01-65',
+                                                 '65+')))))
+pd <- px %>%
+  group_by(symptom_category, age_group) %>%
+  tally %>%
+  ungroup %>%
+  group_by(age_group) %>%
+  mutate(p = n / sum(n) * 100) %>% ungroup
+ggplot(data = pd,
+       aes(x = symptom_category,
+           y = p)) +
+  geom_bar(stat = 'identity',
+           color = 'black',
+           fill = 'lightblue',
+           alpha = 0.5) +
+  theme_bw() +
+  labs(x = '',
+       y = 'Percentage') +
+  geom_text(aes(y = p + (0.04 * max(p)),
+                label = n )) +
+  coord_flip() +
+  facet_wrap(~age_group)
+```
+
+
+## Adverse events by treatment status
+
+```{r}
+px <- ae %>% dplyr::select(-PARENT_KEY) %>% 
+  left_join(safety_repeat_individual %>% dplyr::distinct(extid, .keep_all = TRUE) %>% dplyr::select(PARENT_KEY, extid, intervention)) %>%
+              left_join(safety %>% dplyr::select(KEY, hhid, cluster), by = c('PARENT_KEY' = 'KEY'))
+pd <- px %>%
+  group_by(intervention) %>%
+  tally %>%
+  ungroup %>%
+  mutate(p = n / sum(n) * 100) %>% ungroup
+ggplot(data = pd,
+       aes(x = intervention,
+           y = p)) +
+  geom_bar(stat = 'identity',
+           color = 'black',
+           fill = 'lightblue',
+           alpha = 0.5) +
+  theme_bw() +
+  labs(x = '',
+       y = 'Percentage') +
+  geom_text(aes(y = p + (0.04 * max(p)),
+                label = n )) +
+  coord_flip() 
+```
+
+
+## Adverse events by treatment status and symptom category
+
+```{r}
+px <- ae %>% dplyr::select(-PARENT_KEY) %>% 
+  left_join(safety_repeat_individual %>% dplyr::distinct(extid, .keep_all = TRUE) %>% dplyr::select(PARENT_KEY, extid, intervention)) %>%
+              left_join(safety %>% dplyr::select(KEY, hhid, cluster), by = c('PARENT_KEY' = 'KEY'))
+pd <- px %>%
+  group_by(intervention, symptom_category) %>%
+  tally %>%
+  ungroup %>%
+  group_by(intervention) %>%
+  mutate(p = n / sum(n) * 100) %>% ungroup
+ggplot(data = pd,
+       aes(x = intervention,
+           y = p)) +
+  geom_bar(stat = 'identity',
+           color = 'black',
+           fill = 'lightblue',
+           alpha = 0.5) +
+  theme_bw() +
+  labs(x = '',
+       y = 'Percentage') +
+  geom_text(aes(y = p + (0.04 * max(p)),
+                label = n )) +
+  coord_flip() +
+  facet_wrap(~symptom_category)
+```
+
+## Adverse events by number of tablets ever taken
+
+```{r}
+# num_ivermectin_tablets_taken
+# num_albendzole_pills
+
+pills_ever_taken <-
+  safety_repeat_individual %>%
+  left_join(safety %>% dplyr::select(KEY, hhid, cluster, visit), by = c('PARENT_KEY' = 'KEY')) %>%
+  mutate(n_pills = ifelse(!is.na(num_albendzole_pills),
+                          num_albendzole_pills,
+                          ifelse(!is.na(num_ivermectin_tablets_taken),
+                                 num_ivermectin_tablets_taken, 0))) %>%
+  group_by(extid, intervention) %>%
+  summarise(n_pills = sum(n_pills))
+
+px <- ae %>% 
+  left_join(pills_ever_taken) %>%
+  group_by(intervention, n_pills) %>%
+  tally
+
+ggplot(data = px,
+       aes(x = n_pills,
+           y = n)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~intervention, scales = 'free_x') +
+  labs(x = 'Total pills/tablets',
+       y = 'Number of adverse events reported') +
+  theme_bw()
+
+```
+
+## Adverse events at visit X by number of pills/tablets at visit X-1
+
+```{r, fig.height = 7.5, fig.width = 10}
+right <- visit_level %>%
+    mutate(n_pills = ifelse(!is.na(num_albendzole_pills),
+                          num_albendzole_pills,
+                          ifelse(!is.na(num_ivermectin_tablets_taken),
+                                 num_ivermectin_tablets_taken, 0))) %>%
+  left_join(safety_repeat_individual %>% dplyr::select(intervention, extid) %>% dplyr::distinct(extid, .keep_all = TRUE)) %>%
+  dplyr::select(intervention, extid, visit, n_pills) %>%
+  mutate(visit_joiner = visit) %>%
+  dplyr::select(-visit)
+left <- ae %>% 
+  left_join(safety %>% dplyr::select(KEY, visit), by = c('safety_key'  = 'KEY')) %>%
+  mutate(visit_joiner = paste0('V', as.numeric(gsub('V', '', visit)) - 1)) 
+joined <- left_join(left, right)  
+
+model_data <- joined %>% 
+  mutate(visit = paste0('AE reported at ', visit))
+
+px <- model_data %>%
+  group_by(intervention, n_pills, symptom_category, ae_reported_at = visit) %>%
+  tally %>%
+  ungroup
+  
+ggplot(data = px,
+       aes(x = n_pills,
+           y = n,
+           color = intervention)) +
+  geom_line() +
+  geom_point() +
+  facet_grid(ae_reported_at ~ symptom_category) +
+  theme_bw() +
+  theme(legend.position = 'bottom') +
+  labs(x = 'Number of pills taken at prior visit',
+       y = 'Number of adverse events')
+
+```
+
+## Modeling
+
+```{r}
+fit_data <- visit_level %>% dplyr::mutate(visit_joiner = visit)  %>% dplyr::select(-visit, -todays_date) %>%
+  left_join(safety_repeat_individual %>% dplyr::select(extid, intervention) %>% dplyr::distinct(extid, .keep_all = TRUE)) %>%
+  left_join(model_data %>% dplyr::select(-intervention)) %>%
+  mutate(had_ae = !is.na(symptom_category))
+library(mltools)
+library(data.table)
+fit_data <- fit_data %>%
+  dplyr::select(extid, visit_joiner, intervention, symptom_category, had_ae) %>%
+  mutate(symptom_category = factor(symptom_category))
+fit_data <- one_hot(as.data.table(fit_data))
+
+fit <- glm(had_ae ~ intervention, data = fit_data)
+ors <- exp(coef(fit))
+ci <- exp(confint(fit))
+out <- data.frame(ors)
+out$lwr <- ci[,1]
+out$upr <- ci[,2]
+```
+
+### Odds ratio of having any adverse event as function of treatment vs control
+
+```{r}
+knitr::kable(out)
+```
+
+### Supporting table
+
+```{r}
+fit_data %>%
+  group_by(had_ae, intervention) %>%
+  tally %>%
+  ungroup %>%
+  group_by(intervention) %>%
+  mutate(p = n / sum(n) * 100) %>%
+  filter(!is.na(intervention)) %>%
+  knitr::kable()
+```
+
+
+```{r, results = 'asis'}
+cat('\\newpage')
+```
+
+# De-aggregated information
+
+Individual-level information can be explored in two ways:
+
+1. Using the below tables (one page = one individual)
+
+2. Using the "adverse_events.csv" spreadsheet
+
+
 
 ```{r results='asis', eval = TRUE}  
 cat('\n\n')
@@ -104,7 +410,8 @@ for(i in 1:length(extids)){
   this_ae <- ae %>% filter(extid == this_extid)
   # AE (principle table)
   table1 <- this_ae %>%
-    dplyr::select(extid, symptom = symptom_name_helper,
+    dplyr::select(extid, symptom,
+                  symptom_category,
                   symptom_start, symptom_end,
                   symptom_still_have, 
                   symptom_seek_care, symptom_seek_care_where, seek_care_hospital_night,
@@ -134,7 +441,7 @@ for(i in 1:length(extids)){
                                        "striped"
                                       ), 
                      # full_width = T,
-                    font_size = 7)
+                    font_size = 5)
       k2 <- kable(table2, format = "latex",
               longtable = TRUE,
               booktabs = TRUE,
@@ -159,12 +466,12 @@ for(i in 1:length(extids)){
                                        "striped"
                                       ))
     
-      cat(paste0("\\fbox{\\parbox{5cm}{\\centering Adverse events of ", this_extid, '',  "}}\n\n"))
-  cat(paste0("\\medskip\n\n"))
-  cat(paste0('Adverse events'))
-  print(k1)
+      cat(paste0("\\fbox{\\parbox{5cm}{\\centering ", this_extid, '',  "}}\n\n"))
   cat(paste0("\\medskip\n\n"))
   cat(paste0('Participant details'))
+  print(k1)
+  cat(paste0("\\medskip\n\n"))
+  cat(paste0('Adverse events'))
   print(k2)
   cat(paste0("\\medskip\n\n"))
   cat(paste0('Visit details'))
@@ -174,6 +481,33 @@ for(i in 1:length(extids)){
     
 }
 
+```
+
+```{r}
+# Write a csv for analysis
+out <- ae %>%
+    left_join(safety_repeat_individual %>% dplyr::distinct(extid, .keep_all = TRUE) %>% dplyr::select(extid, sex, age, intervention)) %>%
+  dplyr::select(extid, 
+                hhid,
+                sex, age, intervention,
+                symptom_name,
+                symptom_category,
+                todays_date,
+                symptom_still_have,
+                symptom_started_days_after_visit = symptom_start,
+                symptom_ended_days_after_visit = symptom_end,
+                safety_key,
+                symptom_interfere_activities,
+                symptom_seek_care,
+                symptom_seek_care_where,
+                symptom_seek_care_other_specify,
+                seek_care_hospital_night,
+                note_hospital_night_sae,
+                night_hospital_eos,
+                num_nights_hospital,
+                treatment_for_malaria,
+                KEY)
+write_csv(out, 'adverse_events_for_review.csv')
 ```
 
 \cfoot{\thepage\ of \pageref{LastPage}}
