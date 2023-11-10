@@ -5,6 +5,22 @@ library(leaflet)
 library(rgdal)
 library(sp)
 
+# Make household ID 5 characters
+add_zero <- function (x, n) {
+  if(length(x) > 0){
+    x <- as.character(x)
+    adders <- n - nchar(x)
+    adders <- ifelse(adders < 0, 0, adders)
+    for (i in 1:length(x)) {
+      if (!is.na(x[i])) {
+        x[i] <- paste0(paste0(rep("0", adders[i]), collapse = ""),
+                       x[i], collapse = "")
+      }
+    }
+  }
+  return(as.character(x))
+}
+
 # Based on plot, define each cluster as north or south
 clusters <- tibble(
   cluster_number = 1:96,
@@ -1362,5 +1378,7 @@ if(file_name %in% dir('outputs/')){
            !is.na(head_of_household),
            !is.na(extid),
            !is.na(cluster))
+  ce <- ce %>%
+    mutate(hhid = add_zero(hhid, 5))
   write_csv(ce, paste0('outputs/', file_name))
 }
