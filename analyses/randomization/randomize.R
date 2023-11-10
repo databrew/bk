@@ -1337,3 +1337,30 @@ if(file.exists(file_path)){
     arrange(cluster, extid)
   write_csv(pk_individuals, file_path)
 }
+
+# Community engagement team wants pk_individuals with names and heads of households
+file_name <- 'pk_for_community_engagement.csv'
+if(file_name %in% dir('outputs/')){
+  ce <- read_csv(paste0('outputs/', file_name))
+} else {
+  heads <- v0demography_repeat_individual %>% 
+    left_join(v0demography %>% dplyr::select(KEY, hhid), by = c('PARENT_KEY' = 'KEY')) %>%
+    filter(!is.na(hhid), !is.na(hh_head_yn)) %>%
+    filter(hh_head_yn == 'yes') %>%
+    dplyr::distinct(hhid, .keep_all = TRUE) %>%
+    mutate(head_of_household = paste0(firstname, ' ', lastname)) %>%
+    dplyr::select(hhid, head_of_household)
+  ce <- pk_individuals %>%
+    mutate(hhid = unlist(lapply(strsplit(extid, '-'), function(x){x[1]}))) %>%
+    mutate(hhid = as.numeric(hhid)) %>%
+    left_join(heads) %>%
+    left_join(v0demography_repeat_individual %>%
+                dplyr::select(extid, firstname, lastname)) %>%
+    mutate(name = paste0(firstname, ' ', lastname)) %>%
+    dplyr::select(cluster, extid, hhid, name, head_of_household) %>%
+    filter(!is.na(name),
+           !is.na(head_of_household),
+           !is.na(extid),
+           !is.na(cluster))
+  write_csv(ce, paste0('outputs/', file_name))
+}
