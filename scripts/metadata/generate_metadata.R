@@ -923,7 +923,7 @@ dx <- safety_repeat_individual %>%
   mutate(p_refusals = n_refusals / n_individual_submissions * 100) %>%
   arrange(desc(p_refusals))
 all_refusals <- dx %>% filter(p_refusals == 100) %>% arrange(hhid)
-write_csv(all_refusals, '~/Desktop/all_refusals.csv')
+# write_csv(all_refusals, '~/Desktop/all_refusals.csv')
 households <- households %>% filter(!hhid %in% all_refusals$hhid)
 individuals <- individuals %>% filter(hhid %in% households$hhid)
 }
