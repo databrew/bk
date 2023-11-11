@@ -923,6 +923,7 @@ dx <- safety_repeat_individual %>%
   mutate(p_refusals = n_refusals / n_individual_submissions * 100) %>%
   arrange(desc(p_refusals))
 all_refusals <- dx %>% filter(p_refusals == 100) %>% arrange(hhid)
+write_csv(all_refusals, '~/Desktop/all_refusals.csv')
 households <- households %>% filter(!hhid %in% all_refusals$hhid)
 individuals <- individuals %>% filter(hhid %in% households$hhid)
 }
@@ -1396,6 +1397,27 @@ pryr::mem_used()
 
 
 # <Efficacy> ##############################################################################
+
+# One off request for community engagement team
+if(FALSE){
+  pd <- efficacy[!is.na(efficacy$person_absent_reason),]
+  pd <- pd[pd$person_absent_reason == 'Absent',]
+  pd <- pd[pd$efficacy_status == 'out',]
+  
+  heads <- v0demography_full_repeat_individual[v0demography_full_repeat_individual$hh_head_yn == 'yes',] 
+  right <- heads %>%
+    mutate(head_of_household = paste0(firstname, ' ', lastname)) %>%
+    left_join(v0demography %>% dplyr::select(hhid, village, cluster, ward, KEY),
+              by = c('PARENT_KEY' = 'KEY')) %>%
+    dplyr::distinct(hhid, .keep_all = TRUE) %>%
+    dplyr::select(hhid, ward, head_of_household, village, cluster)
+  pd <- left_join(pd %>% 
+                    mutate(childs_name = paste0(firstname, ' ', lastname)) %>%
+                    dplyr::select(extid, childs_name, hhid), 
+                  right) %>%
+    arrange(cluster, hhid, extid)
+  write_csv(pd, '/tmp/absent_efficacy.csv')
+}
 
 # Get the starting roster
 starting_roster <- v0demography_repeat_individual %>%
