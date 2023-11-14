@@ -899,33 +899,41 @@ safety_individuals <- individuals
 # Remove from safety households which contain 100% refused individuals
 # https://trello.com/c/mGoKfh7w/2071-update-metadata-script-safety-to-remove-from-safety-lists-all-individuals-from-households-with-100-refusals
 if(TRUE){
-dx <- safety_repeat_individual %>%
-  left_join(safety %>% dplyr::select(KEY, hhid, visit), by = c('PARENT_KEY' = 'KEY')) %>%
-  filter(visit == 'V1') %>%
-  # special categories for "refusal"
-  mutate(is_refusal = (!is.na(obvious_screening) & obvious_screening == 'Refusal') |
-           ind_icf_thumbprint == 'no' |
-           ind_agree_sign_icf == 'no' |
-           minor_agree_sign_assent == 'no') %>%
-  dplyr::select(hhid, extid, is_refusal) %>%
-  bind_rows(safetynew_repeat_individual %>%
-              left_join(safetynew %>% dplyr::select(KEY, hhid), by = c('PARENT_KEY' = 'KEY')) %>%
-              # special categories for "refusal"
-              mutate(is_refusal = obvious_screening == 'Refusal' |
-                       ind_icf_thumbprint == 'no' |
-                       ind_agree_sign_icf == 'no' |
-                       minor_agree_sign_assent == 'no')) %>%
-  mutate(is_refusal = ifelse(is.na(is_refusal), FALSE, is_refusal)) %>%
-  group_by(hhid) %>%
-  summarise(n_refusals = sum(as.numeric(is_refusal)),
-            n_individual_submissions = n()) %>%
-  ungroup %>%
-  mutate(p_refusals = n_refusals / n_individual_submissions * 100) %>%
-  arrange(desc(p_refusals))
-all_refusals <- dx %>% filter(p_refusals == 100) %>% arrange(hhid)
-# write_csv(all_refusals, '~/Desktop/all_refusals.csv')
-households <- households %>% filter(!hhid %in% all_refusals$hhid)
-individuals <- individuals %>% filter(hhid %in% households$hhid)
+  
+  remove_visits <- paste0('V', 1:4)
+  for(i in 1:length(remove_visits)){
+    this_visit <- remove_visits[i]
+    message('Removing 100% refusal households for visit ', this_visit)
+    dx <- safety_repeat_individual %>%
+      left_join(safety %>% dplyr::select(KEY, hhid, visit), by = c('PARENT_KEY' = 'KEY')) %>%
+      filter(visit == this_visit) %>%
+      # special categories for "refusal"
+      mutate(is_refusal = (!is.na(obvious_screening) & obvious_screening == 'Refusal') |
+               ind_icf_thumbprint == 'no' |
+               ind_agree_sign_icf == 'no' |
+               minor_agree_sign_assent == 'no') %>%
+      dplyr::select(hhid, extid, is_refusal) %>%
+      bind_rows(safetynew_repeat_individual %>%
+                  left_join(safetynew %>% dplyr::select(KEY, hhid, visit), by = c('PARENT_KEY' = 'KEY')) %>%
+                  filter(visit == this_visit) %>%
+                  # special categories for "refusal"
+                  mutate(is_refusal = obvious_screening == 'Refusal' |
+                           ind_icf_thumbprint == 'no' |
+                           ind_agree_sign_icf == 'no' |
+                           minor_agree_sign_assent == 'no')) %>%
+      mutate(is_refusal = ifelse(is.na(is_refusal), FALSE, is_refusal)) %>%
+      group_by(hhid) %>%
+      summarise(n_refusals = sum(as.numeric(is_refusal)),
+                n_individual_submissions = n()) %>%
+      ungroup %>%
+      mutate(p_refusals = n_refusals / n_individual_submissions * 100) %>%
+      arrange(desc(p_refusals))
+    all_refusals <- dx %>% filter(p_refusals == 100) %>% arrange(hhid)
+    message('---Going to remove ', nrow(all_refusals))
+    # write_csv(all_refusals, '~/Desktop/all_refusals.csv')
+    households <- households %>% filter(!hhid %in% all_refusals$hhid)
+    individuals <- individuals %>% filter(hhid %in% households$hhid)
+  }
 }
 
 
