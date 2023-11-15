@@ -899,7 +899,7 @@ safety_individuals <- individuals
 # Remove from safety households which contain 100% refused individuals
 # https://trello.com/c/mGoKfh7w/2071-update-metadata-script-safety-to-remove-from-safety-lists-all-individuals-from-households-with-100-refusals
 if(TRUE){
-  
+
   remove_visits <- paste0('V', 1:4)
   for(i in 1:length(remove_visits)){
     this_visit <- remove_visits[i]
@@ -923,8 +923,8 @@ if(TRUE){
                            minor_agree_sign_assent == 'no')) %>%
       mutate(is_refusal = ifelse(is.na(is_refusal), FALSE, is_refusal)) %>%
       group_by(hhid) %>%
-      summarise(n_refusals = sum(as.numeric(is_refusal)),
-                n_individual_submissions = n()) %>%
+      summarise(n_refusals = n_distinct(extid[is_refusal]),
+                n_individual_submissions = n_distinct(extid)) %>%
       ungroup %>%
       mutate(p_refusals = n_refusals / n_individual_submissions * 100) %>%
       arrange(desc(p_refusals))
@@ -1411,17 +1411,17 @@ if(FALSE){
   pd <- efficacy[!is.na(efficacy$person_absent_reason),]
   pd <- pd[pd$person_absent_reason == 'Absent',]
   pd <- pd[pd$efficacy_status == 'out',]
-  
-  heads <- v0demography_full_repeat_individual[v0demography_full_repeat_individual$hh_head_yn == 'yes',] 
+
+  heads <- v0demography_full_repeat_individual[v0demography_full_repeat_individual$hh_head_yn == 'yes',]
   right <- heads %>%
     mutate(head_of_household = paste0(firstname, ' ', lastname)) %>%
     left_join(v0demography %>% dplyr::select(hhid, village, cluster, ward, KEY),
               by = c('PARENT_KEY' = 'KEY')) %>%
     dplyr::distinct(hhid, .keep_all = TRUE) %>%
     dplyr::select(hhid, ward, head_of_household, village, cluster)
-  pd <- left_join(pd %>% 
+  pd <- left_join(pd %>%
                     mutate(childs_name = paste0(firstname, ' ', lastname)) %>%
-                    dplyr::select(extid, childs_name, hhid), 
+                    dplyr::select(extid, childs_name, hhid),
                   right) %>%
     arrange(cluster, hhid, extid)
   write_csv(pd, '/tmp/absent_efficacy.csv')
