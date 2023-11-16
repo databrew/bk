@@ -1565,6 +1565,19 @@ individuals <- individuals %>% left_join(starting_safety_statuses)
 
 gc()
 
+# Remove 5 individuals manually
+remove_these <- 
+  c(
+    '02042-03',
+    '02042-02',
+    '26007-03',
+    '18039-03',
+    '74052-06'
+  )
+individuals <- individuals %>%
+  filter(!extid %in% remove_these)
+
+
 # Create a household metadata per last minute request:
 # https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1695661677831249?thread_ts=1695658613.655559&cid=C042KSRLYUA
 households <- individuals %>%
