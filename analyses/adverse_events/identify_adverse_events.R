@@ -339,4 +339,6 @@ visit_level <-
 save(visit_level, safety,
      safety_repeat_individual,
      individuals, drugs, ae,
+     safetynew,
+     safetynew_repeat_individual,
      file = 'rmd_data.RData')

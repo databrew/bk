@@ -109,7 +109,109 @@ ae %>%
   knitr::kable()
 ```
 
+## Events by cluster / visit
 
+The "V" variables refer to the visit at which the adverse event was reported.
+
+```{r}
+library(knitr)
+library(kableExtra)
+# Read in intervention information
+assignments <- read_csv('../randomization/outputs/assignments.csv')
+ia <- read_csv('../randomization/outputs/intervention_assignment.csv')
+statuses <- left_join(assignments %>% 
+                     dplyr::select(cluster = cluster_number,
+                                   arm = assignment),
+                   ia) %>%
+  mutate(intervention = 'CENSORED')
+pd <- ae %>%
+  # dplyr::select(-KEY) %>%
+  # left_join(visit_level) %>%
+  left_join(safety, by = c('safety_key' = 'KEY')) %>%
+  group_by(cluster, visit) %>%
+  tally %>%
+  ungroup 
+# Get number of treated people
+right <- safety_repeat_individual %>%
+  filter(!is.na(num_ivermectin_tablets_taken) |
+           !is.na(num_albendzole_pills)) %>%
+  left_join(safety %>% dplyr::select(KEY, cluster, visit), by = c('PARENT_KEY' = 'KEY')) %>% 
+  dplyr::select(cluster, extid, visit) %>%
+  bind_rows(
+    safetynew_repeat_individual  %>%
+  filter(!is.na(num_ivermectin_tablets_taken) |
+           !is.na(num_albendzole_pills)) %>%
+  left_join(safetynew %>% dplyr::select(KEY, cluster, visit), by = c('PARENT_KEY' = 'KEY')) %>%
+    dplyr::select(cluster, extid, visit)) %>%
+  group_by(cluster, visit) %>%
+  summarise(n_treated = n()) %>%
+  ungroup %>%
+  mutate(next_visit = paste0('V', as.numeric(gsub('V', '', visit)) + 1)) %>%
+  dplyr::select(-visit)
+pd <- full_join(pd, right, by = c('cluster', 'visit'='next_visit'))
+pd <- pd %>% filter(!is.na(cluster), !is.na(visit))
+pd <- pd %>% mutate(n = ifelse(is.na(n), 0, n),
+                    n_treated = ifelse(is.na(n_treated), 0, n_treated))
+
+pd <- pd %>%
+  dplyr::rename(number_of_aes = n,
+                n_treated_at_previous_visit = n_treated) %>%
+  mutate(percentage_ae = number_of_aes / n_treated_at_previous_visit * 100)
+pd <- pd %>% left_join(statuses)
+pd$cluster <- add_zero(pd$cluster, 2)
+pd <- pd %>% filter(!is.na(cluster))
+
+# write csv for carlos
+write_csv(pd, 'adverse_events_by_cluster.csv')
+old_pd <- pd
+old_pd %>%
+  dplyr::select(cluster, visit, number_of_aes) %>%
+  tidyr::spread(key = visit, value = number_of_aes) %>%
+  # left_join(old_pd) %>%
+  kable(format = "latex",
+              longtable = TRUE,
+              booktabs = TRUE,
+             escape = TRUE,
+          row.names = FALSE) %>%
+      kable_styling(latex_options = c(#"scale_down",
+                'repeat_header',
+
+                                       "striped"
+                                      ), 
+                     # full_width = T,
+                    font_size = 8) 
+```
+
+
+## Events by cluster / visit  / symptom category
+
+```{r, fig.height = 8, fig.width=10}
+pd <- ae %>%
+  # dplyr::select(-KEY) %>%
+  # left_join(visit_level) %>%
+  left_join(safety, by = c('safety_key' = 'KEY')) %>%
+  group_by(cluster, visit, symptom_category) %>%
+  tally %>%
+  ungroup %>%
+  mutate(cluster = add_zero(cluster, 2)) %>%
+  mutate(cluster = factor(cluster))
+ggplot(data = pd,
+       aes(x = cluster,
+           y = n)) +
+  geom_bar(stat = 'identity',
+           aes(fill = symptom_category),
+           color = 'black',
+           width = 1) +
+  facet_wrap(~visit) +
+  labs(x = 'Cluster',
+       y = 'Events') +
+  theme_bw() +
+  coord_flip() +
+  theme(legend.position = 'bottom') +
+  scale_fill_manual(name = 'Symptom',
+                    values = RColorBrewer::brewer.pal(n = length(unique(pd$symptom_category)), 'Set1'))
+
+```
 
 ## Adverse event symptom categories
 
@@ -410,6 +512,8 @@ for(i in 1:length(extids)){
   this_ae <- ae %>% filter(extid == this_extid)
   # AE (principle table)
   table1 <- this_ae %>%
+    mutate(symptom_start = todays_date - lubridate::days(symptom_start),
+           symptom_end = todays_date - lubridate::days(symptom_end)) %>%
     dplyr::select(extid, symptom,
                   symptom_category,
                   symptom_start, symptom_end,
@@ -423,7 +527,20 @@ for(i in 1:length(extids)){
     filter(extid == this_extid) %>%
     dplyr::select(-extid)
   # Visit table
+  # get comedications
+  individual_drugs <- drugs %>%
+    mutate(drug = ifelse(!is.na(drug_other_specify),
+                         drug_other_specify,
+                         drug)) %>%
+        filter(extid == this_extid) %>%
+    dplyr::select(drug, still_taking_drug_yn, num_days_drug,
+                  num_days_after_visit_drug_start, safety_key)
+  comeds <- individual_drugs %>%
+    left_join(safety %>% dplyr::select(visit, todays_date, KEY), by = c('safety_key' = 'KEY')) %>%
+    group_by(visit) %>%
+    summarise(drug = paste(drug, collapse = ', '))
   table3 <- visit_level %>%
+    left_join(comeds) %>%
     filter(extid == this_extid) %>%
     dplyr::select(-extid) %>%
     arrange(visit)
@@ -466,6 +583,17 @@ for(i in 1:length(extids)){
                                        "striped"
                                       ))
     
+      k4 <- kable(individual_drugs %>% dplyr::select(-safety_key), format = "latex",
+              longtable = TRUE,
+              booktabs = TRUE,
+             escape = TRUE,
+          row.names = TRUE) %>%
+      kable_styling(latex_options = c("scale_down",
+                'repeat_header',
+
+                                       "striped"
+                                      ))
+    
       cat(paste0("\\fbox{\\parbox{5cm}{\\centering ", this_extid, '',  "}}\n\n"))
   cat(paste0("\\medskip\n\n"))
   cat(paste0('Participant details'))
@@ -476,7 +604,9 @@ for(i in 1:length(extids)){
   cat(paste0("\\medskip\n\n"))
   cat(paste0('Visit details'))
   print(k3)
-
+  cat(paste0("\\medskip\n\n"))
+  cat(paste0('Co-medications'))
+  print(k4)
   cat('\\newpage')
     
 }
