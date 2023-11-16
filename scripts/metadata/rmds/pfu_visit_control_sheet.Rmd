@@ -16,7 +16,7 @@ header-includes:
 - \usepackage{multirow}
 - \usepackage{colortbl}
 - \usepackage[labelformat = empty]{caption}
-- \fancyhead[CO,CE]{PFU visit control sheets.}
+- \fancyhead[CO,CE]{PFU visit control sheets V2}
 - \fancyfoot[CO,CE]{This is a transitory document to assist the casual laborers with household identification.\\This document will not be retained in the study investigator site file (ISF).\\Bohemia PFU Visit Control Sheets Version 2.0. Date = \today\\}
 - \fancyfoot[LE,RO]{Page {\thepage} of \pageref{LastPage}}
 geometry: margin=2cm
@@ -106,7 +106,7 @@ individuals <- individuals %>% left_join(heads)
 
 # Create a variable to indicate which section this should be grouped in for printing
 # For now, just a placeholder
-individuals$VCS <- individuals$cluster
+individuals$VCS <- individuals$FA
 
 # Filter down only to those in the vcs
 individuals <- individuals %>% filter(VCS == params$vcs)
@@ -119,7 +119,8 @@ out <- individuals %>%
   mutate(absence1 = ' ', absence2 = ' ', notes = ' ') %>%
   # dplyr::sample_n(100) %>%
     mutate(Name = paste0(firstname, ' ', lastname)) %>%
-  dplyr::select(Ward = ward, 
+  dplyr::select(Cluster = cluster,
+                Ward = ward, 
                 Village = village,
                 `HhID` = hhid,
                 `Hh head name` = head_name,
@@ -158,7 +159,7 @@ for (i in 1:length(vcs_documents)) {
               longtable = TRUE,
               booktabs = TRUE,
               #align = "c", 
-             caption = paste0('Cluster ', params$vcs),
+             # caption = paste0('FA ', params$vcs),
              escape = TRUE,
           row.names = FALSE) %>%
       kable_styling(latex_options = c(#"scale_down",
@@ -168,20 +169,21 @@ for (i in 1:length(vcs_documents)) {
                                       ), 
                      # full_width = T,
                     font_size = 7) %>%
-    add_header_above(c(" " = 6, "Absences" = 2, " " = 1)) %>%
+    add_header_above(c(" " = 7, "Absences" = 2, " " = 1)) %>%
     column_spec(1,  width = "3em")  %>%
-    column_spec(2,  width = "15em")  %>%
-    column_spec(3,  width = "3em")  %>%
-    column_spec(4,  width = "15em")  %>%
-    column_spec(5,  width = "5em")  %>%
-    column_spec(6,  width = "15em")  %>%
-    column_spec(7,  width = "2em")  %>%
+    column_spec(2,  width = "3em")  %>%
+    column_spec(3,  width = "15em")  %>%
+    column_spec(4,  width = "3em")  %>%
+    column_spec(5,  width = "15em")  %>%
+    column_spec(6,  width = "5em")  %>%
+    column_spec(7,  width = "15em")  %>%
     column_spec(8,  width = "2em")  %>%
-    column_spec(9,  width = "10em")  
+    column_spec(9,  width = "2em")  %>%
+    column_spec(10,  width = "10em")  
   
-  cat(paste0("\\fbox{\\parbox{5cm}{\\centering Cluster No. ", this_cluster, '',  "}}\n\n"))
+  cat(paste0("\\fbox{\\parbox{5cm}{\\centering FA name: ", this_cluster, '',  "}}\n\n"))
   cat(paste0("\\medskip\n\n"))
-  # cat(paste0('Efficacy Visit Control Sheet'))
+  # cat(paste0('PFU Visit Control Sheet V2'))
   # k <- paste0(paste0('Cluster ', this_cluster, '\\', k))
   print(k)
   cat('\\newpage')

@@ -1637,7 +1637,7 @@ pryr::mem_used()
 
 
 # <pfu> ##############################################################################
-
+save.image('pre_pfu.RData')
 # Get anyone who was ever pregnant
 # (no need for safetynew since they would be excluded from safety and therefore pregnancy in the first place)
 pfu_in <-
@@ -1753,6 +1753,19 @@ if(!dir.exists('pfu_metadata')){
 }
 write_csv(individuals, 'pfu_metadata/individual_data.csv')
 
+#   # # Get personnel information
+if('personnel.RData' %in% dir()){
+  load('personnel.RData')
+} else {
+  personnel <- gsheet::gsheet2tbl('https://docs.google.com/spreadsheets/d/17UYltbC6wyB3mZDnEunmBwgbwPsn3ai5fwYnws2cK4k/edit#gid=211140418')
+  save(personnel, file = 'personnel.RData')
+}
+personnel <- personnel %>% mutate(cluster = add_zero(CLUSTER, 2))
+# Link each individual in PFU with the correct FA
+individuals <- left_join(individuals, 
+                         personnel %>%
+                           dplyr::select(cluster, FA, fa_code = `FA CODE`))
+
 # Render the PFU visit control sheets
 individuals <- left_join(individuals, v0demography_full %>% dplyr::select(hhid, cluster))
 save(individuals, v0demography, v0demography_repeat_individual, file = 'rmds/pfu_tables.RData')
@@ -1763,7 +1776,8 @@ if(FALSE){
     dir.create('rmds/pfu_visit_control_sheets')
   }
   load('rmds/pfu_tables.RData')
-  vcs_list <- sort(unique(individuals$cluster))
+  
+  vcs_list <- sort(unique(individuals$FA))
   for(a in 1:length(vcs_list)){
     this_vcs <- vcs_list[a]
     message(a, ' of ', length(vcs_list), ' WD: ', getwd())
