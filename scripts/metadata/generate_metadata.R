@@ -891,7 +891,7 @@ if(FALSE){
     dplyr::select(-roster, -num_members)
   write_csv(households, '~/Desktop/household_data.csv')
   write_csv(individuals, '~/Desktop/individual_data.csv')
-  }
+}
 
 # Save object for use in ICF and health economics followup
 safety_individuals <- individuals
@@ -899,7 +899,7 @@ safety_individuals <- individuals
 # Remove from safety households which contain 100% refused individuals
 # https://trello.com/c/mGoKfh7w/2071-update-metadata-script-safety-to-remove-from-safety-lists-all-individuals-from-households-with-100-refusals
 if(TRUE){
-  
+
   remove_visits <- paste0('V', 1:4)
   for(i in 1:length(remove_visits)){
     this_visit <- remove_visits[i]
@@ -966,11 +966,11 @@ obvious_screening <-
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::select(extid, obvious_screening) %>%
   mutate(obvious_screening = dplyr::case_match(obvious_screening,
-                                           'Pregnant' ~ 'Visibly Pregnant',
-                                           'Witness' ~ 'No witness',
-                                           'Ill' ~ 'Severely ill',
-                                           'absent' ~ 'Absent',
-                                           .default = obvious_screening))
+                                               'Pregnant' ~ 'Visibly Pregnant',
+                                               'Witness' ~ 'No witness',
+                                               'Ill' ~ 'Severely ill',
+                                               'absent' ~ 'Absent',
+                                               .default = obvious_screening))
 ever_present <- safety_repeat_individual %>%
   filter(!is.na(person_present)) %>%
   filter(person_present == 'yes') %>%
@@ -1411,17 +1411,17 @@ if(FALSE){
   pd <- efficacy[!is.na(efficacy$person_absent_reason),]
   pd <- pd[pd$person_absent_reason == 'Absent',]
   pd <- pd[pd$efficacy_status == 'out',]
-  
-  heads <- v0demography_full_repeat_individual[v0demography_full_repeat_individual$hh_head_yn == 'yes',] 
+
+  heads <- v0demography_full_repeat_individual[v0demography_full_repeat_individual$hh_head_yn == 'yes',]
   right <- heads %>%
     mutate(head_of_household = paste0(firstname, ' ', lastname)) %>%
     left_join(v0demography %>% dplyr::select(hhid, village, cluster, ward, KEY),
               by = c('PARENT_KEY' = 'KEY')) %>%
     dplyr::distinct(hhid, .keep_all = TRUE) %>%
     dplyr::select(hhid, ward, head_of_household, village, cluster)
-  pd <- left_join(pd %>% 
+  pd <- left_join(pd %>%
                     mutate(childs_name = paste0(firstname, ' ', lastname)) %>%
-                    dplyr::select(extid, childs_name, hhid), 
+                    dplyr::select(extid, childs_name, hhid),
                   right) %>%
     arrange(cluster, hhid, extid)
   write_csv(pd, '/tmp/absent_efficacy.csv')
@@ -1465,8 +1465,7 @@ individuals <- roster %>%
   dplyr::mutate(fullname_dob = paste0(firstname, ' ', lastname, ' | ', dob)) %>%
   dplyr::rename(fullname_id = roster_name) %>%
   # get intervention, village, ward, cluster
-  left_join(households %>% dplyr::select(hhid, intervention, cluster)) %>%
-  left_join(v0demography %>% dplyr::select(hhid, village, ward))
+  left_join(v0demography %>% dplyr::select(hhid, village, ward, cluster))
 # Get starting weight
 # (generated in safety section)
 individuals <- left_join(individuals, starting_weights)
@@ -1526,17 +1525,17 @@ if(nrow(right) > 0){
   individuals$efficacy_absent_most_recent_visit <- 0
 }
 # efficacy_most_recent_visit_present
-right <-
-  efficacy %>% arrange(desc(start_time)) %>%
-  filter(!is.na(person_present_continue)) %>%
-  filter(person_present_continue == 1) %>%
-  dplyr::distinct(extid, .keep_all = TRUE) %>%
-  dplyr::mutate(efficacy_absent_most_recent_visit = as.numeric(gsub('V', '', visit))) %>%
-  dplyr::select(extid, efficacy_most_recent_visit_present,
-                efficacy_most_recent_present_date = todays_date) %>%
-  mutate(efficacy_most_recent_present_date = paste0('.', as.character(efficacy_most_recent_present_date))) %>%
-  mutate(extid = as.character(extid))
-individuals <- left_join(individuals, right)
+# right <-
+#   efficacy %>% arrange(desc(start_time)) %>%
+#   filter(!is.na(person_present_continue)) %>%
+#   filter(person_present_continue == 1) %>%
+#   dplyr::distinct(extid, .keep_all = TRUE) %>%
+#   dplyr::mutate(efficacy_absent_most_recent_visit = as.numeric(gsub('V', '', visit))) %>%
+#   dplyr::select(extid, efficacy_most_recent_visit_present,
+#                 efficacy_most_recent_present_date = todays_date) %>%
+#   mutate(efficacy_most_recent_present_date = paste0('.', as.character(efficacy_most_recent_present_date))) %>%
+#   mutate(extid = as.character(extid))
+# individuals <- left_join(individuals, right)
 # efficacy_visits_done
 # (this includes absent visits) https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1690378013017559?thread_ts=1690307177.615709&cid=C042KSRLYUA
 right <- efficacy %>%
@@ -1566,7 +1565,7 @@ individuals <- individuals %>% left_join(starting_safety_statuses)
 gc()
 
 # Remove 5 individuals manually
-remove_these <- 
+remove_these <-
   c(
     '02042-03',
     '02042-02',
@@ -1775,7 +1774,7 @@ if('personnel.RData' %in% dir()){
 }
 personnel <- personnel %>% mutate(cluster = add_zero(CLUSTER, 2))
 # Link each individual in PFU with the correct FA
-individuals <- left_join(individuals, 
+individuals <- left_join(individuals,
                          personnel %>%
                            dplyr::select(cluster, FA, fa_code = `FA CODE`))
 
@@ -1789,7 +1788,7 @@ if(FALSE){
     dir.create('rmds/pfu_visit_control_sheets')
   }
   load('rmds/pfu_tables.RData')
-  
+
   vcs_list <- sort(unique(individuals$FA))
   for(a in 1:length(vcs_list)){
     this_vcs <- vcs_list[a]
@@ -2285,7 +2284,7 @@ samples <-
                                       ifelse(!is.na(s4qr), s4qr,
                                              ifelse(!is.na(s5qr), s5qr,
                                                     ifelse(!is.na(s6qr), s6qr,
-                                                    NA))))))) %>%
+                                                           NA))))))) %>%
         mutate(sample = as.character(sample)) %>%
         mutate(wid = as.character(wid), todays_date = as.Date(todays_date)) %>%
         mutate(cluster = as.character(cluster)) %>%
@@ -2317,7 +2316,7 @@ samples <-
         mutate(start_time = lubridate::as_datetime(start_time)) %>%
         mutate(dob = lubridate::as_datetime(dob)) %>%
         arrange(start_time, .keep_all = TRUE) %>%
-          mutate(sample = label) %>%
+        mutate(sample = label) %>%
         mutate(sample = as.character(sample)) %>%
         mutate(wid = as.character(wid), todays_date = as.Date(todays_date)) %>%
         mutate(cluster = as.character(cluster)) %>%
@@ -2325,9 +2324,9 @@ samples <-
         mutate(time_sample_collection = if_else(sample_collected_at_time == 'no', lubridate::as_datetime(time_of_sample), lubridate::as_datetime(time_blood_samples_formatted))) %>%
         mutate(time_sample_collection = as.character(time_sample_collection)) %>%
         mutate(num_aliquots = ifelse(is.na(two_samples), NA,
-                                            ifelse(two_samples == 'yes', 2,
-                                                   ifelse(two_samples %in% c('only aliquot 1', 'only aliquot 2'), 1,
-                                                          ifelse(two_samples == 'none', 0, NA))))) %>%
+                                     ifelse(two_samples == 'yes', 2,
+                                            ifelse(two_samples %in% c('only aliquot 1', 'only aliquot 2'), 1,
+                                                   ifelse(two_samples == 'none', 0, NA))))) %>%
         dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, num_aliquots, age, pkid = pk_id)
     ) %>%
       # fix pk sample ids
@@ -2408,7 +2407,7 @@ right <-
                sample_status == "Quarantine" ~ quarantine_incidence_select
              )) %>%
       dplyr::select(sample, sample_status, start_time, efficacy_reason,
-                          pk_reason, incidences),
+                    pk_reason, incidences),
     lab2 %>%
       mutate(sample = as.character(sample),
              sample_status = as.character(sample_status),
@@ -2416,7 +2415,7 @@ right <-
              efficacy_reason = as.character(efficacy_reason),
              pk_reason = as.character(pk_reason)) %>%
       dplyr::select(sample, sample_status, start_time, efficacy_reason,
-                           pk_reason)
+                    pk_reason)
   ) %>%
   mutate(quarantine_reasons = ifelse(!is.na(efficacy_reason),
                                      efficacy_reason,
