@@ -1405,7 +1405,7 @@ pryr::mem_used()
 
 
 # <Efficacy> ##############################################################################
-
+save.image('pre_efficacy.RData')
 # One off request for community engagement team
 if(FALSE){
   pd <- efficacy[!is.na(efficacy$person_absent_reason),]
@@ -1461,11 +1461,17 @@ roster <- starting_roster %>%
   mutate(dead = ifelse(is.na(dead), 0, dead),
          migrated = ifelse(is.na(migrated), 0, migrated))
 # Add more info to individuals
+cluster_intervention <- v0demography_full %>%
+  dplyr::distinct(hhid, .keep_all = TRUE) %>%
+  dplyr::select(cluster, hhid) %>%
+  left_join(assignments %>% dplyr::select(cluster = cluster_number,
+                                          arm = assignment)) %>%
+  left_join(intervention_assignment) %>% dplyr::select(-arm)
 individuals <- roster %>%
   dplyr::mutate(fullname_dob = paste0(firstname, ' ', lastname, ' | ', dob)) %>%
   dplyr::rename(fullname_id = roster_name) %>%
   # get intervention, village, ward, cluster
-  left_join(households %>% dplyr::select(hhid, intervention, cluster)) %>%
+  left_join(cluster_intervention) %>%
   left_join(v0demography %>% dplyr::select(hhid, village, ward))
 # Get starting weight
 # (generated in safety section)
@@ -1494,9 +1500,22 @@ efficacy_preselected_ids <- sort(unique(efficacy_selection$extid))
 #   arrange(cl, hhid)
 # write_csv(mercy, '~/Desktop/efficacy_selections_with_cl.csv')
 
-
 individuals$efficacy_preselected <- ifelse(individuals$extid %in% efficacy_preselected_ids, 1, 0)
 efficacy_ids <- sort(unique(individuals$extid[individuals$efficacy_preselected == 1]))
+#2816
+# Remove 5 individuals manually
+remove_these <- 
+  c(
+    '02042-03',
+    '02042-02',
+    '26007-03',
+    '18039-03',
+    '74052-06'
+  )
+individuals <- individuals %>%
+  filter(!extid %in% remove_these)
+
+
 # Get some further efficacy status variables
 # starting_efficacy_status
 right <-
@@ -1512,6 +1531,8 @@ individuals <- left_join(individuals, right) %>%
   mutate(starting_efficacy_status = ifelse(is.na(starting_efficacy_status) & extid %in% efficacy_ids,
                                            'out',
                                            starting_efficacy_status))
+# Keep only those who are preselected
+individuals <- individuals %>% filter(extid %in% efficacy_ids)
 # efficacy_absent_most_recent_visit
 right <-
   efficacy %>% arrange(desc(start_time)) %>%
@@ -1565,17 +1586,6 @@ individuals <- individuals %>% left_join(starting_safety_statuses)
 
 gc()
 
-# Remove 5 individuals manually
-remove_these <- 
-  c(
-    '02042-03',
-    '02042-02',
-    '26007-03',
-    '18039-03',
-    '74052-06'
-  )
-individuals <- individuals %>%
-  filter(!extid %in% remove_these)
 
 
 # Create a household metadata per last minute request:
