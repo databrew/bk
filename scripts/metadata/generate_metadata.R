@@ -1524,18 +1524,18 @@ if(nrow(right) > 0){
 } else {
   individuals$efficacy_absent_most_recent_visit <- 0
 }
-# efficacy_most_recent_visit_present
-# right <-
-#   efficacy %>% arrange(desc(start_time)) %>%
-#   filter(!is.na(person_present_continue)) %>%
-#   filter(person_present_continue == 1) %>%
-#   dplyr::distinct(extid, .keep_all = TRUE) %>%
-#   dplyr::mutate(efficacy_absent_most_recent_visit = as.numeric(gsub('V', '', visit))) %>%
-#   dplyr::select(extid, efficacy_most_recent_visit_present,
-#                 efficacy_most_recent_present_date = todays_date) %>%
-#   mutate(efficacy_most_recent_present_date = paste0('.', as.character(efficacy_most_recent_present_date))) %>%
-#   mutate(extid = as.character(extid))
-# individuals <- left_join(individuals, right)
+efficacy_most_recent_visit_present
+right <-
+  efficacy %>% arrange(desc(start_time)) %>%
+  filter(!is.na(person_present_continue)) %>%
+  filter(person_present_continue == 1) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::mutate(efficacy_absent_most_recent_visit = as.numeric(gsub('V', '', visit))) %>%
+  dplyr::select(extid, efficacy_most_recent_visit_present,
+                efficacy_most_recent_present_date = todays_date) %>%
+  mutate(efficacy_most_recent_present_date = paste0('.', as.character(efficacy_most_recent_present_date))) %>%
+  mutate(extid = as.character(extid))
+individuals <- left_join(individuals, right)
 # efficacy_visits_done
 # (this includes absent visits) https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1690378013017559?thread_ts=1690307177.615709&cid=C042KSRLYUA
 right <- efficacy %>%
