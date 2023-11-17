@@ -115,3 +115,47 @@ There is no "NTD status" for individuals or households.
 #### Comment on script functionality
 
 The `scripts/metadata/generate_metadata.R` script generates the metadata files necessary for the health economics suite of forms. Because the NTD "status" concept does not exist, and because the NTD form's metadata is not dynamic (it is generated once only), the NTD file is written only once. In the metadata generation script, it is written based on all eligible health economics individuals, filtered down only to those who are "pre-selected" for the NTD component of the project. This filtering + writing occurs _before_ filtering for "in" households (which is necessary for the "monthly" forms, since households which are "out" or "eos" should not show up in monthly forms).
+
+
+
+### Efficacy
+
+#### Forms 
+
+The efficacy portion of the study consists of only one form:
+- `efficacy` (V1-V7 Efficacy)
+
+#### Pre-selections / randomizations
+
+In regards to pre-selection, the list of pre-selected individuals can be found at `analyses/randomization/outputs/efficacy_selection.csv`
+
+The aforementioned file is generated via the script at `analyses/randomization/randomize.R`. The details on the randomization method are not covered in this document.
+
+#### Metadata files
+
+The metadata for the efficacy form can be generated at `scripts/metadata/generate_metadata.R`. 
+
+- The form relies on two metadata files. These are written to `scripts/metadata/efficacy_metadata`:
+  - `household_data.csv`
+  - `individual_data.csv`
+
+#### Cohort "status"
+
+##### Household status
+
+There is no concept of "household status" in efficacy.
+
+
+##### Individual status
+
+As with other components of the study, participants in the "efficacy" portion of the project can be considered to form part of a "cohort", ie a group of study participants to be followed longitudinally. The possible "statuses" of any individual are:
+- "out"
+- "in"
+- "eos" (meaning "end of study")
+- "refusal"
+
+All pre-selected individuals begin with an "out" status. If still "out" after visit 1 (the "baseline" period) is finished, that individual can transition to "in" if enrolled at visit 2. This is different than health economics, where an individual can only be enrolled in visit 1.
+
+Once "in", an individual can never transition to "out". He/she can, however, (a) remain "in" or (b) transition to "eos" at any time. A transition to "eos" may occur when an individual dies, migrates out of a household, or refuses to continue participation.
+
+An individual's "efficacy status" is captured as a string in the `starting_efficacy_status` variable, which is part of both the 'efficacy_metadata/individual_data.csv' file.
