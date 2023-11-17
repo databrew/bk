@@ -1401,9 +1401,6 @@ pryr::mem_used()
 ##############################################################################
 
 
-
-
-
 # <Efficacy> ##############################################################################
 
 # One off request for community engagement team
@@ -1524,7 +1521,6 @@ if(nrow(right) > 0){
 } else {
   individuals$efficacy_absent_most_recent_visit <- 0
 }
-efficacy_most_recent_visit_present
 right <-
   efficacy %>% arrange(desc(start_time)) %>%
   filter(!is.na(person_present_continue)) %>%
