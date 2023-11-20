@@ -295,7 +295,7 @@ px <- ae %>% left_join(safety_repeat_individual %>% dplyr::distinct(extid, .keep
                                    '05.01-18',
                                    ifelse(age <= 40,
                                           '18.01-40',
-                                          ifelse(age <- 65,
+                                          ifelse(age < 65,
                                                  '40.01-65',
                                                  '65+')))))
 pd <- px %>%
