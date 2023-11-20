@@ -1671,7 +1671,7 @@ pfu_in <-
   dplyr::select(extid, pregnancy_status) %>%
   filter(pregnancy_status == 'in')
 
-# Get the starting roster # THIS PART NEEDS FIXING, SINCE IT INCLUDES ONLY IN-CLUSTER HOUSHOLDS (it should include all since pk can add to pfu but is not in-cluster)
+# Get the starting roster 
 starting_roster <- v0demography_full_repeat_individual %>%
   dplyr::select(PARENT_KEY, firstname, lastname, dob, sex, extid) %>%
   left_join(v0demography_full %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
@@ -1769,6 +1769,11 @@ if('personnel.RData' %in% dir()){
   save(personnel, file = 'personnel.RData')
 }
 personnel <- personnel %>% mutate(cluster = add_zero(CLUSTER, 2))
+# Get cluster
+individuals <- individuals %>%
+  left_join(v0demography_full %>%
+              dplyr::select(cluster, hhid) %>%
+              dplyr::distinct(hhid, .keep_all = TRUE))
 # Link each individual in PFU with the correct FA
 individuals <- left_join(individuals,
                          personnel %>%
@@ -1776,7 +1781,7 @@ individuals <- left_join(individuals,
 
 # Render the PFU visit control sheets
 individuals <- left_join(individuals, v0demography_full %>% dplyr::select(hhid, cluster))
-save(individuals, v0demography, v0demography_repeat_individual, file = 'rmds/pfu_tables.RData')
+save(individuals, v0demography_full, v0demography_full_repeat_individual, file = 'rmds/pfu_tables.RData')
 
 if(FALSE){
   unlink('rmds/pfu_visit_control_sheets/', recursive = TRUE)
@@ -1812,14 +1817,30 @@ if(FALSE){
 
 
 # <pk> ##############################################################################
+save.image('pre_pk.RData')
 # Column specs: https://docs.google.com/spreadsheets/d/1mTqNFfnFLnP-WKJNupajVhTJPbbyV2a32kzyIxyGTMM/edit#gid=0
 # Card https://trello.com/c/1o8gzkTg/2003-pk-refactoring-remove-from-safety-create-stand-alone
 # "Should be a static list of all those who are PK preselected
 
 # Get PK clusters
 pk_clusters <- read_csv('../../analyses/randomization/outputs/pk_clusters.csv')
+# Randomize the 10 pk clusters into groups A and B, per mid-November project instructions
+if('pkab.RData' %in% dir()){
+  load('pkab.RData')
+} else {
+  ab_vector <- sample(rep(c('A', 'B'), each = 5), 10)
+  pkab <- tibble(cluster_number = pk_clusters$cluster_number,
+                 ab = ab_vector)
+  save(pkab, file = 'pkab.RData')
+}
+# Bring in the AB classifications
+pk_clusters <- left_join(pk_clusters, pkab)
+
 # Get PK individuals
 pk_individuals <- read_csv('../../analyses/randomization/outputs/pk_individuals.csv')
+pk_individuals <- left_join(pk_individuals,
+                            pkab %>% dplyr::select(cluster = cluster_number,
+                                                   ab))
 pk_preselected_ids <- pk_individuals$extid
 # Create list of PK individuals
 # Get the starting roster
@@ -1838,13 +1859,14 @@ individuals <- v0demography_full_repeat_individual %>%
                 fullname_id,
                 sex, hhid,
                 extid, cluster)
+# Bring in ab
+individuals <- individuals %>%
+  left_join(pk_individuals %>% dplyr::select(extid, ab))
 # Based on that list of individuals, create a households data set
 households <- individuals %>%
   dplyr::distinct(hhid, .keep_all = TRUE) %>%
   dplyr::select(cluster, hhid) %>%
   arrange(cluster, hhid)
-# Remove cluster variable from individuals (not specified)
-individuals$cluster <- NULL
 
 # Fake names
 if(FALSE){
@@ -1879,6 +1901,34 @@ if(!dir.exists('pk_metadata')){
 }
 write_csv(individuals, 'pk_metadata/individual_data.csv')
 write_csv(households, 'pk_metadata/household_data.csv')
+
+# Render the pk visit control sheets
+save(individuals, households, v0demography_full, v0demography_full_repeat_individual, file = 'rmds/pk_tables.RData')
+
+if(FALSE){
+  unlink('rmds/pk_visit_control_sheets/', recursive = TRUE)
+  if(!dir.exists('rmds/pk_visit_control_sheets')){
+    dir.create('rmds/pk_visit_control_sheets')
+  }
+  load('rmds/pk_tables.RData')
+  
+  vcs_list <- sort(unique(individuals$cluster))
+  for(a in 1:length(vcs_list)){
+    this_vcs <- vcs_list[a]
+    message(a, ' of ', length(vcs_list), ' WD: ', getwd())
+    rmarkdown::render('rmds/pk_visit_control_sheet.Rmd', params = list('vcs' = this_vcs),
+                      output_file = paste0( getwd(), '/pk_visit_control_sheets/', this_vcs, '.pdf'))
+  }
+  
+  # Now stitch them all together
+  owd <- getwd()
+  setwd('rmds/pk_visit_control_sheets/')
+  system_text <- paste0('pdftk *.pdf cat output pk_visit_control_sheets.pdf')
+  system(system_text)
+  setwd(owd)
+}
+
+
 # </pk> ##############################################################################
 
 
