@@ -1315,7 +1315,7 @@ visits_done <- healtheconbaseline %>%
               dplyr::select(hhid, visit)) %>%
   group_by(hhid) %>%
   summarise(visits_done = paste0(sort(unique(visit)), collapse = ', '))
-# Get baseline in/out status
+# Get baseline + monthly in/out status
 right <- healtheconbaseline %>%
   mutate(start_time = as.POSIXct(start_time)) %>%
   dplyr::select(start_time, hhid, hecon_hh_status = hecon_household_status) %>%
@@ -1365,7 +1365,7 @@ write_csv(starting_roster, 'healtheconbaseline_metadata/individual_data.csv')
 
 # Create "visit control sheets" for health economics based on these specifications:
 # https://docs.google.com/spreadsheets/d/1Ok1JAq4RhAv0dMnVRjl38Ig-6XdEyvBJbCtMzFql9k4/edit#gid=0
-save(households, individuals, v0demography, v0demography_repeat_individual, file = 'rmds/health_economics_tables.RData')
+save(households,  individuals, v0demography, v0demography_repeat_individual, file = 'rmds/health_economics_tables.RData')
 
 # Render the visit 0 household health economics visit control sheet
 if(FALSE){
@@ -1378,7 +1378,14 @@ households <- households %>% filter(!is.na(hecon_hh_status)) %>% filter(hecon_hh
 starting_roster <- starting_roster %>% filter(hhid %in% households$hhid)
 
 # Save objects for visit control sheet v2 and beyond
-save(households, starting_roster, healtheconbaseline, healtheconbaseline_repeat_individual, healtheconnew_repeat_individual, healtheconnew, individuals, v0demography_full, safety_individuals, v0demography_full_repeat_individual, file = 'rmds/health_economics_tables_followup.RData')
+save(households,healtheconmonthly, healtheconbaseline, starting_roster, healtheconbaseline, healtheconbaseline_repeat_individual, healtheconnew_repeat_individual, healtheconnew, individuals, v0demography_full, safety_individuals, v0demography_full_repeat_individual, file = 'rmds/health_economics_tables_followup.RData')
+
+if(!dir.exists('healtheconmonthly_metadata')){
+  dir.create('healtheconmonthly_metadata')
+}
+write_csv(households, 'healtheconmonthly_metadata/household_data.csv')
+write_csv(starting_roster, 'healtheconmonthly_metadata/individual_data.csv')
+
 
 # Render the follow-up visit household health economics visit control sheet
 if(FALSE){
@@ -1387,11 +1394,6 @@ if(FALSE){
 
 
 
-if(!dir.exists('healtheconmonthly_metadata')){
-  dir.create('healtheconmonthly_metadata')
-}
-write_csv(households, 'healtheconmonthly_metadata/household_data.csv')
-write_csv(starting_roster, 'healtheconmonthly_metadata/individual_data.csv')
 
 
 pryr::mem_used()
