@@ -1124,7 +1124,6 @@ pryr::mem_used()
 
 save.image('temp.RData')
 
-
 ##############################################################################
 ##############################################################################
 ##############################################################################
@@ -1155,6 +1154,63 @@ starting_roster <- starting_roster %>%
                               extid, ')')) %>%
   dplyr::rename(fullname_id = roster_name) %>%
   mutate(hecon_name = paste0(firstname, '-', lastname, '-', extid))
+
+# Health economics analysis table (not metadata, just for qc)
+if(FALSE){
+  health_economics_households <- read_csv('../../analyses/randomization/outputs/health_economics_households.csv') %>%
+    mutate(hhid = add_zero(hhid, 5))
+  health_economics_backup_households <- read_csv('../../analyses/randomization/outputs/health_economics_backup_households.csv') %>%
+    mutate(hhid = add_zero(hhid, 5))
+  health_economics_households <- bind_rows(health_economics_households, health_economics_backup_households)
+  hei <- starting_roster %>% filter(hhid %in% health_economics_households$hhid)
+  out_list <- list()
+  for(i in 1:nrow(hei)){
+    this_extid <- hei$extid[i]
+    message(i, ' of ', nrow(hei))
+    v1 <- 
+      bind_rows(
+        healtheconbaseline_repeat_individual %>% filter(extid == this_extid) %>% dplyr::select(extid, hecon_individual_status) %>% mutate(type = 'old'),
+        healtheconnew_repeat_individual %>% filter(extid == this_extid) %>% dplyr::select(extid, hecon_individual_status)
+      ) %>% mutate(type = 'new')
+    any_v1 <- nrow(v1) > 0
+    v1_new <- nrow(v1[v1$type == 'new',]) > 0
+    v1_absent <- healtheconbaseline_repeat_individual %>% filter(extid == this_extid) %>% filter(!is.na(person_absent_reason))
+    was_absent_v1 <- nrow(v1_absent) > 0
+    why_absent_v1 <- v1_absent %>% pull(person_absent_reason)
+    if(length(why_absent_v1) == 0){why_absent_v1 <- NA}
+    status_after_v1 <- v1 %>% pull(hecon_individual_status)
+    if(length(status_after_v1) == 0){status_after_v1 <- NA}
+    v2 <- healtheconbaseline_repeat_individual %>% filter(extid == this_extid)
+    any_v2 <- nrow(v2) > 0
+    # v2_present <- v2 %>% filter(person_present == 'yes')
+    # was_present_v2 <- nrow(v2_present) > 0
+    v2_absent <- v2 %>% filter(!is.na(person_absent_reason))
+    was_absent_v2 <- nrow(v2_absent) > 0
+    status_after_v2_per_v2_form <- v2 %>% pull(hecon_individual_status)
+    if(length(status_after_v2_per_v2_form) == 0){status_after_v2_per_v2_form <- NA}
+    why_absent_v2 <- v2_absent %>% pull(person_absent_reason)
+    if(length(why_absent_v2) == 0){why_absent_v2 <- NA}
+    out <- 
+      tibble(extid = this_extid,
+             any_v1,
+             v1_new,
+             was_absent_v1,
+             why_absent_v1,
+             status_after_v1,
+             any_v2,
+             # was_present_v2,
+             was_absent_v2,
+             why_absent_v2,
+             status_after_v2_per_v2_form)
+    if(nrow(out) != 1){
+      stop(i)
+    }
+    out_list[[i]] <- out
+  }
+  out <- bind_rows(out_list)
+  write_csv(out, '/tmp/health_economics_analysis.csv')
+}
+
 # Get the starting health economics status of each individual
 # This should be most recent hecon_individual_status, which should be overridden and turned to eos if in the heconmonthly form hecon_household_status = eos
 starting_hecon_statuses <-
