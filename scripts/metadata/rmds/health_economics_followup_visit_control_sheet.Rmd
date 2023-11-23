@@ -82,15 +82,18 @@ ndx <- v0demography_full_repeat_individual %>%
   mutate(in_ntd = extid %in% ntd_ids) %>%
   group_by(hhid) %>%
   summarise(n_ntd = length(which(in_ntd)))
-  
+```
 
+```{r}
 # Read in hard-coded files supplied by Paula for organizing visit control sheets:
 # https://bohemiakenya.slack.com/archives/C058WT0ADBN/p1693470284107819
-cluster9 <- read_delim('health_economics_supplementary_vcs_data/HEcon VCS cluster 9.csv', delim = ';') %>%
-  mutate(VCS = ifelse(VCS == 'VCS_1', '09A', 
-                      ifelse(VCS == 'VCS_2', '09B',
-                             NA))) %>%
-  mutate(hhid = add_zero(hhid, 5))
+# cluster9 <- read_delim('health_economics_supplementary_vcs_data/HEcon VCS cluster 9.csv', delim = ';') %>%
+#   mutate(VCS = ifelse(VCS == 'VCS_1', '09A', 
+#                       ifelse(VCS == 'VCS_2', '09B',
+#                              NA))) %>%
+#   mutate(hhid = add_zero(hhid, 5))
+# The below was updated by Almudena in November 2023
+# https://bohemiakenya.slack.com/archives/C058WT0ADBN/p1700550483706279
 cluster73 <- read_delim('health_economics_supplementary_vcs_data/HEcon VCS cluster 73.csv', delim = ';') %>%
   mutate(VCS = ifelse(VCS == 'VCS_1', '73A',
                       ifelse(VCS == 'VCS_2', '73B',
@@ -100,7 +103,8 @@ vcs <- read_delim('health_economics_supplementary_vcs_data/HEcon VCS per cluster
 
 # The project wants some clusters to have their own visit control sheet, and others to split
 # Handle this:
-exceptions <- bind_rows(cluster9, cluster73)
+# exceptions <- bind_rows(cluster9, cluster73)
+exceptions <- bind_rows(cluster73)
 households <- left_join(households, exceptions) %>%
   mutate(VCS = ifelse(is.na(VCS), cluster, VCS))
 
@@ -119,15 +123,43 @@ subs <- v0demography_full_repeat_individual %>%
 households_in <- healtheconbaseline %>% filter(
   hecon_household_status == 'in'
 ) %>% pull(hhid)
+
+# get herd eligibility from baseline from
+herd_eligibility <- 
+    healtheconbaseline %>% 
+  dplyr::select(hhid, herd_eligible) %>% 
+  mutate(herd_enrollment = ifelse(is.na(herd_eligible), 'No', ifelse(herd_eligible == 1, 'Yes', 'No'))) %>% 
+  dplyr::distinct(hhid, .keep_all = TRUE) %>%
+  dplyr::select(hhid, herd_enrollment)
+# get cattle ownership from both baseline OR monthly form (whichever is most recent)
+cattle_ownership <- 
+  bind_rows(
+        healtheconbaseline %>% 
+  dplyr::select(start_time, hhid, total_cattle) %>% 
+  mutate(cattle_owning = ifelse(is.na(total_cattle), 'No', ifelse(total_cattle > 0, 'Yes', 'No'))) %>% 
+  dplyr::select(start_time, hhid, cattle_owning),
+  healtheconmonthly %>% 
+  dplyr::select(start_time, hhid, total_cattle) %>% 
+  mutate(cattle_owning = ifelse(is.na(total_cattle), 'No', ifelse(total_cattle > 0, 'Yes', 'No'))) %>% 
+  dplyr::select(start_time, hhid, cattle_owning)
+  ) %>%
+  # keep only most recent observation for each household
+  dplyr::arrange(desc(start_time)) %>%
+  dplyr::distinct(hhid, .keep_all = TRUE) %>%
+  dplyr::select(-start_time)
+# Join all cattle/herd information into one object (to be joined with households data)
+cattle_right <- 
+  left_join(herd_eligibility, cattle_ownership)
+
 households <- households %>%
   # keep only those "in" from health economics baseline
   filter(hhid %in% households_in) %>%
   arrange(hhid) %>%
-  # get some information from v0demograph
+  # get some information from v0demography
   left_join(v0demography_full %>%
               dplyr::select(hhid, village)) %>%
-  # get cattle ownership and herd enrollment from baseline from
-  left_join(healtheconbaseline %>% dplyr::select(hhid, total_cattle, herd_eligible) %>% mutate(cattle_owning = ifelse(is.na(total_cattle), 'No', ifelse(total_cattle > 0, 'Yes', 'No')), herd_enrollment = ifelse(is.na(herd_eligible), 'No', ifelse(herd_eligible == 1, 'Yes', 'No')))  %>% dplyr::select(hhid, cattle_owning, herd_enrollment)) %>%
+  # join cattle ownership and herd enrollment from baseline from
+  left_join(cattle_right) %>%
   left_join(subs) %>%
   left_join(ndx) %>%
   mutate(dummy = 1) %>%
