@@ -18,12 +18,12 @@ check_hecon_ind_status_diff <- function(individuals, status_col){
   checks <- qc_data %>%
     dplyr::mutate(error_flag = case_when(
       (!V1 %in% c('in', 'out')) ~ 'V0 -> V1 hecon hh status error',
-      (!is.na(V1) & !is.na(V2)) & (V1 == 'in' & V2 == 'out') ~ 'V1 -> V2 hecon ind status error in -> out is not possible',
-      (!is.na(V1) & !is.na(V2)) & (V1 == 'out' &V2 == 'in') ~ 'V1 -> V2 hecon ind status error out -> in is not possible',
-      (!is.na(V2) & !is.na(V3)) & (V2 == 'in' & V3 == 'out') ~ 'V2 -> V3 hecon ind status error in -> out is not possible',
-      (!is.na(V2) & !is.na(V3)) & (V2 == 'out' & V3 == 'in') ~ 'V2 -> V3 hecon ind status error out -> in is not possible',
-      (!is.na(V3) &!is.na(V4)) & (V3 == 'in' & V4 == 'out') ~ 'V3 -> V4 hecon ind status error in -> out is not possible',
-      (!is.na(V3)& !is.na(V4)) & (V3 == 'out' & V4 == 'in') ~ 'V3 -> V4 hecon ind status error out -> in is not possible',
+      (!is.na(V1) & !is.na(V2)) & (V1 == 'in'  &  V2 == 'out') ~ 'V1 -> V2 hecon ind status error in -> out is not possible',
+      (!is.na(V1) & !is.na(V2)) & (V1 == 'out' &  (V2 %in% c('in', 'eos'))) ~ 'V1 -> V2 hecon ind status error out -> in or eos is not possible',
+      (!is.na(V2) & !is.na(V3)) & (V2 == 'in'  &  V3 == 'out') ~ 'V2 -> V3 hecon ind status error in -> out is not possible',
+      (!is.na(V2) & !is.na(V3)) & (V2 == 'out' &  (V3 %in% c('in', 'eos'))) ~ 'V2 -> V3 hecon ind status error out -> in or eos is not possible',
+      (!is.na(V3) & !is.na(V4)) & (V3 == 'in'  & V4 == 'out') ~ 'V3 -> V4 hecon ind status error in -> out is not possible',
+      (!is.na(V3) & !is.na(V4)) & (V3 == 'out' & (V4 %in% c('in', 'eos'))) ~ 'V3 -> V4 hecon ind status error out -> in or eos is not possible',
       TRUE ~ 'pass'
     )) %>%
     dplyr::filter(error_flag != 'pass')
@@ -49,16 +49,15 @@ check_hecon_hh_status_diff <- function(households, status_col) {
   checks <- qc_data %>%
     dplyr::mutate(error_flag = case_when(
       (!V1 %in% c('in', 'out')) ~ 'V0 -> V1 hecon hh status error',
-      (!is.na(V1) & !is.na(V2)) & (V1 == 'in' & V2 == 'out') ~ 'V1 -> V2 hecon hh status error in -> out is not possible',
-      (!is.na(V1) & !is.na(V2)) & (V1 == 'out' &V2 == 'in') ~ 'V1 -> V2 hecon hh status error out -> in is not possible',
-      (!is.na(V2) & !is.na(V3)) & (V2 == 'in' & V3 == 'out') ~ 'V2 -> V3 hecon hh status error in -> out is not possible',
-      (!is.na(V2) & !is.na(V3)) & (V2 == 'out' & V3 == 'in') ~ 'V2 -> V3 hecon hh status error out -> in is not possible',
-      (!is.na(V3) &!is.na(V4)) & (V3 == 'in' & V4 == 'out') ~ 'V3 -> V4 hecon hh status error in -> out is not possible',
-      (!is.na(V3)& !is.na(V4)) & (V3 == 'out' & V4 == 'in') ~ 'V3 -> V4 hecon hh status error out -> in is not possible',
+      (!is.na(V1) & !is.na(V2)) & (V1 == 'in'  &  V2 == 'out') ~ 'V1 -> V2 hecon ind status error in -> out is not possible',
+      (!is.na(V1) & !is.na(V2)) & (V1 == 'out' &  (V2 %in% c('in', 'eos'))) ~ 'V1 -> V2 hecon ind status error out -> in or eos is not possible',
+      (!is.na(V2) & !is.na(V3)) & (V2 == 'in'  &  V3 == 'out') ~ 'V2 -> V3 hecon ind status error in -> out is not possible',
+      (!is.na(V2) & !is.na(V3)) & (V2 == 'out' &  (V3 %in% c('in', 'eos'))) ~ 'V2 -> V3 hecon ind status error out -> in or eos is not possible',
+      (!is.na(V3) & !is.na(V4)) & (V3 == 'in'  & V4 == 'out') ~ 'V3 -> V4 hecon ind status error in -> out is not possible',
+      (!is.na(V3) & !is.na(V4)) & (V3 == 'out' & (V4 %in% c('in', 'eos'))) ~ 'V3 -> V4 hecon ind status error out -> in or eos is not possible',
       TRUE ~ 'pass'
     )) %>%
     dplyr::filter(error_flag != 'pass')
 
   return(checks)
 }
-
