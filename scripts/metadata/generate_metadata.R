@@ -1233,7 +1233,8 @@ log_checks <- check_hecon_ind_status_diff(starting_hecon_statuses, status_col = 
 if(nrow(log_checks) == 0){
   starting_hecon_statuses <- starting_hecon_statuses %>%
     dplyr::arrange(desc(start_time)) %>%
-    dplyr::distinct(extid, .keep_all = TRUE)
+    dplyr::distinct(extid, .keep_all = TRUE) %>%
+    dplyr::select(-visit, -start_time)
 }else{
   stop('Please check log_checks to check status change errors')
 }
@@ -1397,7 +1398,8 @@ log_checks <- check_hecon_hh_status_diff(right, status_col = 'hecon_hh_status')
 if(nrow(log_checks) == 0){
   right <- right %>%
     dplyr::arrange(desc(start_time)) %>%
-    dplyr::distinct(hhid, .keep_all = TRUE)
+    dplyr::distinct(hhid, .keep_all = TRUE) %>%
+    dplyr::select(-visit, -start_time)
 }else{
   stop('Please check log_checks to check status change errors')
 }
