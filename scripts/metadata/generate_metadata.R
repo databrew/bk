@@ -1228,7 +1228,7 @@ starting_hecon_statuses <-
   filter(!is.na(hecon_individual_status)) %>%
   dplyr::select(start_time, extid, visit, starting_hecon_status = hecon_individual_status)
 
-# spot checks on individual statuses
+# QC on healthecon individual statuses
 log_checks <- check_hecon_ind_status_diff(starting_hecon_statuses, status_col = 'starting_hecon_status')
 if(nrow(log_checks) == 0){
   starting_hecon_statuses <- starting_hecon_statuses %>%
