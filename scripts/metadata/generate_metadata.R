@@ -27,6 +27,7 @@ library(rmarkdown)
 library(knitr)
 library(kableExtra)
 library(readr)
+source('tests.R')
 
 # to create rmd output
 dir.create('rmds', recursive = TRUE)
@@ -1167,7 +1168,7 @@ if(FALSE){
   for(i in 1:nrow(hei)){
     this_extid <- hei$extid[i]
     message(i, ' of ', nrow(hei))
-    v1 <- 
+    v1 <-
       bind_rows(
         healtheconbaseline_repeat_individual %>% filter(extid == this_extid) %>% dplyr::select(extid, hecon_individual_status) %>% mutate(type = 'old'),
         healtheconnew_repeat_individual %>% filter(extid == this_extid) %>% dplyr::select(extid, hecon_individual_status)
@@ -1190,7 +1191,7 @@ if(FALSE){
     if(length(status_after_v2_per_v2_form) == 0){status_after_v2_per_v2_form <- NA}
     why_absent_v2 <- v2_absent %>% pull(person_absent_reason)
     if(length(why_absent_v2) == 0){why_absent_v2 <- NA}
-    out <- 
+    out <-
       tibble(extid = this_extid,
              any_v1,
              v1_new,
@@ -1216,16 +1217,27 @@ if(FALSE){
 starting_hecon_statuses <-
   bind_rows(
     healtheconnew_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
+      dplyr::mutate(visit = 'V1') %>%
       left_join(healtheconnew %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY')),
     healtheconbaseline_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
-      left_join(healtheconbaseline %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY')),
+      dplyr::mutate(visit = 'V1') %>%
+      left_join(healtheconbaseline  %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY')),
     healtheconmonthly_repeat_individual %>% dplyr::select(extid, PARENT_KEY, hecon_individual_status) %>%
-      left_join(healtheconmonthly %>% dplyr::select(KEY, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY'))
+      left_join(healtheconmonthly %>% dplyr::select(KEY, visit, start_time) %>% mutate(start_time = as.POSIXct(start_time)), by = c('PARENT_KEY' = 'KEY'))
   ) %>%
   filter(!is.na(hecon_individual_status)) %>%
-  arrange(desc(start_time)) %>%
-  dplyr::distinct(extid, .keep_all = TRUE) %>%
-  dplyr::select(extid, starting_hecon_status = hecon_individual_status)
+  dplyr::select(start_time, extid, visit, starting_hecon_status = hecon_individual_status)
+
+# spot checks on individual statuses
+log_checks <- check_hecon_ind_status_diff(starting_hecon_statuses, status_col = 'starting_hecon_status')
+if(nrow(log_checks) == 0){
+  starting_hecon_statuses <- starting_hecon_statuses %>%
+    dplyr::arrange(desc(start_time)) %>%
+    dplyr::distinct(extid, .keep_all = TRUE)
+}else{
+  stop('Please check log_checks to check status change errors')
+}
+
 # In the case of someone not being in the above dataset but being preselected for health economics
 # the status should be "out"
 starting_roster <- left_join(starting_roster, starting_hecon_statuses) %>%
@@ -1373,13 +1385,24 @@ visits_done <- healtheconbaseline %>%
   summarise(visits_done = paste0(sort(unique(visit)), collapse = ', '))
 # Get baseline + monthly in/out status
 right <- healtheconbaseline %>%
-  mutate(start_time = as.POSIXct(start_time)) %>%
-  dplyr::select(start_time, hhid, hecon_hh_status = hecon_household_status) %>%
+  mutate(start_time = as.POSIXct(start_time),
+         visit = 'V1') %>%
+  dplyr::select(visit, start_time, hhid, hecon_hh_status = hecon_household_status) %>%
   bind_rows(healtheconmonthly %>%
               mutate(start_time = as.POSIXct(start_time)) %>%
-              dplyr::select(start_time, hhid, hecon_hh_status = hecon_household_status)) %>%
-  arrange(desc(start_time)) %>%
-  dplyr::distinct(hhid, .keep_all = TRUE)
+              dplyr::select(visit, start_time, hhid, hecon_hh_status = hecon_household_status))
+
+# QC on HH STATUSES
+log_checks <- check_hecon_hh_status_diff(right, status_col = 'hecon_hh_status')
+if(nrow(log_checks) == 0){
+  right <- right %>%
+    dplyr::arrange(desc(start_time)) %>%
+    dplyr::distinct(hhid, .keep_all = TRUE)
+}else{
+  stop('Please check log_checks to check status change errors')
+}
+
+
 visits_done <- left_join(visits_done, right)
 households <- left_join(households, visits_done)
 # If NA hecon_hh_status, this means that the household did not have any  visit, and
@@ -1729,7 +1752,7 @@ pfu_in <-
   dplyr::select(extid, pregnancy_status) %>%
   filter(pregnancy_status == 'in')
 
-# Get the starting roster 
+# Get the starting roster
 starting_roster <- v0demography_full_repeat_individual %>%
   dplyr::select(PARENT_KEY, firstname, lastname, dob, sex, extid) %>%
   left_join(v0demography_full %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
@@ -1969,7 +1992,7 @@ if(FALSE){
     dir.create('rmds/pk_visit_control_sheets')
   }
   load('rmds/pk_tables.RData')
-  
+
   vcs_list <- sort(unique(individuals$cluster))
   for(a in 1:length(vcs_list)){
     this_vcs <- vcs_list[a]
@@ -1977,7 +2000,7 @@ if(FALSE){
     rmarkdown::render('rmds/pk_visit_control_sheet.Rmd', params = list('vcs' = this_vcs),
                       output_file = paste0( getwd(), '/pk_visit_control_sheets/', this_vcs, '.pdf'))
   }
-  
+
   # Now stitch them all together
   owd <- getwd()
   setwd('rmds/pk_visit_control_sheets/')
