@@ -670,13 +670,14 @@ departures <- bind_rows(safety_departures, safety_deaths, efficacy_deaths)
 # events <- bind_rows(arrivals, departures) %>% arrange(todays_date)
 # Get the starting roster
 starting_roster <- v0demography_repeat_individual %>%
-  left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
+  left_join(v0demography_full %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
   dplyr::select(hhid, start_time, firstname, lastname, dob, sex, extid) %>%
   filter(!is.na(extid)) %>%
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   mutate(remove = FALSE) %>%
-  mutate(index = 1:nrow(.))
+  mutate(index = 1:nrow(.)) %>% 
+  filter(!is.na(hhid))
 # save starting roster for nika
 if(FALSE){
   nika <- starting_roster %>%
@@ -737,7 +738,7 @@ households <- roster %>%
   summarise(roster = paste0(roster_name[dead == 0 & migrated == 0], collapse = ', '),
             num_members = length(which(dead == 0 & migrated == 0))) %>%
   # get cluster
-  left_join(v0demography %>%
+  left_join(v0demography_full %>%
               dplyr::distinct(hhid, .keep_all = TRUE) %>%
               dplyr::select(hhid, cluster))
 # get assignments
