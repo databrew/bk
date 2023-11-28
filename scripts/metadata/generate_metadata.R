@@ -717,6 +717,18 @@ dead_in_safety <- starting_roster %>%
 starting_roster <- starting_roster %>%
   filter(migrated != 1, dead != 1)
 
+# Prior to adding arrivals, remove some arrivals if they occured BEFORE a departure or out-migration
+remove_these <- arrivals %>% 
+  dplyr::select(arrival_time = start_time,
+                extid, hhid) %>%
+  left_join(
+    departures %>%
+      dplyr::select(departure_time = start_time,
+                    extid, hhid)
+  ) %>%
+  filter(arrival_time < departure_time)
+arrivals <- arrivals %>% filter(!extid %in% remove_these$extid)
+
 # Go through each arrival and add information
 roster <- bind_rows(
   starting_roster,
@@ -915,7 +927,7 @@ safety_individuals <- individuals
 # Remove from safety households which contain 100% refused individuals
 # https://trello.com/c/mGoKfh7w/2071-update-metadata-script-safety-to-remove-from-safety-lists-all-individuals-from-households-with-100-refusals
 if(TRUE){
-
+  removed_households <- c() # placeholder for checking on removed households
   remove_visits <- paste0('V', 1:4)
   for(i in 1:length(remove_visits)){
     this_visit <- remove_visits[i]
@@ -945,6 +957,7 @@ if(TRUE){
       mutate(p_refusals = n_refusals / n_individual_submissions * 100) %>%
       arrange(desc(p_refusals))
     all_refusals <- dx %>% filter(p_refusals == 100) %>% arrange(hhid)
+    removed_households <- c(removed_households, all_refusals$hhid)
     message('---Going to remove ', nrow(all_refusals))
     # write_csv(all_refusals, '~/Desktop/all_refusals.csv')
     households <- households %>% filter(!hhid %in% all_refusals$hhid)
@@ -1136,6 +1149,54 @@ if(FALSE){
   system_text <- paste0('pdftk *.pdf cat output safety_visit_control_sheets.pdf')
   system(system_text)
   setwd(owd)
+}
+
+
+if(FALSE){
+  # some safety sanity checks
+  load('rmds/safety_tables.RData')
+  # any individual who is eos remains eos forever
+  ever_eos <- 
+    c(safety_repeat_individual %>% filter(safety_status == 'eos') %>% pull(extid),
+      safetynew_repeat_individual %>% filter(safety_status == 'eos') %>% pull(extid)) %>%
+    unique
+  table(individuals$starting_safety_status[individuals$extid %in% ever_eos]) # this should be all eos
+  
+  # Same number of households in both `individual_data.csv` and `household_data.csv` (JOE)
+  length(unique(households$hhid))
+  length(unique(individuals$hhid))
+  
+  # Only in-cluster households included (JOE)
+  table(households$cluster %in% in_study_clusters)
+  table(individuals$cluster %in% in_study_clusters)
+  
+  # Anyone who migrated out is EOS
+  migrated_ids <- safety_repeat_individual %>% filter(person_absent_reason == 'Migrated') %>% pull(extid)
+  table(migrated_ids %in% individuals$extid)
+  still_there <- individuals %>% filter(extid %in% migrated_ids) # they're all eos, all good
+  
+  # Anyone who died is EOS
+  died_ids  <- safety_repeat_individual %>% filter(person_absent_reason == 'Died') %>% pull(extid)
+  table(died_ids %in% individuals$extid) # should be all false
+  still_there <- individuals %>% filter(extid %in% died_ids) # none
+  
+  # Anyone with a non-EOS individual status at end of visit 2 is not EOS in `individual_data.csv` (JOE)
+  not_eos_v2 <- safety_repeat_individual %>%
+    left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
+    filter(visit == 'V2') %>%
+    filter(safety_status != 'eos') %>%
+    pull(extid)
+  now_status <- individuals %>% filter(extid %in% not_eos_v2)
+  table(now_status$starting_safety_status) # should be no eos
+  table(not_eos_v2 %in% individuals$extid) # they should all be there EXCEPT those which are manually removed or all refusals
+  not_there <- not_eos_v2[!not_eos_v2 %in% individuals$extid] %>% unique()
+  table(safety_repeat_individual %>% filter(extid %in% not_there) %>% pull(safety_status))
+  # See if they are in removed households
+  table(substr(not_there, 1, 5) %in% removed_households) # only some
+  # See if they are in departures
+  table(not_there %in% departures$extid) # most of them
+  table(not_there %in% departures$extid | substr(not_there, 1, 5) %in% removed_households)
+ # that covers them  
 }
 # </Safety> ##############################################################################
 ##############################################################################
