@@ -522,7 +522,7 @@ households_sp <- v0demography %>%
   filter(!is.na(x))
 coordinates(households_sp) <- ~x+y
 load('../../data_public/spatial/new_clusters.RData')
-# buffer clusters by 20 meters so as to
+# buffer clusters by 50 meters so as to
 p4s <- "+proj=utm +zone=37 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
 crs <- CRS(p4s)
 llcrs <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
@@ -563,6 +563,20 @@ households_sp_projected@data$old_cluster_correct <-
   ifelse(is.na(households_sp_projected@data$cluster_geo),
          households_sp_projected@data$cluster_with_buffer,
          households_sp_projected@data$cluster_geo)
+
+# x = households_sp_projected@data[households_sp_projected@data$old_cluster_correct != households_sp_projected@data$cluster_correct,]
+# x <- x %>% filter(!is.na(hhid))
+# x <- x %>%
+#   mutate(keep = ifelse(is.na(cluster_geo), cluster_correct, old_cluster_correct))
+
+# households_sp_projected@data$old_cluster_correct <-
+#   ifelse(is.na(households_sp_projected@data$cluster_geo),
+#          households_sp_projected@data$cluster_correct,
+#          households_sp_projected@data$old_cluster_correct)
+
+# Household 88324 is like household 03005, misclassified
+households_sp_projected@data$old_cluster_correct[households_sp_projected@data$hhid == '03005'] <- '3'
+households_sp_projected@data$old_cluster_correct[households_sp_projected@data$hhid == '88324'] <- '88'
 # old_cluster_correct is the right variable for geographic location, not geo_cluster_num
 # since geo_cluster_num was calculated using a faulty method which put households which
 # were within the buffer of >1 cluster into the wrong cluster at times
@@ -937,6 +951,12 @@ if(TRUE){
   }
 }
 
+# Keep only those individuals whose cluster is "in study"
+in_study_clusters <- add_zero(sort(unique(clusters_projected@data$cluster_nu)), 2)
+individuals <- individuals %>%
+  filter(cluster %in% in_study_clusters)
+households <- households %>%
+  filter(cluster %in% in_study_clusters)
 
 # Write csvs
 if(!dir.exists('safety_metadata')){
