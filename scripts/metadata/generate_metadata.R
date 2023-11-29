@@ -1198,17 +1198,24 @@ if(FALSE){
   table(not_there %in% departures$extid | substr(not_there, 1, 5) %in% removed_households)
 
   # Visit Status checks
-  safety_merged_tbl <- safety %>%
-    dplyr::inner_join(safety_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>%
-    dplyr::filter(extid %in% (individuals %>% dplyr::filter(starting_pregnancy_status != 'in') %>% .$extid))
+  safety_test_tbl <- dplyr::bind_rows(
+      safety %>%
+        dplyr::inner_join(safety_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>%
+        dplyr::filter(extid %in% (individuals %>% dplyr::filter(starting_pregnancy_status != 'in') %>% .$extid)),
+      safetynew %>%
+        dplyr::inner_join(safetynew_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>%
+        dplyr::filter(extid %in% (individuals %>% dplyr::filter(starting_pregnancy_status != 'in') %>% .$extid))
+  )
 
-  safety_merged_tbl %>%
+  # Test changes on safety visit status out -> eos violation
+  safety_test_tbl %>%
     dplyr::select(visit, safety_status, extid) %>%
     tidyr::pivot_wider(names_from = visit, values_from = safety_status) %>%
     dplyr::filter(V1 == 'out', V2 == 'eos') %>%
     dplyr::select(extid)
 
-  safety_merged_tbl %>%
+  # Test changes on safety visit status in -> out violation
+  safety_test_tbl %>%
     dplyr::select(visit, safety_status, extid) %>%
     tidyr::pivot_wider(names_from = visit, values_from = safety_status) %>%
     dplyr::filter(V1 == 'in', V2 == 'out') %>%
