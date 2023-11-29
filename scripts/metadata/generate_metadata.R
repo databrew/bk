@@ -934,6 +934,8 @@ if(TRUE){
     dx <- safety_repeat_individual %>%
       left_join(safety %>% dplyr::select(KEY, hhid, visit), by = c('PARENT_KEY' = 'KEY')) %>%
       filter(visit == this_visit) %>%
+      # take out those who are dead or migrated (keeping in other absences)
+      filter(!person_absent_reason %in% c('Migrated', 'Died')) %>%
       # special categories for "refusal"
       mutate(is_refusal = (!is.na(obvious_screening) & obvious_screening == 'Refusal') |
                ind_icf_thumbprint == 'no' |
