@@ -691,7 +691,7 @@ starting_roster <- v0demography_repeat_individual %>%
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   mutate(remove = FALSE) %>%
-  mutate(index = 1:nrow(.)) %>% 
+  mutate(index = 1:nrow(.)) %>%
   filter(!is.na(hhid))
 # save starting roster for nika
 if(FALSE){
@@ -718,7 +718,7 @@ starting_roster <- starting_roster %>%
   filter(migrated != 1, dead != 1)
 
 # Prior to adding arrivals, remove some arrivals if they occured BEFORE a departure or out-migration
-remove_these <- arrivals %>% 
+remove_these <- arrivals %>%
   dplyr::select(arrival_time = start_time,
                 extid, hhid) %>%
   left_join(
@@ -1156,30 +1156,30 @@ if(FALSE){
   # some safety sanity checks
   load('rmds/safety_tables.RData')
   # any individual who is eos remains eos forever
-  ever_eos <- 
+  ever_eos <-
     c(safety_repeat_individual %>% filter(safety_status == 'eos') %>% pull(extid),
       safetynew_repeat_individual %>% filter(safety_status == 'eos') %>% pull(extid)) %>%
     unique
   table(individuals$starting_safety_status[individuals$extid %in% ever_eos]) # this should be all eos
-  
+
   # Same number of households in both `individual_data.csv` and `household_data.csv` (JOE)
   length(unique(households$hhid))
   length(unique(individuals$hhid))
-  
+
   # Only in-cluster households included (JOE)
   table(households$cluster %in% in_study_clusters)
   table(individuals$cluster %in% in_study_clusters)
-  
+
   # Anyone who migrated out is EOS
   migrated_ids <- safety_repeat_individual %>% filter(person_absent_reason == 'Migrated') %>% pull(extid)
   table(migrated_ids %in% individuals$extid)
   still_there <- individuals %>% filter(extid %in% migrated_ids) # they're all eos, all good
-  
+
   # Anyone who died is EOS
   died_ids  <- safety_repeat_individual %>% filter(person_absent_reason == 'Died') %>% pull(extid)
   table(died_ids %in% individuals$extid) # should be all false
   still_there <- individuals %>% filter(extid %in% died_ids) # none
-  
+
   # Anyone with a non-EOS individual status at end of visit 2 is not EOS in `individual_data.csv` (JOE)
   not_eos_v2 <- safety_repeat_individual %>%
     left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
@@ -1196,7 +1196,26 @@ if(FALSE){
   # See if they are in departures
   table(not_there %in% departures$extid) # most of them
   table(not_there %in% departures$extid | substr(not_there, 1, 5) %in% removed_households)
- # that covers them  
+
+  # Visit Status checks
+  safety_merged_tbl <- safety %>%
+    dplyr::inner_join(safety_repeat_individual, by = c('KEY' = 'PARENT_KEY')) %>%
+    dplyr::filter(extid %in% (individuals %>% dplyr::filter(starting_pregnancy_status != 'in') %>% .$extid))
+
+  safety_merged_tbl %>%
+    dplyr::select(visit, safety_status, extid) %>%
+    tidyr::pivot_wider(names_from = visit, values_from = safety_status) %>%
+    dplyr::filter(V1 == 'out', V2 == 'eos') %>%
+    dplyr::select(extid)
+
+  safety_merged_tbl %>%
+    dplyr::select(visit, safety_status, extid) %>%
+    tidyr::pivot_wider(names_from = visit, values_from = safety_status) %>%
+    dplyr::filter(V1 == 'in', V2 == 'out') %>%
+    dplyr::select(extid)
+
+
+ # that covers them
 }
 # </Safety> ##############################################################################
 ##############################################################################
