@@ -638,6 +638,16 @@ gc()
 ##############################################################################
 # <Safety> ##############################################################################
 
+# One-off fix: change observations from 2021 to 2023
+safety$start_time <-
+  if_else(lubridate::year(safety$start_time) == 2021,
+          safety$start_time + lubridate::years(2),
+          safety$start_time)
+safety$todays_date <-
+  if_else(lubridate::year(safety$todays_date) == 2021,
+          safety$todays_date + lubridate::years(2),
+          safety$todays_date)
+
 # Get arrivals
 arrivals <- safetynew_repeat_individual %>%
   filter(!is.na(lastname), !is.na(dob)) %>%
