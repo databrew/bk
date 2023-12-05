@@ -1184,7 +1184,7 @@ if(FALSE){
   # Anyone who migrated out is EOS
   migrated_ids <- safety_repeat_individual %>% filter(person_absent_reason == 'Migrated') %>% pull(extid)
   table(migrated_ids %in% individuals$extid)
-  still_there <- individuals %>% filter(extid %in% migrated_ids) # they're all eos, all good
+  still_there <- individuals %>% filter(extid %in% migrated_ids) # should be none
   
   # Anyone who died is EOS
   died_ids  <- safety_repeat_individual %>% filter(person_absent_reason == 'Died') %>% pull(extid)
@@ -1798,6 +1798,14 @@ pryr::mem_used()
 
 # <pfu> ##############################################################################
 save.image('pre_pfu.RData')
+
+# per project instruction, only include those from safety who TOOK the drug (dec 5 2023)
+# https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1701767333368569
+# get a list of safety pregnant individuals who ever took drug
+ever_took_drug <- safety_repeat_individual %>%
+  mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
+  filter(took_drug) %>% dplyr::distinct(extid) %>% pull(extid)
+
 # Get anyone who was ever pregnant
 # (no need for safetynew since they would be excluded from safety and therefore pregnancy in the first place)
 pfu_in <-
@@ -1812,7 +1820,12 @@ pfu_in <-
       arrange(desc(start_time)),
     safety_repeat_individual %>% filter(!is.na(pregnancy_status)) %>%
       left_join(safety %>% dplyr::select(KEY, start_time), by = c('PARENT_KEY' = 'KEY')) %>%
-      dplyr::select(extid, pregnancy_status, start_time) %>% mutate(form = 'safety') %>%
+      dplyr::select(extid, pregnancy_status, start_time) %>%
+      # keep only those who ever took drug as per https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1701767333368569
+      # this may exclude some people who were "in" safety and then became pregnant (ie, technically part of the
+      # 'pregnancy followup cohort'), but this is intentional (since they did not take drug)
+      filter(extid %in% ever_took_drug) %>%
+      mutate(form = 'safety') %>%
       mutate(start_time = as.POSIXct(start_time)) %>%
       arrange(desc(start_time)),
   ) %>%
@@ -1822,6 +1835,7 @@ pfu_in <-
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   dplyr::select(extid, pregnancy_status) %>%
   filter(pregnancy_status == 'in')
+
 
 # Get the starting roster 
 starting_roster <- v0demography_full_repeat_individual %>%
@@ -1957,8 +1971,6 @@ if(FALSE){
   system_text <- paste0('pdftk *.pdf cat output pfu_visit_control_sheets.pdf')
   system(system_text)
   setwd(owd)
-
-
 }
 
 
