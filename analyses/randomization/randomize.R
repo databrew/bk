@@ -1354,6 +1354,75 @@ if(file.exists(file_path)){
   write_csv(pk_individuals, file_path)
 }
 
+# December 7 2023, request from Esther Yaa to expand the selection for clusters 52 and 76
+# since they did not enroll enough individuals
+file_path <- 'outputs/pk_expansion.csv'
+if(file.exists(file_path)){
+  pk_expansion <- read_csv(file_path)
+} else {
+  # First, copy the method from the original sample
+  # Get the OLD clusters (dropped clusters) from v0 demography
+  v0demography_spatial_old <- v0demography %>% mutate(x = Longitude, y = Latitude)
+  coordinates(v0demography_spatial_old) <- ~x+y
+  proj4string(v0demography_spatial_old) <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+  p4s <- "+proj=utm +zone=37 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+  crs <- CRS(p4s)
+  v0demography_spatial_old_projected <- spTransform(v0demography_spatial_old, crs)
+  old_clusters_projected <- spTransform(old_clusters, crs)
+  old_clusters_projected_buffered <- rgeos::gBuffer(old_clusters_projected, byid = TRUE, width = 50)
+  
+  o <- sp::over(v0demography_spatial_old_projected, polygons(old_clusters_projected_buffered))
+  v0demography_spatial_old@data$in_cluster <- !is.na(o)
+  v0demography_spatial_old$old_cluster_number <- as.numeric(old_clusters_projected_buffered@data$cluster_number[o])
+  
+  eligibles <- v0demography_repeat_individual %>%
+    left_join(v0demography_spatial_old@data %>%
+                dplyr::select(KEY,
+                              lng = Longitude, lat = Latitude,
+                              old_cluster_number),
+              by = c('PARENT_KEY' = 'KEY'))
+  date_of_enrollment <- as.Date('2023-10-01')
+  # Keep only those in pk clusters who are of correct age, and only 15 per cluster
+  eligibles <- eligibles %>%
+    mutate(age_at_enrollment  = date_of_enrollment - dob) %>%
+    mutate(age_at_enrollment = age_at_enrollment / 365.25) %>%
+    mutate(pk_eligible = age_at_enrollment >= 18.0 & age_at_enrollment < 65.0) %>%
+    filter(!is.na(old_cluster_number)) %>%
+    filter(old_cluster_number %in% pk_clusters$cluster_number) %>%
+    filter(pk_eligible) %>%
+    dplyr::sample_n(nrow(.)) %>%
+    mutate(dummy = 1) %>%
+    group_by(cluster = old_cluster_number) %>%
+    mutate(cs = cumsum(dummy)) %>%
+    ungroup
+  # Keep only relevant clusters
+  eligibles <- eligibles %>% filter(cluster %in% c(52, 76)) %>%
+    # don't include anyone already in the pre-selection
+    filter(!extid %in% pk_individuals$extid)
+  # Keep only 10 individuals per cluster as per Esther's instruction: https://bohemiakenya.slack.com/archives/C059Q4RU2CA/p1702012803929429?thread_ts=1701936166.229039&cid=C059Q4RU2CA
+  pk_expansion <- eligibles %>%
+    dplyr::sample_n(size = nrow(.)) %>%
+    mutate(dummy = 1) %>%
+    group_by(cluster) %>%
+    mutate(cs = cumsum(dummy)) %>%
+    filter(cs <= 12) %>%
+  # Keep only relevant columns
+    dplyr::select(cluster, extid)  %>%
+    arrange(cluster, extid)
+  write_csv(pk_expansion, file_path)
+}
+
+# One-off, combine the pk_expansion and pk_individuals and overwrite 
+# pk_individuals
+if(FALSE){
+  file_path <- 'outputs/pk_individuals.csv'
+  pk_individuals <- bind_rows(pk_individuals, pk_expansion) %>%
+    arrange(cluster, extid) %>%
+    dplyr::distinct(cluster, extid)
+  write_csv(pk_individuals, file_path)
+}
+
+
 # Community engagement team wants pk_individuals with names and heads of households
 file_name <- 'pk_for_community_engagement.csv'
 if(file_name %in% dir('outputs/')){
