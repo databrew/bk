@@ -1748,6 +1748,26 @@ people <- individuals %>%   mutate(age_at_enrollment  = date_of_enrollment - dob
   filter(efficacy_eligible)
 individuals <- individuals %>%
   filter(extid %in% people$extid)
+# Remove those who are in but haven't been contacted in 60 days; they are "lost to follow-up"
+last_non_absent_visit <- efficacy %>%
+  # remove absences / keep only presences
+  filter(person_absent == 0) %>%
+  # arrange from most recent
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, last_non_absent_visit = start_time) %>%
+  mutate(last_non_absent_visit = as.Date(last_non_absent_visit))
+individuals <- individuals %>%
+  left_join(last_non_absent_visit) %>%
+  mutate(days_since_last_non_absent_visit = Sys.Date() - last_non_absent_visit) %>%
+  mutate(ltfu = days_since_last_non_absent_visit >= 60)
+individuals <- individuals %>% filter(!ltfu | is.na(ltfu))
+# remove unnecessary columns
+individuals <- individuals %>%
+  dplyr::select(-last_non_absent_visit,
+                -days_since_last_non_absent_visit,
+                -ltfu)
+
 # temporary analysis
 if(FALSE){
   out <- individuals %>%
@@ -1923,6 +1943,27 @@ right <-
 individuals <- left_join(individuals, right)
 
 individuals <- individuals %>% filter(!is.na(hhid))
+
+# Remove those who are lost to follow-up (>= 90 days without a present visit)
+last_non_absent_visit <- pfu %>%
+  # remove absences / keep only presences
+  filter(person_absent == 0) %>%
+  # arrange from most recent
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  dplyr::select(extid, last_non_absent_visit = start_time) %>%
+  mutate(last_non_absent_visit = as.Date(last_non_absent_visit))
+individuals <- individuals %>%
+  left_join(last_non_absent_visit) %>%
+  mutate(days_since_last_non_absent_visit = Sys.Date() - last_non_absent_visit) %>%
+  mutate(ltfu = days_since_last_non_absent_visit >= 90)
+individuals <- individuals %>% filter(!ltfu | is.na(ltfu))
+# remove unnecessary columns
+individuals <- individuals %>%
+  dplyr::select(-last_non_absent_visit,
+                -days_since_last_non_absent_visit,
+                -ltfu)
+
 
 # Write csvs
 if(!dir.exists('pfu_metadata')){
