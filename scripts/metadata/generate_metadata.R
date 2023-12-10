@@ -473,8 +473,11 @@ start_from <- as.Date('2020-09-12')
 efficacy <- efficacy %>% filter(todays_date >= start_from)
 pfu <- pfu %>% filter(todays_date >= start_from)
 pfu_repeat_preg_symptom <- pfu_repeat_preg_symptom %>% filter(PARENT_KEY %in% pfu$KEY)
-pkday0 <- pkday0 %>% filter(todays_date >= start_from)
-pkdays123 <- pkdays123  %>% filter(todays_date >= start_from)
+pkday0 <- pkday0 %>%
+  filter(todays_date >= start_from) %>%
+  dplyr::mutate(age = as.numeric(age))
+pkdays123 <- pkdays123  %>% filter(todays_date >= start_from) %>%
+  dplyr::mutate(age = as.numeric(age))
 pkfollowup <- pkfollowup %>% filter(todays_date >= start_from)
 safety <- safety %>% filter(todays_date >= start_from)
 safety_repeat_ae_symptom <- safety_repeat_ae_symptom %>% filter(PARENT_KEY %in% safety$KEY)
@@ -700,7 +703,7 @@ starting_roster <- v0demography_repeat_individual %>%
   arrange(desc(start_time)) %>%
   dplyr::distinct(extid, .keep_all = TRUE) %>%
   mutate(remove = FALSE) %>%
-  mutate(index = 1:nrow(.)) %>% 
+  mutate(index = 1:nrow(.)) %>%
   filter(!is.na(hhid))
 # save starting roster for nika
 if(FALSE){
@@ -727,7 +730,7 @@ starting_roster <- starting_roster %>%
   filter(migrated != 1, dead != 1)
 
 # Prior to adding arrivals, remove some arrivals if they occured BEFORE a departure or out-migration
-remove_these <- arrivals %>% 
+remove_these <- arrivals %>%
   dplyr::select(arrival_time = start_time,
                 extid, hhid) %>%
   left_join(
@@ -1167,30 +1170,30 @@ if(FALSE){
   # some safety sanity checks
   load('rmds/safety_tables.RData')
   # any individual who is eos remains eos forever
-  ever_eos <- 
+  ever_eos <-
     c(safety_repeat_individual %>% filter(safety_status == 'eos') %>% pull(extid),
       safetynew_repeat_individual %>% filter(safety_status == 'eos') %>% pull(extid)) %>%
     unique
   table(individuals$starting_safety_status[individuals$extid %in% ever_eos]) # this should be all eos
-  
+
   # Same number of households in both `individual_data.csv` and `household_data.csv` (JOE)
   length(unique(households$hhid))
   length(unique(individuals$hhid))
-  
+
   # Only in-cluster households included (JOE)
   table(households$cluster %in% in_study_clusters)
   table(individuals$cluster %in% in_study_clusters)
-  
+
   # Anyone who migrated out is EOS
   migrated_ids <- safety_repeat_individual %>% filter(person_absent_reason == 'Migrated') %>% pull(extid)
   table(migrated_ids %in% individuals$extid)
   still_there <- individuals %>% filter(extid %in% migrated_ids) # should be none
-  
+
   # Anyone who died is EOS
   died_ids  <- safety_repeat_individual %>% filter(person_absent_reason == 'Died') %>% pull(extid)
   table(died_ids %in% individuals$extid) # should be all false
   still_there <- individuals %>% filter(extid %in% died_ids) # none
-  
+
   # Anyone with a non-EOS individual status at end of visit 2 is not EOS in `individual_data.csv` (JOE)
   not_eos_v2 <- safety_repeat_individual %>%
     left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
@@ -1207,7 +1210,7 @@ if(FALSE){
   # See if they are in departures
   table(not_there %in% departures$extid) # most of them
   table(not_there %in% departures$extid | substr(not_there, 1, 5) %in% removed_households)
- # that covers them  
+ # that covers them
 }
 # </Safety> ##############################################################################
 ##############################################################################
@@ -1261,7 +1264,7 @@ if(FALSE){
   for(i in 1:nrow(hei)){
     this_extid <- hei$extid[i]
     message(i, ' of ', nrow(hei))
-    v1 <- 
+    v1 <-
       bind_rows(
         healtheconbaseline_repeat_individual %>% filter(extid == this_extid) %>% dplyr::select(extid, hecon_individual_status) %>% mutate(type = 'old'),
         healtheconnew_repeat_individual %>% filter(extid == this_extid) %>% dplyr::select(extid, hecon_individual_status)
@@ -1284,7 +1287,7 @@ if(FALSE){
     if(length(status_after_v2_per_v2_form) == 0){status_after_v2_per_v2_form <- NA}
     why_absent_v2 <- v2_absent %>% pull(person_absent_reason)
     if(length(why_absent_v2) == 0){why_absent_v2 <- NA}
-    out <- 
+    out <-
       tibble(extid = this_extid,
              any_v1,
              v1_new,
@@ -1837,7 +1840,7 @@ pfu_in <-
   filter(pregnancy_status == 'in')
 
 
-# Get the starting roster 
+# Get the starting roster
 starting_roster <- v0demography_full_repeat_individual %>%
   dplyr::select(PARENT_KEY, firstname, lastname, dob, sex, extid) %>%
   left_join(v0demography_full %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
@@ -2075,7 +2078,7 @@ if(FALSE){
     dir.create('rmds/pk_visit_control_sheets')
   }
   load('rmds/pk_tables.RData')
-  
+
   vcs_list <- sort(unique(individuals$cluster))
   for(a in 1:length(vcs_list)){
     this_vcs <- vcs_list[a]
@@ -2083,7 +2086,7 @@ if(FALSE){
     rmarkdown::render('rmds/pk_visit_control_sheet.Rmd', params = list('vcs' = this_vcs),
                       output_file = paste0( getwd(), '/pk_visit_control_sheets/', this_vcs, '.pdf'))
   }
-  
+
   # Now stitch them all together
   owd <- getwd()
   setwd('rmds/pk_visit_control_sheets/')
