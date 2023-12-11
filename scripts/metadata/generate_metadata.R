@@ -2149,6 +2149,40 @@ if(FALSE){
   system(system_text)
   setwd(owd)
 }
+# Make spatial files for Locus GIS
+if(FALSE){
+  pk_spatial_dir <- '/tmp/pk_spatial/'
+  if(!dir.exists(pk_spatial_dir)){
+    dir.create(pk_spatial_dir)
+  }
+  individuals <- individuals %>%
+    dplyr::select(extid, hhid, cluster, ab)
+  # get coordinates
+  individuals <- individuals %>%
+    left_join(v0demography_full %>% 
+                dplyr::select(hhid, 
+                              longitude = Longitude, 
+                              latitude = Latitude))
+  households <- households %>%
+    left_join(v0demography_full %>% 
+                dplyr::select(hhid, 
+                              longitude = Longitude, 
+                              latitude = Latitude))
+  # Make spatial
+  coordinates(individuals) <- ~longitude+latitude
+  proj4string(individuals) <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+  coordinates(households) <- ~longitude+latitude
+  proj4string(households) <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+  load('../../data_public/spatial/clusters.RData')
+  old_clusters <- clusters; rm(clusters)
+  pk_clusters_spatial <- old_clusters[old_clusters$cluster_number %in% pk_clusters$cluster_number,]
+  # Write spatial files
+  raster::shapefile(pk_clusters_spatial, paste0(pk_spatial_dir, 'clusters.shp'))
+  raster::shapefile(households, paste0(pk_spatial_dir, 'households.shp'))
+  
+}
+
+
 
 
 # </pk> ##############################################################################
