@@ -2163,7 +2163,7 @@ if(FALSE){
                 dplyr::select(hhid, 
                               longitude = Longitude, 
                               latitude = Latitude))
-  households <- households %>%
+  households <- households %>% dplyr::select(-cluster) %>%
     left_join(v0demography_full %>% 
                 dplyr::select(hhid, 
                               longitude = Longitude, 
