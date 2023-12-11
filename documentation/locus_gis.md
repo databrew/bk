@@ -25,6 +25,7 @@ For the purposes of the Bohemia Kenya project, Locus GIS must be configured by a
 
 - For general project use, on your computer, go to [this google drive link](https://drive.google.com/drive/folders/1lHUvXWL2zCe3R_Cw-_hdzSlp3WVVAi0b?usp=sharing)
 - For entomology use, on your computer, go to [this google drive link](https://drive.google.com/drive/u/0/folders/1pVEcZzPevVCcHe4Sc4lAn5Gmri1xR_RB)
+- For PK use, on your computer, go to [this google drive link](https://drive.google.com/drive/folders/1CCikVZgOIYtyz9rPyavwOVhEe2zBGvE3?usp=sharing)
 - Download the contents of the folder to your computer
 - Go to drive.google.com, logged in to your personal account
 - Upload the folder to your personal drive
