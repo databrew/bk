@@ -1557,7 +1557,7 @@ pryr::mem_used()
 
 
 # <Efficacy> ##############################################################################
-
+save.image('pre_efficacy.RData')
 # One off request for community engagement team
 if(FALSE){
   pd <- efficacy[!is.na(efficacy$person_absent_reason),]
@@ -1810,6 +1810,20 @@ if(FALSE){
   setwd(owd)
 
 
+}
+
+# Efficacy QC
+if(FALSE){
+  load('rmds/efficacy_tables.RData')
+  # nobody who was ever eos should be in
+  x = efficacy %>% filter(efficacy_status == 'eos') %>% pull(extid)
+  table(x %in% individuals$extid)
+  # only households with participants are in
+  table(households$hhid %in% individuals$hhid)
+  # no individuals without a household
+  table(individuals$hhid %in% households$hhid)
+  # only preselected individuals
+  table(individuals$extid %in% efficacy_selection$extid)
 }
 # </Efficacy> ##############################################################################
 ##############################################################################
