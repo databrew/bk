@@ -1944,7 +1944,7 @@ individuals <- left_join(individuals, right)
 
 individuals <- individuals %>% filter(!is.na(hhid))
 
-# Remove those who are lost to follow-up (>= 90 days without a present visit)
+# Remove those who are lost to follow-up (>= 120 days without a present visit)
 last_non_absent_visit <- pfu %>%
   # remove absences / keep only presences
   filter(person_absent == 0) %>%
@@ -1956,7 +1956,7 @@ last_non_absent_visit <- pfu %>%
 individuals <- individuals %>%
   left_join(last_non_absent_visit) %>%
   mutate(days_since_last_non_absent_visit = Sys.Date() - last_non_absent_visit) %>%
-  mutate(ltfu = days_since_last_non_absent_visit >= 90)
+  mutate(ltfu = days_since_last_non_absent_visit >= 120)
 individuals <- individuals %>% filter(!ltfu | is.na(ltfu))
 # remove unnecessary columns
 individuals <- individuals %>%
