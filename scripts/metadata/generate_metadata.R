@@ -475,10 +475,19 @@ pfu <- pfu %>% filter(todays_date >= start_from)
 pfu_repeat_preg_symptom <- pfu_repeat_preg_symptom %>% filter(PARENT_KEY %in% pfu$KEY)
 pkday0 <- pkday0 %>%
   filter(todays_date >= start_from) %>%
-  dplyr::mutate(age = as.numeric(age))
-pkdays123 <- pkdays123  %>% filter(todays_date >= start_from) %>%
-  dplyr::mutate(age = as.numeric(age))
-pkfollowup <- pkfollowup %>% filter(todays_date >= start_from)
+  dplyr::mutate(age = as.numeric(age),
+                start_time = lubridate::as_datetime(start_time),
+                pk_id = as.character(pk_id))
+pkdays123 <- pkdays123  %>%
+  filter(todays_date >= start_from) %>%
+  dplyr::mutate(age = as.numeric(age),
+                start_time = lubridate::as_datetime(start_time),
+                pk_id = as.character(pk_id))
+pkfollowup <- pkfollowup %>%
+  filter(todays_date >= start_from) %>%
+  dplyr::mutate(age = as.numeric(age),
+                start_time = lubridate::as_datetime(start_time),
+                pk_id = as.character(pk_id))
 safety <- safety %>% filter(todays_date >= start_from)
 safety_repeat_ae_symptom <- safety_repeat_ae_symptom %>% filter(PARENT_KEY %in% safety$KEY)
 safety_repeat_drug <- safety_repeat_drug %>% filter(PARENT_KEY %in% safety$KEY)
@@ -2159,14 +2168,14 @@ if(FALSE){
     dplyr::select(extid, hhid, cluster, ab)
   # get coordinates
   individuals <- individuals %>%
-    left_join(v0demography_full %>% 
-                dplyr::select(hhid, 
-                              longitude = Longitude, 
+    left_join(v0demography_full %>%
+                dplyr::select(hhid,
+                              longitude = Longitude,
                               latitude = Latitude))
   households <- households %>% dplyr::select(-cluster) %>%
-    left_join(v0demography_full %>% 
-                dplyr::select(hhid, 
-                              longitude = Longitude, 
+    left_join(v0demography_full %>%
+                dplyr::select(hhid,
+                              longitude = Longitude,
                               latitude = Latitude))
   # Make spatial
   coordinates(individuals) <- ~longitude+latitude
@@ -2179,7 +2188,7 @@ if(FALSE){
   # Write spatial files
   raster::shapefile(pk_clusters_spatial, paste0(pk_spatial_dir, 'clusters.shp'))
   raster::shapefile(households, paste0(pk_spatial_dir, 'households.shp'))
-  
+
 }
 
 
