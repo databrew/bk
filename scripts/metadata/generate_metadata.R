@@ -1850,7 +1850,11 @@ save.image('pre_pfu.RData')
 # get a list of safety pregnant individuals who ever took drug
 ever_took_drug <- safety_repeat_individual %>%
   mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
-  filter(took_drug) %>% dplyr::distinct(extid) %>% pull(extid)
+  filter(took_drug) %>% dplyr::distinct(extid) %>% 
+  bind_rows(safetynew_repeat_individual %>%
+              mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
+              filter(took_drug) %>% dplyr::distinct(extid)) %>%
+  pull(extid) 
 
 # Get anyone who was ever pregnant
 # (no need for safetynew since they would be excluded from safety and therefore pregnancy in the first place)
@@ -2038,6 +2042,18 @@ if(FALSE){
   system_text <- paste0('pdftk *.pdf cat output pfu_visit_control_sheets.pdf')
   system(system_text)
   setwd(owd)
+}
+if(FALSE){
+  # QC
+  load('rmds/pfu_tables.RData')
+  table(is.na(individuals$cluster))
+  table(is.na(individuals$hhid))
+  table(individuals$sex)
+  table(individuals$migrated)
+  table(individuals$dead)
+  table(individuals$starting_weight)
+  table(individuals$extid %in% ever_took_drug)
+  hist(as.numeric(individuals$starting_weight))
 }
 
 

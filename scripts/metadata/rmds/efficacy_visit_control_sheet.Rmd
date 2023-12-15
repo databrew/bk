@@ -144,6 +144,8 @@ if(use_fake_names){
   out$`Hh head name` <- names1
   out$Name <- names2
 }
+# csv for nika's qc
+out %>% write_csv('/tmp/efficacy_vcs.csv')
 ```
 
 

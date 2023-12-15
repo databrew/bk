@@ -16,7 +16,7 @@ header-includes:
 - \usepackage{multirow}
 - \usepackage{colortbl}
 - \usepackage[labelformat = empty]{caption}
-- \fancyhead[CO,CE]{PFU visit control sheets V2}
+- \fancyhead[CO,CE]{PFU visit control sheets}
 - \fancyfoot[CO,CE]{This is a transitory document to assist the casual laborers with household identification.\\This document will not be retained in the study investigator site file (ISF).\\Bohemia PFU Visit Control Sheets Version 2.0. Date = \today\\}
 - \fancyfoot[LE,RO]{Page {\thepage} of \pageref{LastPage}}
 geometry: margin=2cm
