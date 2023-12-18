@@ -648,6 +648,7 @@ gc()
 ##############################################################################
 ##############################################################################
 ##############################################################################
+save.image('pre_safety.RData')
 # <Safety> ##############################################################################
 
 # One-off fix: change observations from 2021 to 2023
@@ -994,6 +995,17 @@ individuals <- individuals %>%
   filter(cluster %in% in_study_clusters)
 households <- households %>%
   filter(cluster %in% in_study_clusters)
+
+# Beginning at visit 4, only include households with at least 1 individual who is safety in
+# https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1702911413755909
+nobody_in <- individuals %>%
+  group_by(hhid) %>%
+  summarise(n_members = n(),
+            n_in = length(which(starting_safety_status == 'in'))) %>%
+  filter(n_in == 0) %>%
+  pull(hhid)
+individuals <- individuals %>% filter(!hhid %in% nobody_in)
+households <- households %>% filter(!hhid %in% nobody_in)
 
 # Write csvs
 if(!dir.exists('safety_metadata')){
