@@ -1781,7 +1781,7 @@ last_non_absent_visit <- efficacy %>%
 individuals <- individuals %>%
   left_join(last_non_absent_visit) %>%
   mutate(days_since_last_non_absent_visit = Sys.Date() - last_non_absent_visit) %>%
-  mutate(ltfu = days_since_last_non_absent_visit >= 60)
+  mutate(ltfu = days_since_last_non_absent_visit >= 90)
 individuals <- individuals %>% filter(!ltfu | is.na(ltfu))
 # remove unnecessary columns
 individuals <- individuals %>%
@@ -1995,7 +1995,7 @@ last_non_absent_visit <- pfu %>%
 individuals <- individuals %>%
   left_join(last_non_absent_visit) %>%
   mutate(days_since_last_non_absent_visit = Sys.Date() - last_non_absent_visit) %>%
-  mutate(ltfu = days_since_last_non_absent_visit >= 120)
+  mutate(ltfu = days_since_last_non_absent_visit >= 150)
 individuals <- individuals %>% filter(!ltfu | is.na(ltfu))
 # remove unnecessary columns
 individuals <- individuals %>%
