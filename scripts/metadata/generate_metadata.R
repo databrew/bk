@@ -1215,16 +1215,16 @@ if(FALSE){
   table(died_ids %in% individuals$extid) # should be all false
   still_there <- individuals %>% filter(extid %in% died_ids) # none
 
-  # Anyone with a non-EOS individual status at end of visit 2 is not EOS in `individual_data.csv` (JOE)
-  not_eos_v2 <- safety_repeat_individual %>%
+  # Anyone with a non-EOS individual status at end of visit 3 is not EOS in `individual_data.csv` (JOE)
+  not_eos_v3 <- safety_repeat_individual %>%
     left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
-    filter(visit == 'V2') %>%
+    filter(visit == 'V3') %>%
     filter(safety_status != 'eos') %>%
     pull(extid)
-  now_status <- individuals %>% filter(extid %in% not_eos_v2)
+  now_status <- individuals %>% filter(extid %in% not_eos_v3)
   table(now_status$starting_safety_status) # should be no eos
-  table(not_eos_v2 %in% individuals$extid) # they should all be there EXCEPT those which are manually removed or all refusals
-  not_there <- not_eos_v2[!not_eos_v2 %in% individuals$extid] %>% unique()
+  table(not_eos_v3 %in% individuals$extid) # they should all be there EXCEPT those which are manually removed or all refusals
+  not_there <- not_eos_v2[!not_eos_v3 %in% individuals$extid] %>% unique()
   table(safety_repeat_individual %>% filter(extid %in% not_there) %>% pull(safety_status))
   # See if they are in removed households
   table(substr(not_there, 1, 5) %in% removed_households) # only some
