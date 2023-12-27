@@ -1510,7 +1510,7 @@ households <- households %>%
   mutate(hecon_hh_preselected = ifelse(hhid %in% health_economics_households$hhid, 1, 0))
 # Get hecon_members
 households$hecon_members <- households$roster
-# Create the herd preselected variable (just random values for now)
+# Create the herd preselected variable 
 households <- households %>%
   mutate(herd_preselected = ifelse(hhid %in% health_economics_households$hhid[health_economics_households$herd_preselected == 'yes'], 1, 0))
 # Keep only health economics households
@@ -2121,6 +2121,26 @@ individuals <- v0demography_full_repeat_individual %>%
 # Bring in ab
 individuals <- individuals %>%
   left_join(pk_individuals %>% dplyr::select(extid, ab))
+
+# Save an object for use in the later ICF data
+pk_individuals <- individuals
+
+# Beginning December 27, only keep those individuals who are "in" pk
+latest <-
+  bind_rows(
+    pkday0 %>% 
+      mutate(pkid = ifelse(is.na(pk_id), pk_id_sampling, pk_id)) %>%
+      dplyr::select(start_time, extid, pk_status, pkid),
+    pkdays123 %>% 
+      mutate(pkid = pk_id) %>%
+      dplyr::select(start_time, extid, pk_status, pkid)
+  ) %>%
+  arrange(desc(start_time)) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  mutate(pkid = add_zero(pkid, 2))
+in_pk <- latest %>% filter(pk_status == 'in') %>% dplyr::pull(extid)
+individuals <- individuals %>% filter(extid %in% in_pk)
+
 # Based on that list of individuals, create a households data set
 households <- individuals %>%
   dplyr::distinct(hhid, .keep_all = TRUE) %>%
@@ -2151,8 +2171,7 @@ if(FALSE){
   }
 }
 
-# Save an object for use in the later ICF data
-pk_individuals <- individuals
+
 
 # Write csvs
 if(!dir.exists('pk_metadata')){
@@ -2161,9 +2180,10 @@ if(!dir.exists('pk_metadata')){
 write_csv(individuals, 'pk_metadata/individual_data.csv')
 write_csv(households, 'pk_metadata/household_data.csv')
 
-# Render the pk visit control sheets
-save(individuals, households, v0demography_full, v0demography_full_repeat_individual, file = 'rmds/pk_tables.RData')
+# Prepare objects for the pk visit control sheets
+save(latest, individuals, households, v0demography_full, v0demography_full_repeat_individual, file = 'rmds/pk_tables.RData')
 
+# Render the PK RECRUITMENT visit control sheet
 if(FALSE){
   unlink('rmds/pk_visit_control_sheets/', recursive = TRUE)
   if(!dir.exists('rmds/pk_visit_control_sheets')){
@@ -2186,6 +2206,31 @@ if(FALSE){
   system(system_text)
   setwd(owd)
 }
+
+# Render the PK Follow Up visit control sheets
+if(FALSE){
+  unlink('rmds/pkfollowup_visit_control_sheets/', recursive = TRUE)
+  if(!dir.exists('rmds/pkfollowup_visit_control_sheets')){
+    dir.create('rmds/pkfollowup_visit_control_sheets')
+  }
+  load('rmds/pk_tables.RData')
+  
+  vcs_list <- sort(unique(individuals$cluster))
+  for(a in 1:length(vcs_list)){
+    this_vcs <- vcs_list[a]
+    message(a, ' of ', length(vcs_list), ' WD: ', getwd())
+    rmarkdown::render('rmds/pkfollowup_visit_control_sheet.Rmd', params = list('vcs' = this_vcs),
+                      output_file = paste0( getwd(), '/pkfollowup_visit_control_sheets/', this_vcs, '.pdf'))
+  }
+  
+  # Now stitch them all together
+  owd <- getwd()
+  setwd('rmds/pkfollowup_visit_control_sheets/')
+  system_text <- paste0('pdftk *.pdf cat output pkfollowup_visit_control_sheets.pdf')
+  system(system_text)
+  setwd(owd)
+}
+
 # Make spatial files for Locus GIS
 if(FALSE){
   pk_spatial_dir <- '/tmp/pk_spatial/'
