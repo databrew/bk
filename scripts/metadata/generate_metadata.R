@@ -1796,6 +1796,9 @@ if(FALSE){
     tally
 }
 
+# As of 2024-01-09, kieep only those who are "IN" (remove those who are "out")
+individuals <- individuals %>% filter(starting_efficacy_status == 'in')
+households <- households %>% filter(hhid %in% individuals$hhid)
 # Write csvs
 if(!dir.exists('efficacy_metadata')){
   dir.create('efficacy_metadata')
