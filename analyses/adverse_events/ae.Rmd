@@ -58,6 +58,8 @@ knitr::opts_chunk$set(
                error = TRUE, 
                cache = FALSE,
   fig.path = "figures/",
+  fig.height = 7.5,
+  fig.width = 10,
   out.width = "100%"
 )
 options(knitr.kable.NA = '')
@@ -190,6 +192,7 @@ pd <- ae %>%
   # dplyr::select(-KEY) %>%
   # left_join(visit_level) %>%
   left_join(safety, by = c('safety_key' = 'KEY')) %>%
+  filter(!is.na(visit), !is.na(symptom_category)) %>%
   group_by(cluster, visit, symptom_category) %>%
   tally %>%
   ungroup %>%
@@ -213,13 +216,113 @@ ggplot(data = pd,
 
 ```
 
+
+
+## Events by visit  / symptom category / CL ID
+
+```{r, fig.height = 8, fig.width=10}
+pd <- ae %>%
+  # dplyr::select(-KEY) %>%
+  # left_join(visit_level) %>%
+  left_join(safety, by = c('safety_key' = 'KEY')) %>%
+  filter(!is.na(visit), !is.na(symptom_category)) %>%
+  mutate(wid = as.character(wid)) %>%
+  group_by(wid, visit, symptom_category) %>%
+  tally %>%
+  ungroup 
+ggplot(data = pd,
+       aes(x = wid,
+           y = n)) +
+  geom_bar(stat = 'identity',
+           aes(fill = symptom_category),
+           # color = 'black',
+           width = 1) +
+  facet_grid(~visit) +
+  labs(x = 'CL ID',
+       y = 'Events') +
+  theme_bw() +
+  coord_flip() +
+  theme(legend.position = 'bottom',
+        axis.text.y = element_text(size = 2)) +
+  scale_fill_manual(name = 'Symptom',
+                    values = RColorBrewer::brewer.pal(n = length(unique(pd$symptom_category)), 'Set1'))
+pdx <- tidyr::spread(pd, key = visit, value = n)
+pdx %>%
+    kable(format = "latex",
+              longtable = TRUE,
+              booktabs = TRUE,
+             escape = TRUE,
+          row.names = FALSE) %>%
+      kable_styling(latex_options = c(#"scale_down",
+                'repeat_header',
+
+                                       "striped"
+                                      ), 
+                     # full_width = T,
+                    font_size = 8) 
+```
+
+## Individuals with more than one AE
+
+`r nrow(ae)` adverse events have been registered from `r length(unique(ae$extid))` individuals. The below chart shows the number of adverse events per individual.
+
+```{r}
+left <- safety_repeat_individual %>% distinct(extid)
+right <- ae %>% group_by(extid) %>% tally
+joined <- left_join(left, right) %>% mutate(n = ifelse(is.na(n), 0, n))
+pd <- joined %>%
+  group_by(n) %>%
+  summarise(individuals = n())
+ggplot(data = pd,
+       aes(x = n,
+           y = individuals)) +
+  geom_bar(stat = 'identity') +
+  geom_text(aes(label = individuals), nudge_y = 1000) +
+  labs(x = 'Number of adverse events',
+       y = 'Number of individuals with that many adverse events') +
+  theme_bw() +
+  scale_x_continuous(breaks = 1:max(pd$n))
+```
+
+The below table shows all cases of individuals who have registered 3 or more adverse events.
+
+```{r}
+pd <- ae %>%
+  left_join(safety, by = c('safety_key' = 'KEY')) %>%
+  filter(!is.na(visit), !is.na(symptom_category)) %>%
+  mutate(visit_event = paste0(visit, ':', symptom_category)) %>%
+  arrange(visit) %>%
+  group_by(extid) %>%
+  summarise(n_ae = n(),
+            visit_events = paste0(visit_event, collapse = ';')) %>%
+  filter(n_ae >= 3)
+
+pd %>%
+      kable(format = "latex",
+              longtable = TRUE,
+              booktabs = TRUE,
+             escape = TRUE,
+          row.names = FALSE) %>%
+      kable_styling(latex_options = c(#"scale_down",
+                'repeat_header',
+
+                                       "striped"
+                                      ), 
+                     # full_width = T,
+                    font_size = 8) 
+```
+
+
 ## Adverse event symptom categories
 
 ```{r}
 pd <- ae %>%
-  group_by(symptom_category) %>%
+  left_join(safety %>% dplyr::select(safety_key = KEY, visit)) %>%
+  filter(!is.na(visit)) %>%
+  group_by(symptom_category, visit) %>%
   tally %>%
   ungroup %>%
+  group_by(visit) %>%
   mutate(p = n / sum(n) * 100)
 ggplot(data = pd,
        aes(x = symptom_category,
@@ -233,6 +336,7 @@ ggplot(data = pd,
        y = 'Percentage') +
   geom_text(aes(y = p + (0.04 * max(p)),
                 label = n )) +
+  facet_wrap(~visit) +
   coord_flip()
 ```
 
@@ -253,6 +357,7 @@ ae %>%
 ```{r}
 ae %>%
   left_join(safety_repeat_individual %>% dplyr::distinct(extid, .keep_all = TRUE) %>%dplyr::select(extid, sex)) %>%
+  filter(!is.na(sex)) %>%
   group_by(sex) %>%
   tally %>%
   knitr::kable()
@@ -262,12 +367,15 @@ ae %>%
 ## Adverse event symptom categories by sex
 
 ```{r}
-px <- ae %>% left_join(safety_repeat_individual %>% dplyr::distinct(extid, .keep_all = TRUE) %>%dplyr::select(extid, sex))
+px <- ae %>% 
+    left_join(safety %>% dplyr::select(safety_key = KEY, visit)) %>%
+  filter(!is.na(visit)) %>%
+  left_join(safety_repeat_individual %>% dplyr::distinct(extid, .keep_all = TRUE) %>%dplyr::select(extid, sex))
 pd <- px %>%
-  group_by(symptom_category, sex) %>%
+  group_by(symptom_category, sex, visit) %>%
   tally %>%
   ungroup %>%
-  group_by(sex) %>%
+  group_by(sex, visit) %>%
   mutate(p = n / sum(n) * 100) %>% ungroup
 ggplot(data = pd,
        aes(x = symptom_category,
@@ -282,14 +390,18 @@ ggplot(data = pd,
   geom_text(aes(y = p + (0.04 * max(p)),
                 label = n )) +
   coord_flip() +
-  facet_wrap(~sex)
+  facet_grid(visit~sex)
 ```
 
 
 ## Adverse event symptom categories by age group
 
 ```{r}
-px <- ae %>% left_join(safety_repeat_individual %>% dplyr::distinct(extid, .keep_all = TRUE) %>%dplyr::select(extid, age)) %>%
+px <- ae %>% 
+    left_join(safety %>% dplyr::select(safety_key = KEY, visit)) %>%
+  filter(!is.na(visit)) %>%
+  left_join(safety_repeat_individual %>% dplyr::distinct(extid, .keep_all = TRUE) %>%dplyr::select(extid, age)) %>%
+  filter(!is.na(age)) %>%
   mutate(age_group = ifelse(age <= 5, '00-05',
                             ifelse(age <= 18,
                                    '05.01-18',
@@ -299,10 +411,10 @@ px <- ae %>% left_join(safety_repeat_individual %>% dplyr::distinct(extid, .keep
                                                  '40.01-65',
                                                  '65+')))))
 pd <- px %>%
-  group_by(symptom_category, age_group) %>%
+  group_by(symptom_category, age_group, visit) %>%
   tally %>%
   ungroup %>%
-  group_by(age_group) %>%
+  group_by(age_group, visit) %>%
   mutate(p = n / sum(n) * 100) %>% ungroup
 ggplot(data = pd,
        aes(x = symptom_category,
@@ -317,48 +429,25 @@ ggplot(data = pd,
   geom_text(aes(y = p + (0.04 * max(p)),
                 label = n )) +
   coord_flip() +
-  facet_wrap(~age_group)
+  facet_grid(visit~age_group)
 ```
 
 
 ## Adverse events by treatment status
 
 ```{r}
-px <- ae %>% dplyr::select(-PARENT_KEY) %>% 
+px <- ae %>% 
+    left_join(safety %>% dplyr::select(safety_key = KEY, visit)) %>%
+  filter(!is.na(visit)) %>%
+  dplyr::select(-PARENT_KEY) %>% 
   left_join(safety_repeat_individual %>% dplyr::distinct(extid, .keep_all = TRUE) %>% dplyr::select(PARENT_KEY, extid, intervention)) %>%
               left_join(safety %>% dplyr::select(KEY, hhid, cluster), by = c('PARENT_KEY' = 'KEY'))
 pd <- px %>%
-  group_by(intervention) %>%
+  filter(!is.na(intervention), !is.na(visit)) %>%
+  group_by(intervention, visit) %>%
   tally %>%
   ungroup %>%
-  mutate(p = n / sum(n) * 100) %>% ungroup
-ggplot(data = pd,
-       aes(x = intervention,
-           y = p)) +
-  geom_bar(stat = 'identity',
-           color = 'black',
-           fill = 'lightblue',
-           alpha = 0.5) +
-  theme_bw() +
-  labs(x = '',
-       y = 'Percentage') +
-  geom_text(aes(y = p + (0.04 * max(p)),
-                label = n )) +
-  coord_flip() 
-```
-
-
-## Adverse events by treatment status and symptom category
-
-```{r}
-px <- ae %>% dplyr::select(-PARENT_KEY) %>% 
-  left_join(safety_repeat_individual %>% dplyr::distinct(extid, .keep_all = TRUE) %>% dplyr::select(PARENT_KEY, extid, intervention)) %>%
-              left_join(safety %>% dplyr::select(KEY, hhid, cluster), by = c('PARENT_KEY' = 'KEY'))
-pd <- px %>%
-  group_by(intervention, symptom_category) %>%
-  tally %>%
-  ungroup %>%
-  group_by(intervention) %>%
+  group_by(visit) %>%
   mutate(p = n / sum(n) * 100) %>% ungroup
 ggplot(data = pd,
        aes(x = intervention,
@@ -373,7 +462,39 @@ ggplot(data = pd,
   geom_text(aes(y = p + (0.04 * max(p)),
                 label = n )) +
   coord_flip() +
-  facet_wrap(~symptom_category)
+  facet_wrap(~visit)
+```
+
+
+## Adverse events by treatment status and symptom category
+
+```{r}
+px <- ae %>%
+    left_join(safety %>% dplyr::select(safety_key = KEY, visit)) %>%
+  filter(!is.na(visit)) %>%
+  dplyr::select(-PARENT_KEY) %>% 
+  left_join(safety_repeat_individual %>% dplyr::distinct(extid, .keep_all = TRUE) %>% dplyr::select(PARENT_KEY, extid, intervention)) %>%
+              left_join(safety %>% dplyr::select(KEY, hhid, cluster), by = c('PARENT_KEY' = 'KEY'))
+pd <- px %>%
+  group_by(intervention, symptom_category, visit) %>%
+  tally %>%
+  ungroup %>%
+  group_by(intervention, visit) %>%
+  mutate(p = n / sum(n) * 100) %>% ungroup
+ggplot(data = pd,
+       aes(x = intervention,
+           y = p)) +
+  geom_bar(stat = 'identity',
+           color = 'black',
+           fill = 'lightblue',
+           alpha = 0.5) +
+  theme_bw() +
+  labs(x = '',
+       y = 'Percentage') +
+  geom_text(aes(y = p + (0.04 * max(p)),
+                label = n )) +
+  coord_flip() +
+  facet_grid(visit~symptom_category)
 ```
 
 ## Adverse events by number of tablets ever taken
@@ -393,8 +514,10 @@ pills_ever_taken <-
   summarise(n_pills = sum(n_pills))
 
 px <- ae %>% 
+    left_join(safety %>% dplyr::select(safety_key = KEY, visit)) %>%
+  filter(!is.na(visit)) %>%
   left_join(pills_ever_taken) %>%
-  group_by(intervention, n_pills) %>%
+  group_by(intervention, n_pills, visit) %>%
   tally
 
 ggplot(data = px,
@@ -402,7 +525,7 @@ ggplot(data = px,
            y = n)) +
   geom_line() +
   geom_point() +
-  facet_wrap(~intervention, scales = 'free_x') +
+  facet_grid(visit~intervention, scales = 'free_x') +
   labs(x = 'Total pills/tablets',
        y = 'Number of adverse events reported') +
   theme_bw()
@@ -418,11 +541,13 @@ right <- visit_level %>%
                           ifelse(!is.na(num_ivermectin_tablets_taken),
                                  num_ivermectin_tablets_taken, 0))) %>%
   left_join(safety_repeat_individual %>% dplyr::select(intervention, extid) %>% dplyr::distinct(extid, .keep_all = TRUE)) %>%
+  filter(!is.na(visit)) %>%
   dplyr::select(intervention, extid, visit, n_pills) %>%
   mutate(visit_joiner = visit) %>%
   dplyr::select(-visit)
 left <- ae %>% 
   left_join(safety %>% dplyr::select(KEY, visit), by = c('safety_key'  = 'KEY')) %>%
+  filter(!is.na(visit)) %>%
   mutate(visit_joiner = paste0('V', as.numeric(gsub('V', '', visit)) - 1)) 
 joined <- left_join(left, right)  
 
@@ -512,8 +637,8 @@ for(i in 1:length(extids)){
   this_ae <- ae %>% filter(extid == this_extid)
   # AE (principle table)
   table1 <- this_ae %>%
-    mutate(symptom_start = todays_date - lubridate::days(symptom_start),
-           symptom_end = todays_date - lubridate::days(symptom_end)) %>%
+    # mutate(symptom_start = todays_date - lubridate::days(symptom_start),
+    #        symptom_end = todays_date - lubridate::days(symptom_end)) %>%
     dplyr::select(extid, symptom,
                   symptom_category,
                   symptom_start, symptom_end,
