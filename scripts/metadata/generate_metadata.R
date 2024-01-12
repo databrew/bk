@@ -1511,7 +1511,7 @@ households <- households %>%
   mutate(hecon_hh_preselected = ifelse(hhid %in% health_economics_households$hhid, 1, 0))
 # Get hecon_members
 households$hecon_members <- households$roster
-# Create the herd preselected variable 
+# Create the herd preselected variable
 households <- households %>%
   mutate(herd_preselected = ifelse(hhid %in% health_economics_households$hhid[health_economics_households$herd_preselected == 'yes'], 1, 0))
 # Keep only health economics households
@@ -1866,11 +1866,11 @@ save.image('pre_pfu.RData')
 # get a list of safety pregnant individuals who ever took drug
 ever_took_drug <- safety_repeat_individual %>%
   mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
-  filter(took_drug) %>% dplyr::distinct(extid) %>% 
+  filter(took_drug) %>% dplyr::distinct(extid) %>%
   bind_rows(safetynew_repeat_individual %>%
               mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
               filter(took_drug) %>% dplyr::distinct(extid)) %>%
-  pull(extid) 
+  pull(extid)
 
 # Get anyone who was ever pregnant
 # (no need for safetynew since they would be excluded from safety and therefore pregnancy in the first place)
@@ -2132,10 +2132,10 @@ pk_individuals <- individuals
 # Beginning December 27, only keep those individuals who are "in" pk
 latest <-
   bind_rows(
-    pkday0 %>% 
+    pkday0 %>%
       mutate(pkid = ifelse(is.na(pk_id), pk_id_sampling, pk_id)) %>%
       dplyr::select(start_time, extid, pk_status, pkid),
-    pkdays123 %>% 
+    pkdays123 %>%
       mutate(pkid = pk_id) %>%
       dplyr::select(start_time, extid, pk_status, pkid)
   ) %>%
@@ -2218,7 +2218,7 @@ if(FALSE){
     dir.create('rmds/pkfollowup_visit_control_sheets')
   }
   load('rmds/pk_tables.RData')
-  
+
   vcs_list <- sort(unique(individuals$cluster))
   for(a in 1:length(vcs_list)){
     this_vcs <- vcs_list[a]
@@ -2226,7 +2226,7 @@ if(FALSE){
     rmarkdown::render('rmds/pkfollowup_visit_control_sheet.Rmd', params = list('vcs' = this_vcs),
                       output_file = paste0( getwd(), '/pkfollowup_visit_control_sheets/', this_vcs, '.pdf'))
   }
-  
+
   # Now stitch them all together
   owd <- getwd()
   setwd('rmds/pkfollowup_visit_control_sheets/')
@@ -2676,19 +2676,6 @@ samples <-
         mutate(sample = as.character(sample)) %>%
         mutate(wid = as.character(wid), todays_date = as.Date(todays_date)) %>%
         mutate(cluster = as.character(cluster)) %>%
-        mutate(pk_sample_number =as.character(
-          ifelse(!is.na(s1qr), 'Sample 1',
-                 ifelse(!is.na(s2qr), 'Sample 2',
-                        ifelse(!is.na(s3qr), 'Sample 3',
-                               ifelse(!is.na(s4qr), 'Sample 4',
-                                      ifelse(!is.na(s5qr), 'Sample 5',
-                                             ifelse(!is.na(s6qr), 'Sample 6', NA)))))))) %>%
-        mutate(s1q3 = as.character(s1q3),
-               s2q3 = as.character(s2q3),
-               s3q3 = as.character(s3q3),
-               s4q3 = as.character(s4q3),
-               s5q3 = as.character(s5q3),
-               s6q3 = as.character(s6q3)) %>%
         mutate(time_sample_collection =as.character(
           ifelse(!is.na(s1qr), s1q3,
                  ifelse(!is.na(s2qr), s2q3,
@@ -2696,6 +2683,16 @@ samples <-
                                ifelse(!is.na(s4qr), s4q3,
                                       ifelse(!is.na(s5qr), s5q3,
                                              ifelse(!is.na(s6qr), s6q3, NA)))))))) %>%
+        tidyr::pivot_longer(cols = c('s1qr', 's2qr', 's3qr', 's4qr', 's5qr', 's6qr'), values_to = 'pk_sample_number') %>%
+        dplyr::mutate(pk_sample_number = case_when(
+          name == 's1qr' & !is.na(pk_sample_number) ~ 'Sample 1',
+          name == 's2qr' & !is.na(pk_sample_number) ~ 'Sample 2',
+          name == 's3qr' & !is.na(pk_sample_number) ~ 'Sample 3',
+          name == 's4qr' & !is.na(pk_sample_number) ~ 'Sample 4',
+          name == 's5qr' & !is.na(pk_sample_number) ~ 'Sample 5',
+          name == 's6qr' & !is.na(pk_sample_number) ~ 'Sample 6',
+          TRUE ~ NA_character_
+        )) %>%
         dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, age, pkid = pk_id),
       pkdays123 %>%
         # deal with todays_date
@@ -2718,6 +2715,7 @@ samples <-
         dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, num_aliquots, age, pkid = pk_id)
     ) %>%
       # fix pk sample ids
+      tidyr::drop_na(pk_sample_number) %>%
       mutate(sample = unlist(fix_pk_sample_id(sample))) %>%
       mutate(study = 'pk',
              icf_type = 'Safety Adult ICF & PK ICF')
