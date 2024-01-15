@@ -2722,7 +2722,7 @@ samples <-
   ) %>%
   # keep only one row per sample
   arrange(start_time) %>%
-  dplyr::distinct(sample, .keep_all  = TRUE) %>%
+  dplyr::distinct(sample, pk_sample_number, .keep_all  = TRUE) %>%
   # reformat date of birth
   # mutate(dob = paste0('.', as.character(dob))) %>%
   filter(!is.na(sample))
