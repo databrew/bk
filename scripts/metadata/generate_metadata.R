@@ -2683,14 +2683,14 @@ samples <-
                                ifelse(!is.na(s4qr), s4q3,
                                       ifelse(!is.na(s5qr), s5q3,
                                              ifelse(!is.na(s6qr), s6q3, NA)))))))) %>%
-        tidyr::pivot_longer(cols = c('s1qr', 's2qr', 's3qr', 's4qr', 's5qr', 's6qr'), values_to = 'pk_sample_number') %>%
+        tidyr::pivot_longer(cols = c('s1qr', 's2qr', 's3qr', 's4qr', 's5qr', 's6qr'), values_to = 'sample') %>%
         dplyr::mutate(pk_sample_number = case_when(
-          name == 's1qr' & !is.na(pk_sample_number) ~ 'Sample 1',
-          name == 's2qr' & !is.na(pk_sample_number) ~ 'Sample 2',
-          name == 's3qr' & !is.na(pk_sample_number) ~ 'Sample 3',
-          name == 's4qr' & !is.na(pk_sample_number) ~ 'Sample 4',
-          name == 's5qr' & !is.na(pk_sample_number) ~ 'Sample 5',
-          name == 's6qr' & !is.na(pk_sample_number) ~ 'Sample 6',
+          name == 's1qr' & !is.na(sample) ~ 'Sample 1',
+          name == 's2qr' & !is.na(sample) ~ 'Sample 2',
+          name == 's3qr' & !is.na(sample) ~ 'Sample 3',
+          name == 's4qr' & !is.na(sample) ~ 'Sample 4',
+          name == 's5qr' & !is.na(sample) ~ 'Sample 5',
+          name == 's6qr' & !is.na(sample) ~ 'Sample 6',
           TRUE ~ NA_character_
         )) %>%
         dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, age, pkid = pk_id),
@@ -2722,7 +2722,7 @@ samples <-
   ) %>%
   # keep only one row per sample
   arrange(start_time) %>%
-  dplyr::distinct(sample, .keep_all  = TRUE) %>%
+  dplyr::distinct(sample, pk_sample_number, .keep_all  = TRUE) %>%
   # reformat date of birth
   # mutate(dob = paste0('.', as.character(dob))) %>%
   filter(!is.na(sample))
