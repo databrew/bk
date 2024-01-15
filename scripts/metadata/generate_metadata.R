@@ -2665,15 +2665,6 @@ samples <-
                s4qr = as.character(s4qr),
                s5qr = as.character(s5qr),
                s6qr = as.character(s6qr)) %>%
-        mutate(sample =
-                 ifelse(!is.na(s1qr), s1qr,
-                        ifelse(!is.na(s2qr), s2qr,
-                               ifelse(!is.na(s3qr), s3qr,
-                                      ifelse(!is.na(s4qr), s4qr,
-                                             ifelse(!is.na(s5qr), s5qr,
-                                                    ifelse(!is.na(s6qr), s6qr,
-                                                           NA))))))) %>%
-        mutate(sample = as.character(sample)) %>%
         mutate(wid = as.character(wid), todays_date = as.Date(todays_date)) %>%
         mutate(cluster = as.character(cluster)) %>%
         mutate(time_sample_collection =as.character(
