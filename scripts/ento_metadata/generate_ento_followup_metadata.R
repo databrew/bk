@@ -54,8 +54,8 @@ for(i in 1:length(datasets)){
   )
 }
 
-entohhfirstvisit <- read_csv('kwale/clean-form/entohhfirstvisit/')
-# entoscreeningke <- read_csv('kwale/clean-form/entoscreeningke/entoscreeningke.csv')
+# entohhfirstvisit <- read_csv('kwale/clean-form/entohhfirstvisit/')
+entoscreeningke <- read_csv('kwale/clean-form/entoscreeningke/entoscreeningke.csv')
 
 # New instructions, 2023-05-25
 # Please generate a list of Ento households and livestock enclosures from entohhfirstvisit and entolefirstvisit

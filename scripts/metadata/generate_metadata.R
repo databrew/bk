@@ -1870,6 +1870,10 @@ ever_took_drug <- safety_repeat_individual %>%
   bind_rows(safetynew_repeat_individual %>%
               mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
               filter(took_drug) %>% dplyr::distinct(extid)) %>%
+  bind_rows(pkday0 %>%
+              filter(!is.na(participant_take_ivermectin)) %>%
+              filter(participant_take_ivermectin == 'yes') %>%
+              dplyr::select(extid)) %>%
   pull(extid)
 
 # Get anyone who was ever pregnant

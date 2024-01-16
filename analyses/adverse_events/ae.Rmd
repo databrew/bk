@@ -218,6 +218,102 @@ ggplot(data = pd,
 
 
 
+## Events by CL ID / visit
+
+The "V" variables refer to the visit at which the adverse event was reported.
+
+```{r}
+library(knitr)
+library(kableExtra)
+# Read in intervention information
+assignments <- read_csv('../randomization/outputs/assignments.csv')
+ia <- read_csv('../randomization/outputs/intervention_assignment.csv')
+statuses <- left_join(assignments %>% 
+                     dplyr::select(cluster = cluster_number,
+                                   arm = assignment),
+                   ia) %>%
+  mutate(intervention = 'CENSORED')
+pd <- ae %>%
+  # dplyr::select(-KEY) %>%
+  # left_join(visit_level) %>%
+  left_join(safety, by = c('safety_key' = 'KEY')) %>%
+  group_by(wid, visit) %>%
+  tally %>%
+  ungroup 
+# Get number of treated people
+right <- safety_repeat_individual %>%
+  filter(!is.na(num_ivermectin_tablets_taken) |
+           !is.na(num_albendzole_pills)) %>%
+  left_join(safety %>% dplyr::select(KEY, wid, visit), by = c('PARENT_KEY' = 'KEY')) %>% 
+  dplyr::select(wid, extid, visit) %>%
+  bind_rows(
+    safetynew_repeat_individual  %>%
+  filter(!is.na(num_ivermectin_tablets_taken) |
+           !is.na(num_albendzole_pills)) %>%
+  left_join(safetynew %>% dplyr::select(KEY, wid, visit), by = c('PARENT_KEY' = 'KEY')) %>%
+    dplyr::select(wid, extid, visit)) %>%
+  group_by(wid, visit) %>%
+  summarise(n_treated = n()) %>%
+  ungroup %>%
+  mutate(next_visit = paste0('V', as.numeric(gsub('V', '', visit)) + 1)) %>%
+  dplyr::select(-visit)
+pd <- full_join(pd, right, by = c('wid', 'visit'='next_visit'))
+pd <- pd %>% filter(!is.na(wid), !is.na(visit))
+pd <- pd %>% mutate(n = ifelse(is.na(n), 0, n),
+                    n_treated = ifelse(is.na(n_treated), 0, n_treated))
+
+pd <- pd %>%
+  dplyr::rename(number_of_aes = n,
+                n_treated_at_previous_visit = n_treated) %>%
+  mutate(percentage_ae = number_of_aes / n_treated_at_previous_visit * 100)
+pd <- pd %>% filter(!is.na(wid))
+
+# write csv for carlos
+write_csv(pd, 'adverse_events_by_wid.csv')
+old_pd <- pd
+old_pd %>%
+  dplyr::select(wid, visit, number_of_aes) %>%
+  tidyr::spread(key = visit, value = number_of_aes) %>%
+  # left_join(old_pd) %>%
+  kable(format = "latex",
+              longtable = TRUE,
+              booktabs = TRUE,
+             escape = TRUE,
+          row.names = FALSE) %>%
+      kable_styling(latex_options = c(#"scale_down",
+                'repeat_header',
+
+                                       "striped"
+                                      ), 
+                     # full_width = T,
+                    font_size = 8) 
+```
+
+
+```{r}
+library(knitr)
+library(kableExtra)
+# Read in intervention information
+assignments <- read_csv('../randomization/outputs/assignments.csv')
+ia <- read_csv('../randomization/outputs/intervention_assignment.csv')
+statuses <- left_join(assignments %>% 
+                     dplyr::select(cluster = cluster_number,
+                                   arm = assignment),
+                   ia) %>%
+  mutate(intervention = 'CENSORED')
+pd <- ae %>%
+  left_join(safety_repeat_individual %>% dplyr::select(KEY, sex, age), by = c('PARENT_KEY' = 'KEY')) %>%
+  # dplyr::select(-KEY) %>%
+  # left_join(visit_level) %>%
+  left_join(safety %>% dplyr::select(KEY, wid, cluster, visit), by = c('safety_key' = 'KEY')) %>%
+  filter(!is.na(visit), !is.na(symptom_category)) %>%
+  dplyr::select(visit, todays_date, extid, symptom_category, wid, cluster, sex, age) %>%
+  left_join(statuses)
+# write csv for carlos
+write_csv(pd, 'aes_for_carlos.csv')
+```
+
+
 ## Events by visit  / symptom category / CL ID
 
 ```{r, fig.height = 8, fig.width=10}
@@ -288,11 +384,12 @@ The below table shows all cases of individuals who have registered 3 or more adv
 
 ```{r}
 pd <- ae %>%
+    left_join(safety_repeat_individual %>% dplyr::select(KEY, sex, age), by = c('PARENT_KEY'= 'KEY')) %>%
   left_join(safety, by = c('safety_key' = 'KEY')) %>%
   filter(!is.na(visit), !is.na(symptom_category)) %>%
   mutate(visit_event = paste0(visit, ':', symptom_category)) %>%
   arrange(visit) %>%
-  group_by(extid) %>%
+  group_by(extid, sex, age) %>%
   summarise(n_ae = n(),
             visit_events = paste0(visit_event, collapse = ';')) %>%
   filter(n_ae >= 3)

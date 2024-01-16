@@ -118,12 +118,16 @@ out <-
 
 # Filter for a specific period based on Miguel's instructions
 # https://bohemiakenya.slack.com/archives/C03DXF6SPC2/p1692871799819169?thread_ts=1692799112.440639&cid=C03DXF6SPC2
-filter_by_dates <- FALSE
+filter_by_dates <- TRUE
 if(filter_by_dates){
   out <- out %>% filter(
-    todays_date >= as.Date('2023-10-03'),
-    todays_date <= as.Date('2023-10-05')
+    todays_date >= as.Date('2023-12-19'),
+    todays_date <= as.Date('2023-12-21')
   )
+  # out <- out %>%
+  #   filter(todays_date %in% as.Date(c('2023-11-21',
+  #                                     '2023-11-24',
+  #                                     '2023-11-25')))
 }
 
 out <- out %>%

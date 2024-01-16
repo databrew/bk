@@ -109,5 +109,5 @@ areas <- geosphere::areaPolygon(new_clusters)
 out <- new_clusters_projected@data %>%
   mutate(area = areas)
 
-
+write_csv(out, 'areas.csv')
 
