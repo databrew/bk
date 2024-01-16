@@ -2656,7 +2656,11 @@ samples <-
       dplyr::select(extid, start_time, dob, sample, study, icf_type, cl_sample = wid, date_sample = todays_date, visit, cluster, age),
     bind_rows(
       pkday0 %>%
-        mutate(start_time = lubridate::as_datetime(start_time)) %>%
+        mutate(
+          pk_id_sampling = as.character(pk_id_sampling),
+          pk_id = as.character(pk_id),
+          start_time = lubridate::as_datetime(start_time),
+               pkid = coalesce(pk_id_sampling, pk_id)) %>%
         mutate(dob = lubridate::as_datetime(dob)) %>%
         arrange(start_time, .keep_all = TRUE) %>%
         mutate(s1qr = as.character(s1qr),
@@ -2675,6 +2679,18 @@ samples <-
                                       ifelse(!is.na(s5qr), s5q3,
                                              ifelse(!is.na(s6qr), s6q3, NA)))))))) %>%
         tidyr::pivot_longer(cols = c('s1qr', 's2qr', 's3qr', 's4qr', 's5qr', 's6qr'), values_to = 'sample') %>%
+        dplyr::mutate(num_aliquots = case_when(name == 's1qr' & stringr::str_detect(s1_aliquots, 'only') ~ 1,
+                                               name == 's1qr' & stringr::str_detect(s1_aliquots, 'both') ~ 2,
+                                               name == 's2qr' & stringr::str_detect(s2_aliquots, 'only') ~ 1,
+                                               name == 's2qr' & stringr::str_detect(s2_aliquots, 'both') ~ 2,
+                                               name == 's3qr' & stringr::str_detect(s3_aliquots, 'only') ~ 1,
+                                               name == 's3qr' & stringr::str_detect(s3_aliquots, 'both') ~ 2,
+                                               name == 's4qr' & stringr::str_detect(s4_aliquots, 'only') ~ 1,
+                                               name == 's4qr' & stringr::str_detect(s4_aliquots, 'both') ~ 2,
+                                               name == 's5qr' & stringr::str_detect(s5_aliquots, 'only') ~ 1,
+                                               name == 's5qr' & stringr::str_detect(s5_aliquots, 'both') ~ 2,
+                                               name == 's6qr' & stringr::str_detect(s6_aliquots, 'only') ~ 1,
+                                               name == 's6qr' & stringr::str_detect(s6_aliquots, 'both') ~ 2)) %>%
         dplyr::mutate(pk_sample_number = case_when(
           name == 's1qr' & !is.na(sample) ~ 'Sample 1',
           name == 's2qr' & !is.na(sample) ~ 'Sample 2',
@@ -2684,7 +2700,7 @@ samples <-
           name == 's6qr' & !is.na(sample) ~ 'Sample 6',
           TRUE ~ NA_character_
         )) %>%
-        dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, age, pkid = pk_id),
+        dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, age, pkid, num_aliquots),
       pkdays123 %>%
         # deal with todays_date
         mutate(todays_date = if_else(sample_collected_at_time == 'no',
@@ -2700,7 +2716,7 @@ samples <-
         mutate(time_sample_collection = if_else(sample_collected_at_time == 'no', lubridate::as_datetime(time_of_sample), lubridate::as_datetime(time_blood_samples_formatted))) %>%
         mutate(time_sample_collection = as.character(time_sample_collection)) %>%
         mutate(num_aliquots = ifelse(is.na(two_samples), NA,
-                                     ifelse(two_samples == 'yes', 2,
+                                     ifelse(two_samples == 'both', 2,
                                             ifelse(two_samples %in% c('only aliquot 1', 'only aliquot 2'), 1,
                                                    ifelse(two_samples == 'none', 0, NA))))) %>%
         dplyr::select(extid, start_time, dob, sample, cl_sample = wid, date_sample = todays_date, cluster, pk_sample_number, time_sample_collection, num_aliquots, age, pkid = pk_id)
@@ -2806,7 +2822,8 @@ right <-
 samples <- left_join(samples, right)
 
 # Clean up a bit
-samples <- samples %>% filter(!is.na(extid))
+samples <- samples %>%
+  filter(!is.na(extid))
 
 # Write csvs
 if(!dir.exists('lab_metadata')){
