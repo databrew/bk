@@ -544,6 +544,7 @@ households_sp_projected <- spTransform(households_sp, crs)
 clusters_projected_buffered <- rgeos::gBuffer(spgeom = clusters_projected, byid = TRUE, width = 50)
 o <- sp::over(households_sp_projected, polygons(clusters_projected_buffered))
 households_sp_projected@data$not_in_cluster <- is.na(o)
+list_a <- sort(unique(households_sp_projected@data$hhid[households_sp_projected@data$not_in_cluster]))
 households_sp_projected@data$cluster_correct <- clusters_projected_buffered@data$cluster_nu[o]
 v0demography <- left_join(v0demography, households_sp_projected@data %>% dplyr::select(hhid, not_in_cluster, cluster_correct))
 v0demography <- v0demography %>%
@@ -613,10 +614,18 @@ if(geo_filter){
     filter(!is.na(cluster)) %>%
     filter(cluster %in% add_zero(unique(clusters_projected@data$cluster_nu), 2)) %>%
     filter(!is.na(geo_cluster_num))
+  for_investigation <- v0demography_full %>%
+    mutate(cluster = add_zero(old_cluster_correct, 2)) %>%
+    dplyr::select(out_of_bounds = not_in_old_cluster,
+                  hhid, correct_cluster = cluster) %>%
+    mutate(id_cluster_mismatch = substr(hhid, 1, 2) != correct_cluster)
+  write_csv(for_investigation, '')
   v0demography_full <- v0demography_full %>%
     filter(!not_in_old_cluster) %>%
     mutate(cluster = add_zero(old_cluster_correct, 2)) %>%
     filter(!is.na(cluster))
+  list_b <- sort(unique(v0demography_full$hhid[!v0demography_full$cluster %in% add_zero(unique(clusters_projected@data$cluster_nu), 2)]))
+  
 } else {
   v0demography$cluster <- add_zero(v0demography$cluster, 2)
   v0demography_full$cluster <- add_zero(v0demography_full$cluster, 2)
@@ -922,7 +931,7 @@ households <- households %>% filter(!is.na(hhid),
 # Temporary / one-off removal of some individuals:
 # https://trello.com/c/5YPVFZVM/2106-manual-safety-updates
 if(FALSE){
-  affected_households <- c(25053,
+  list_c <- affected_households <- c(25053,
                            70068,
                            81066,
                            03087,
@@ -981,7 +990,7 @@ if(TRUE){
       mutate(p_refusals = n_refusals / n_individual_submissions * 100) %>%
       arrange(desc(p_refusals))
     all_refusals <- dx %>% filter(p_refusals == 100) %>% arrange(hhid)
-    removed_households <- c(removed_households, all_refusals$hhid)
+    list_d <- removed_households <- c(removed_households, all_refusals$hhid)
     message('---Going to remove ', nrow(all_refusals))
     # write_csv(all_refusals, '~/Desktop/all_refusals.csv')
     households <- households %>% filter(!hhid %in% all_refusals$hhid)
@@ -998,14 +1007,17 @@ households <- households %>%
 
 # Beginning at visit 4, only include households with at least 1 individual who is safety in
 # https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1702911413755909
-nobody_in <- individuals %>%
-  group_by(hhid) %>%
-  summarise(n_members = n(),
-            n_in = length(which(starting_safety_status == 'in'))) %>%
-  filter(n_in == 0) %>%
-  pull(hhid)
-individuals <- individuals %>% filter(!hhid %in% nobody_in)
-households <- households %>% filter(!hhid %in% nobody_in)
+# SKIP IF CARRYING OUT LOST ICF VCS GENERATION
+if(FALSE){
+  nobody_in <- individuals %>%
+    group_by(hhid) %>%
+    summarise(n_members = n(),
+              n_in = length(which(starting_safety_status == 'in'))) %>%
+    filter(n_in == 0) %>%
+    pull(hhid)
+  individuals <- individuals %>% filter(!hhid %in% nobody_in)
+  households <- households %>% filter(!hhid %in% nobody_in)
+}
 
 # Write csvs
 if(!dir.exists('safety_metadata')){
@@ -1147,6 +1159,7 @@ if(FALSE){
   }
   # # Reload the data file
   load('rmds/safety_tables.RData')
+
   vcs_list <- sort(unique(individuals$VCS))
   for(a in 1:length(vcs_list)){
     this_vcs <- vcs_list[a]
@@ -1187,6 +1200,63 @@ if(FALSE){
   setwd(owd)
 }
 
+
+# Lost ICF visit control sheet (ad-hoc request from project, Feb 6)
+if(FALSE){
+  unlink('rmds/lost_icf_safety_visit_control_sheets/', recursive = TRUE)
+  if(!dir.exists('rmds/lost_icf_safety_visit_control_sheets')){
+    dir.create('rmds/lost_icf_safety_visit_control_sheets')
+  }
+  # # Reload the data file
+  load('rmds/safety_tables.RData')
+  # Keep only those who are designated by project
+  lost_icfs <- read_csv('lost_icf_data/V1.0 Safety Lost ICFs completion and eos at FUvisit.csv')
+  individuals <- individuals %>% filter(extid %in% lost_icfs$extid)
+  # instructions are to build by cluster, not by fieldworker group, so
+  # modify the vcs column
+  individuals <- individuals %>%
+    mutate(VCS = substr(VCS, 1, 2)) %>%
+    mutate(VCS = add_zero(VCS, 3))
+  
+  vcs_list <- sort(unique(individuals$VCS))
+  for(a in 1:length(vcs_list)){
+    this_vcs <- vcs_list[a]
+    message(a, ' of ', length(vcs_list), ' WD: ', getwd())
+    rmarkdown::render('rmds/lost_icf_safety_visit_control_sheet.Rmd', params = list('vcs' = this_vcs),
+                      output_file = paste0( getwd(), '/lost_icf_safety_visit_control_sheets/', add_zero(this_vcs, 3), '.pdf'),
+                      quiet = TRUE)
+  }
+  # Count how many pages in each document
+  pdfs <- dir('rmds/lost_icf_safety_visit_control_sheets')
+  pdfs_data_list <- list()
+  for(i in 1:length(pdfs)){
+    file_name <- pdfs[i]
+    pdf_data <- pdf_info(paste0('rmds/lost_icf_safety_visit_control_sheets/', file_name))
+    out <- tibble(file_name,
+                  n_pages = pdf_data$pages
+    )
+    pdfs_data_list[[i]] <- out
+  }
+  pdfs_data <- bind_rows(pdfs_data_list)
+  # See if odd number of pages
+  for(i in 1:nrow(pdfs_data)){
+    this_file_name <- pdfs_data$file_name[i]
+    this_n_pages <- pdfs_data$n_pages[i]
+    is_odd <- this_n_pages %% 2 != 0
+    if(is_odd){
+      file.copy('blank_page.pdf',
+                paste0('rmds/lost_icf_safety_visit_control_sheets/',
+                       gsub('.pdf', '_blank.pdf', this_file_name)),
+                overwrite = TRUE)
+    }
+  }
+  # Now stitch them all together
+  owd <- getwd()
+  setwd('rmds/lost_icf_safety_visit_control_sheets/')
+  system_text <- paste0('pdftk *.pdf cat output lost_icf_safety_visit_control_sheets.pdf')
+  system(system_text)
+  setwd(owd)
+}
 
 if(FALSE){
   # some safety sanity checks
@@ -1567,7 +1637,11 @@ if(FALSE){
   rmarkdown::render('rmds/health_economics_followup_visit_control_sheet.Rmd')
 }
 
-
+if(FALSE){
+  in_at_v3 <- healtheconmonthly_repeat_individual %>% left_join(healtheconmonthly %>% dplyr::select(KEY, visit), by = c('PARENT_KEY' = 'KEY')) %>% filter(visit == 'V3') %>% filter(hecon_individual_status == 'in') %>% pull(extid)
+  absent_at_v4 <- healtheconmonthly_repeat_individual %>% left_join(healtheconmonthly %>% dplyr::select(KEY, visit), by = c('PARENT_KEY' = 'KEY')) %>% filter(visit == 'V4') %>% filter(person_absent_reason == 'Absent') %>% pull(extid)
+  individuals %>% filter(extid %in% in_at_v3 & extid %in% absent_at_v4) %>% pull(starting_hecon_status)
+}
 
 
 
@@ -1580,6 +1654,7 @@ pryr::mem_used()
 
 # <Efficacy> ##############################################################################
 save.image('pre_efficacy.RData')
+making_lost_icf_vcs <- FALSE
 # One off request for community engagement team
 if(FALSE){
   pd <- efficacy[!is.na(efficacy$person_absent_reason),]
@@ -1727,10 +1802,13 @@ ever_eos <- efficacy %>% filter(efficacy_status == 'eos') %>% filter(!is.na(exti
 efficacy_individuals <- individuals
 
 # Keep only individuals who are currently "in" or "out" of efficacy
-individuals <- individuals %>%
-  filter(!extid %in% ever_eos) %>%
-  filter(!is.na(starting_efficacy_status)) %>%
-  filter(starting_efficacy_status %in% c('in', 'out'))
+if(!making_lost_icf_vcs){
+  individuals <- individuals %>%
+    filter(!extid %in% ever_eos) %>%
+    filter(!is.na(starting_efficacy_status)) %>%
+    filter(starting_efficacy_status %in% c('in', 'out'))
+}
+
 
 # Add a "starting_safety_status" to efficacy
 individuals <- individuals %>% left_join(starting_safety_statuses)
@@ -1783,7 +1861,9 @@ individuals <- individuals %>%
   left_join(last_non_absent_visit) %>%
   mutate(days_since_last_non_absent_visit = Sys.Date() - last_non_absent_visit) %>%
   mutate(ltfu = days_since_last_non_absent_visit >= 90)
-individuals <- individuals %>% filter(!ltfu | is.na(ltfu))
+if(!making_lost_icf_vcs){
+  individuals <- individuals %>% filter(!ltfu | is.na(ltfu))
+}
 # remove unnecessary columns
 individuals <- individuals %>%
   dplyr::select(-last_non_absent_visit,
@@ -1798,7 +1878,9 @@ if(FALSE){
 }
 
 # As of 2024-01-09, kieep only those who are "IN" (remove those who are "out")
-individuals <- individuals %>% filter(starting_efficacy_status == 'in')
+if(!making_lost_icf_vcs){
+  individuals <- individuals %>% filter(starting_efficacy_status == 'in')
+}
 households <- households %>% filter(hhid %in% individuals$hhid)
 # Write csvs
 if(!dir.exists('efficacy_metadata')){
@@ -1810,8 +1892,7 @@ write_csv(households, 'efficacy_metadata/household_data.csv')
 # https://docs.google.com/spreadsheets/d/1nco1rPFVk9ZgevR02FdjDF1D8m3jyu9n104vpPXYQ5Q/edit#gid=683638136
 save(individuals, v0demography, v0demography_repeat_individual, file = 'rmds/efficacy_tables.RData')
 
-# Render the visit 0 household health economics visit control sheet
-
+# Render the efficacy visit control sheets
 if(FALSE){
   unlink('rmds/efficacy_visit_control_sheets/', recursive = TRUE)
   if(!dir.exists('rmds/efficacy_visit_control_sheets')){
@@ -1836,6 +1917,36 @@ if(FALSE){
 
 
 }
+
+# Render the lost ICF efficacy visit control sheets
+if(making_lost_icf_vcs){
+  unlink('rmds/lost_icf_efficacy_visit_control_sheets/', recursive = TRUE)
+  if(!dir.exists('rmds/lost_icf_efficacy_visit_control_sheets')){
+    dir.create('rmds/lost_icf_efficacy_visit_control_sheets')
+  }
+  load('rmds/efficacy_tables.RData')
+  # Read in the lost icf info provided by project
+  lost_icf <- read_csv('lost_icf_data/V1.0 Efficacy Lost ICFs completion and eos at FUvisit.csv')
+  # keep only individuals who are in that lost icf group
+  individuals <- individuals %>% filter(extid %in% lost_icf$extid)
+  vcs_list <- sort(unique(individuals$cluster))
+  for(a in 1:length(vcs_list)){
+    this_vcs <- vcs_list[a]
+    message(a, ' of ', length(vcs_list), ' WD: ', getwd())
+    rmarkdown::render('rmds/lost_icf_efficacy_visit_control_sheet.Rmd', params = list('vcs' = this_vcs),
+                      output_file = paste0( getwd(), '/lost_icf_efficacy_visit_control_sheets/', add_zero(this_vcs, 3), '.pdf'))
+  }
+  
+  
+  # Now stitch them all together
+  owd <- getwd()
+  setwd('rmds/lost_icf_efficacy_visit_control_sheets/')
+  system_text <- paste0('pdftk *.pdf cat output lost_icf_efficacy_visit_control_sheets.pdf')
+  system(system_text)
+  setwd(owd)
+}
+
+
 
 # Efficacy QC
 if(FALSE){
@@ -1870,12 +1981,52 @@ ever_took_drug <- safety_repeat_individual %>%
   bind_rows(safetynew_repeat_individual %>%
               mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
               filter(took_drug) %>% dplyr::distinct(extid)) %>%
-  bind_rows(pkday0 %>%
-              filter(!is.na(participant_take_ivermectin)) %>%
-              filter(participant_take_ivermectin == 'yes') %>%
-              dplyr::select(extid)) %>%
+  # no need for this filter per https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1705420631835879?thread_ts=1705414024.972479&cid=C042KSRLYUA
+  # bind_rows(pkday0 %>%
+  #             filter(!is.na(participant_take_ivermectin)) %>%
+  #             filter(participant_take_ivermectin == 'yes') %>%
+  #             dplyr::select(extid)) %>%
   pull(extid)
 
+if(FALSE){
+  nika <- read_csv('~/Downloads/V1.0 VCS Safety Pregnancies not on VCS.csv')
+  peeps <- safety_repeat_individual %>%
+    left_join(safety %>% dplyr::select(KEY, visit, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
+    mutate(form = 'safety') %>%
+    mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
+    bind_rows(safetynew_repeat_individual %>%
+                left_join(safetynew %>% dplyr::select(KEY, visit, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
+                mutate(form = 'safetynew') %>%
+                
+                mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes')) %>%
+    dplyr::select(extid, todays_date, visit,
+                  participant_take_drug,
+                  participant_take_drug_2,
+                  # not_take_drug_reason,
+                  starting_safety_status,
+                  pregnant_yn,
+                  obvious_screening,
+                  # safety_inclusion_pass,
+                  # short_safety_inclusion_pass,
+                  safety_status,
+                  person_present, form) %>%
+    arrange(extid, todays_date) %>%
+    filter(extid %in% nika$extid)
+  for(i in 1:nrow(nika)){
+    this_extid <- nika$extid[i]
+    individual <- peeps %>% filter(extid == this_extid) %>% dplyr::select(-extid)
+    tt <- data.frame(t(individual))
+    names(tt) <- c(' ', '  ', '   ')
+    message(paste0(
+      i, '. ', this_extid, '\n------------------------\n'
+    ))
+    print(tt)
+    message('\n\n')
+
+  }
+}
+
+pk_ids <- pkfollowup %>% dplyr::pull(extid)
 # Get anyone who was ever pregnant
 # (no need for safetynew since they would be excluded from safety and therefore pregnancy in the first place)
 pfu_in <-
@@ -1894,7 +2045,7 @@ pfu_in <-
       # keep only those who ever took drug as per https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1701767333368569
       # this may exclude some people who were "in" safety and then became pregnant (ie, technically part of the
       # 'pregnancy followup cohort'), but this is intentional (since they did not take drug)
-      filter(extid %in% ever_took_drug) %>%
+      filter(extid %in% ever_took_drug | extid %in% pk_ids) %>%
       mutate(form = 'safety') %>%
       mutate(start_time = as.POSIXct(start_time)) %>%
       arrange(desc(start_time)),
