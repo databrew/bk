@@ -2826,13 +2826,6 @@ samples <-
                s6qr = as.character(s6qr)) %>%
         mutate(wid = as.character(wid), todays_date = as.Date(todays_date)) %>%
         mutate(cluster = as.character(cluster)) %>%
-        mutate(time_sample_collection =as.character(
-          ifelse(!is.na(s1qr), s1q3,
-                 ifelse(!is.na(s2qr), s2q3,
-                        ifelse(!is.na(s3qr), s3q3,
-                               ifelse(!is.na(s4qr), s4q3,
-                                      ifelse(!is.na(s5qr), s5q3,
-                                             ifelse(!is.na(s6qr), s6q3, NA)))))))) %>%
         tidyr::pivot_longer(cols = c('s1qr', 's2qr', 's3qr', 's4qr', 's5qr', 's6qr'), values_to = 'sample') %>%
         dplyr::mutate(num_aliquots = case_when(name == 's1qr' & stringr::str_detect(s1_aliquots, 'only') ~ 1,
                                                name == 's1qr' & stringr::str_detect(s1_aliquots, 'both') ~ 2,
@@ -2846,6 +2839,12 @@ samples <-
                                                name == 's5qr' & stringr::str_detect(s5_aliquots, 'both') ~ 2,
                                                name == 's6qr' & stringr::str_detect(s6_aliquots, 'only') ~ 1,
                                                name == 's6qr' & stringr::str_detect(s6_aliquots, 'both') ~ 2)) %>%
+        dplyr::mutate(time_sample_collection = case_when(name == 's1qr' ~ s1q3,
+                                                         name == 's2qr' ~ s2q3,
+                                                         name == 's3qr' ~ s3q3,
+                                                         name == 's4qr' ~ s4q3,
+                                                         name == 's5qr' ~ s5q3,
+                                                         name == 's6qr' ~ s6q3)) %>%
         dplyr::mutate(pk_sample_number = case_when(
           name == 's1qr' & !is.na(sample) ~ 'Sample 1',
           name == 's2qr' & !is.na(sample) ~ 'Sample 2',
@@ -2868,8 +2867,9 @@ samples <-
         mutate(wid = as.character(wid), todays_date = as.Date(todays_date)) %>%
         mutate(cluster = as.character(cluster)) %>%
         mutate(pk_sample_number = as.character(sample_number_print)) %>%
-        mutate(time_sample_collection = if_else(sample_collected_at_time == 'no', lubridate::as_datetime(time_of_sample), lubridate::as_datetime(time_blood_samples_formatted))) %>%
-        mutate(time_sample_collection = as.character(time_sample_collection)) %>%
+        mutate(time_sample_collection = if_else(sample_collected_at_time == 'no',
+                                                time_of_sample,
+                                                format(time_blood_samples_formatted, format="%H:%M:%S.000+03:00"))) %>%
         mutate(num_aliquots = ifelse(is.na(two_samples), NA,
                                      ifelse(two_samples == 'both', 2,
                                             ifelse(two_samples %in% c('only aliquot 1', 'only aliquot 2'), 1,
