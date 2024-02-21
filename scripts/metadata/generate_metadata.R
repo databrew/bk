@@ -619,13 +619,12 @@ if(geo_filter){
     dplyr::select(out_of_bounds = not_in_old_cluster,
                   hhid, correct_cluster = cluster) %>%
     mutate(id_cluster_mismatch = substr(hhid, 1, 2) != correct_cluster)
-  write_csv(for_investigation, '')
   v0demography_full <- v0demography_full %>%
     filter(!not_in_old_cluster) %>%
     mutate(cluster = add_zero(old_cluster_correct, 2)) %>%
     filter(!is.na(cluster))
   list_b <- sort(unique(v0demography_full$hhid[!v0demography_full$cluster %in% add_zero(unique(clusters_projected@data$cluster_nu), 2)]))
-  
+
 } else {
   v0demography$cluster <- add_zero(v0demography$cluster, 2)
   v0demography_full$cluster <- add_zero(v0demography_full$cluster, 2)
@@ -1217,7 +1216,7 @@ if(FALSE){
   individuals <- individuals %>%
     mutate(VCS = substr(VCS, 1, 2)) %>%
     mutate(VCS = add_zero(VCS, 3))
-  
+
   vcs_list <- sort(unique(individuals$VCS))
   for(a in 1:length(vcs_list)){
     this_vcs <- vcs_list[a]
@@ -1936,8 +1935,8 @@ if(making_lost_icf_vcs){
     rmarkdown::render('rmds/lost_icf_efficacy_visit_control_sheet.Rmd', params = list('vcs' = this_vcs),
                       output_file = paste0( getwd(), '/lost_icf_efficacy_visit_control_sheets/', add_zero(this_vcs, 3), '.pdf'))
   }
-  
-  
+
+
   # Now stitch them all together
   owd <- getwd()
   setwd('rmds/lost_icf_efficacy_visit_control_sheets/')
@@ -1997,7 +1996,7 @@ if(FALSE){
     bind_rows(safetynew_repeat_individual %>%
                 left_join(safetynew %>% dplyr::select(KEY, visit, todays_date), by = c('PARENT_KEY' = 'KEY')) %>%
                 mutate(form = 'safetynew') %>%
-                
+
                 mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes')) %>%
     dplyr::select(extid, todays_date, visit,
                   participant_take_drug,
