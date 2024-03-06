@@ -120,14 +120,17 @@ out <-
 # https://bohemiakenya.slack.com/archives/C03DXF6SPC2/p1692871799819169?thread_ts=1692799112.440639&cid=C03DXF6SPC2
 filter_by_dates <- TRUE
 if(filter_by_dates){
-  out <- out %>% filter(
-    todays_date >= as.Date('2023-12-19'),
-    todays_date <= as.Date('2023-12-21')
-  )
-  # out <- out %>%
-  #   filter(todays_date %in% as.Date(c('2023-11-21',
-  #                                     '2023-11-24',
-  #                                     '2023-11-25')))
+  # out <- out %>% filter(
+  #   todays_date >= as.Date('2024-01-16'),
+  #   todays_date <= as.Date('2024-01-18')
+  # )
+  out <- out %>%
+    filter(todays_date %in% as.Date(c('2024-01-23',
+                                      '2024-01-24',
+                                      '2024-01-25',
+                                      '2024-02-06',
+                                      '2024-02-07',
+                                      '2024-02-08')))
 }
 
 out <- out %>%

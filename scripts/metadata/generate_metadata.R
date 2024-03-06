@@ -1891,6 +1891,9 @@ write_csv(households, 'efficacy_metadata/household_data.csv')
 # https://docs.google.com/spreadsheets/d/1nco1rPFVk9ZgevR02FdjDF1D8m3jyu9n104vpPXYQ5Q/edit#gid=683638136
 save(individuals, v0demography, v0demography_repeat_individual, file = 'rmds/efficacy_tables.RData')
 
+# Write table for review by nika
+write_csv(individuals, '/tmp/nika_efficacy.csv')
+
 # Render the efficacy visit control sheets
 if(FALSE){
   unlink('rmds/efficacy_visit_control_sheets/', recursive = TRUE)

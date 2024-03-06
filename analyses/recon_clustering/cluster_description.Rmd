@@ -36,7 +36,7 @@ library(readr)
 library(zoo)
 library(tidyr)
 options(scipen = '999')
-library(bohemia)
+# library(bohemia)
 library(leaflet)
 library(geosphere)
 library(leafpop)
@@ -173,13 +173,14 @@ library(rgdal)
 
 ```{r}
 # Load randomization assignments
-assignments <- read_csv('../randomization/assignments.csv')
+assignments <- read_csv('../randomization/outputs/assignments.csv')
 ```
 
 ```{r}
 # Determine which households are in which clusters, cores, buffers
 o <- sp::over(households_spatial, polygons(clusters))
 households_spatial@data$cluster_number <- clusters@data$cluster_number[o]
+paula <- households_spatial@data %>% dplyr::select(hh_id, cluster_number) %>% filter(!is.na(cluster_number))
 o <- sp::over(households_spatial, polygons(cores))
 households_spatial@data$core_number <- cores@data$cluster_number[o]
 o <- sp::over(households_spatial, polygons(buffers))
