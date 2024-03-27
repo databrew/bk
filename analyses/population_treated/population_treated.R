@@ -66,3 +66,40 @@ ggplot(data = joined,
   facet_wrap(~assignment, ncol = 1) +
   labs(x = 'Date', y = 'Cumulative percentage of residents treated during visit block') +
   theme_bw()
+
+
+# Read in some Mozambique data
+moz <- read_csv('~/Documents/bohemia/analyses/treatment_time/agg_arm.csv') %>%
+  mutate(assignment = paste0('Arm ', intervention)) %>%
+  dplyr::select(assignment, date,
+                population_treated = treated_today,
+                population = total_people)
+
+# Combine moz and kenya
+combined <- 
+  bind_rows(
+    moz %>% mutate(country = 'Mozambique'),
+    joined %>% mutate(country = 'Kenya')
+  ) %>%
+  dplyr::select(assignment, date, population_treated, population, country) %>%
+  mutate(percentage = population_treated / population * 100) %>%
+  group_by(country) %>%
+  mutate(day = date - min(date)) %>%
+  ungroup
+
+# Plot
+ggplot(data = combined,
+       aes(x = day,
+           y = percentage)) +
+  geom_bar(stat = 'identity', width = 1,
+           color = 'black', alpha = 0.6,
+           position = position_stack(),
+           aes(fill = assignment)) +
+  facet_wrap(~country, ncol = 1) +
+  theme_bw() +
+  labs(x = 'Day',
+       y = 'Percentage of population treated that day') +
+  theme(legend.position = 'bottom') +
+  scale_fill_manual(name = '',
+                    values = c('red', 'blue', 'black')) +
+  xlim(0, 100)
