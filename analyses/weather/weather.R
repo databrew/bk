@@ -113,7 +113,7 @@ ggplot(data = weather,
        aes(x = date,
            y = PRCP/10)) +
   geom_bar(stat = 'identity',
-           color = 'black',
+           color = 'blue',
            fill = 'blue',
            alpha = 0.6) +
   theme_bw() +
