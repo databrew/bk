@@ -78,7 +78,95 @@ if(start_fresh){
 } else {
   load('data.RData')
 }
-  
+
+# Make an anonyzed version for teaching purposes
+jitter_latlng <- function(coord, 
+                          type = c("lat", "long"), 
+                          latitude = NULL,
+                          km = NULL) {
+  if(is.null(km)){
+    km <- sample(
+      c(seq(-1, -0.2, length = 10000),
+        seq(0.2, 1, length = 10000)), 
+      length(coord), 
+      replace = TRUE)
+  }
+  if(is.null(latitude)){
+    latitude <- -17
+  }
+  type = match.arg(type)
+  if(type == "lat") latitude <- coord
+  km_per_degree <- length_of_degree(latitude, type = type)
+  degree_per_km <- 1 / km_per_degree
+  coord + (runif(1, min = -1, max = 1) * degree_per_km * km)
+}
+
+
+#' Length of a degree of latitude or longitude
+#' Calculates the length of a degree of latitude or longitude in kilometers,
+#' assuming an spherical earth.
+length_of_degree <- function(degree, type = c("lat", "long")) {
+  type <- match.arg(type)
+  length_at_equator <- 110.5742727 # in kilometers
+  if (type == "long") {
+    cos(degree * (2 * pi) / 360) * length_at_equator
+  } else if (type == "lat") {
+    length_at_equator
+  }
+}
+
+
+demography <- v0demography %>%
+  dplyr::select(submission_time = SubmissionDate, 
+                todays_date,
+                ward,
+                hh_head_icf_language,
+                num_houses,
+                house_wall,
+                house_wall_specify,
+                house_roof,
+                house_roof_specify,
+                main_water_source,
+                main_water_source_specify, 
+                toilet_type,
+                main_lighting,
+                main_lighting_other,
+                household_possessions,
+                own_cattle,
+                num_hh_members,
+                instanceID,
+                KEY,
+                wid,
+                cluster,
+                # village,
+                lng = Latitude,
+                lat = Longitude)
+# Jitter locations
+lng <- demography$lng
+lat <- demography$lat
+new_lng <- jitter_latlng(coord = lng, type = 'long')
+new_lat <- jitter_latlng(coord = lat, type = 'long')
+demography$lng <- new_lng
+demography$lat <- new_lat
+
+demography_individuals <- v0demography_repeat_individual %>%
+  dplyr::select(-KEY) %>%
+  dplyr::select(KEY = PARENT_KEY,
+                age,
+                hh_head_yn,
+                sex) %>%
+  # anonymize age
+  mutate(age = age + rnorm(n = nrow(.), mean = 0, sd = 5)) %>%
+  mutate(age = ifelse(age < 0, age + 2, age)) %>%
+  mutate(age = ifelse(age < 0, age + 5, age)) %>%
+  mutate(age = ifelse(age < 0, age + 10, age))
+
+
+
+save(demography, demography_individuals, file = 'anonymized_demography.RData')
+write_csv(demography, 'anonymized_demography.csv')  
+write_csv(demography_individuals, 'anonymized_demography_individuals.csv')  
+
 # Load in spatial data
 clusters <- rgdal::readOGR('../../data_public/spatial/clusters/', 'clusters')
 clusters_fortified <- fortify(clusters, id = 'cluster_nu')
