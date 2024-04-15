@@ -9,6 +9,7 @@ load('../../scripts/metadata/pre_safety.RData')
 population_by_cluster <- v0demography %>%
   group_by(cluster) %>%
   summarise(population = sum(num_hh_members))
+write_csv(population_by_cluster, 'population_by_cluster.csv')
 
 # Join to assignments
 population_by_cluster <- population_by_cluster %>%
@@ -92,14 +93,18 @@ ggplot(data = combined,
        aes(x = day,
            y = percentage)) +
   geom_bar(stat = 'identity', width = 1,
-           color = 'black', alpha = 0.6,
-           position = position_stack(),
-           aes(fill = assignment)) +
+           # color = 'black', 
+           color = NA,
+           alpha = 0.6,
+           # aes(fill = assignment),
+           position = position_stack()) +
   facet_wrap(~country, ncol = 1) +
   theme_bw() +
   labs(x = 'Day',
        y = 'Percentage of population treated that day') +
   theme(legend.position = 'bottom') +
-  scale_fill_manual(name = '',
-                    values = c('red', 'blue', 'black')) +
+  # scale_fill_manual(name = '',
+  #                   values = c('red', 'blue', 'black')) +
   xlim(0, 100)
+
+save(combined, file = 'combined.RData')
