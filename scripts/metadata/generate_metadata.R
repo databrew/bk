@@ -2762,6 +2762,31 @@ right <- sepk_icf_verification %>%
   summarise(pk_pages = paste0(errors_page_select, collapse = ', '))
 icf_individuals <- left_join(icf_individuals, right)
 
+# append with most recent status for departures to recover missing safety statuses in the ICF metadata
+departed_safety <- safety_repeat_individual %>%
+  dplyr::inner_join(safety, by = c('PARENT_KEY'='KEY')) %>%
+  dplyr::inner_join(departures %>% dplyr::select(extid), by = c('extid')) %>%
+  dplyr::group_by(extid) %>%
+  dplyr::filter(start_time == max(start_time)) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(extid, most_recent_safety_status=safety_status)
+
+departed_efficacy <- efficacy %>%
+  dplyr::inner_join(departures %>% dplyr::select(extid), by = c('extid')) %>%
+  dplyr::group_by(extid) %>%
+  dplyr::filter(start_time == max(start_time)) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(extid, most_recent_efficacy_status=efficacy_status)
+
+# combine everything
+icf_individuals <- icf_individuals %>%
+  dplyr::left_join(departed_safety, by = 'extid') %>%
+  dplyr::mutate(safety_status = coalesce(safety_status, most_recent_safety_status)) %>%
+  dplyr::left_join(departed_efficacy, by = 'extid') %>%
+  dplyr::mutate(efficacy_status = coalesce(efficacy_status, most_recent_efficacy_status)) %>%
+  dplyr::select(-most_recent_safety_status,-most_recent_efficacy_status) %>%
+  distinct()
+
 # Write csvs
 if(!dir.exists('icf_metadata')){
   dir.create('icf_metadata')
