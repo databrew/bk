@@ -535,13 +535,26 @@ households_sp <- v0demography %>%
 coordinates(households_sp) <- ~x+y
 load('../../data_public/spatial/new_clusters.RData')
 # buffer clusters by 50 meters so as to
+# source('gbuffer.R')
 p4s <- "+proj=utm +zone=37 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
 crs <- CRS(p4s)
 llcrs <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
 clusters_projected <- spTransform(new_clusters, crs)
 proj4string(households_sp) <- llcrs
 households_sp_projected <- spTransform(households_sp, crs)
-clusters_projected_buffered <- rgeos::gBuffer(spgeom = clusters_projected, byid = TRUE, width = 50)
+
+# out_list <- list()
+# for(i in 1:nrow(clusters_projected)){
+#   out <- terra::buffer(clusters_projected[i,], width = 50)
+#   # out <- SpatialPolygonsDataFrame(Sr = out, data = clusters_projected[i,]@data)
+#   out_list[[i]] <- out
+# }
+# SpatialPolygonsDataFrame(Sr = out_list, data = clusters_projected@data)
+
+library(sf)
+x <- sf::st_buffer(st_as_sf(clusters_projected), dist = 50)
+y <- sf::as_Spatial(x)
+clusters_projected_buffered <- y
 o <- sp::over(households_sp_projected, polygons(clusters_projected_buffered))
 households_sp_projected@data$not_in_cluster <- is.na(o)
 list_a <- sort(unique(households_sp_projected@data$hhid[households_sp_projected@data$not_in_cluster]))
@@ -567,7 +580,11 @@ o <- sp::over(households_sp_projected, polygons(old_clusters_projected))
 households_sp_projected@data$cluster_geo <- old_clusters_projected$cluster_number[o]
 # for households which are not strictly in the cluster boundaries, associate them
 # with a cluster if within 50 meters
-old_clusters_projected_buffered <- rgeos::gBuffer(spgeom = old_clusters_projected, byid = TRUE, width = 50)
+x <- sf::st_buffer(st_as_sf(old_clusters_projected), dist = 50)
+y <- sf::as_Spatial(x)
+old_clusters_projected_buffered <- y
+
+# old_clusters_projected_buffered <- rgeos::gBuffer(spgeom = old_clusters_projected, byid = TRUE, width = 50)
 o <- sp::over(households_sp_projected, polygons(old_clusters_projected_buffered))
 households_sp_projected@data$not_in_old_cluster <- is.na(o)
 households_sp_projected@data$cluster_with_buffer <-
