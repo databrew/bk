@@ -2175,6 +2175,7 @@ individuals <- individuals %>%
   mutate(days_since_last_non_absent_visit = Sys.Date() - last_non_absent_visit) %>%
   mutate(ltfu = days_since_last_non_absent_visit >= 150)
 individuals <- individuals %>% filter(!ltfu | is.na(ltfu))
+
 # remove unnecessary columns
 individuals <- individuals %>%
   dplyr::select(-last_non_absent_visit,
