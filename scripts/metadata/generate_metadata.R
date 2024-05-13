@@ -2182,6 +2182,8 @@ individuals <- individuals %>%
                 -days_since_last_non_absent_visit,
                 -ltfu)
 
+# Remove person 55077-02 despite meeting PFU requirements per safety, per this discussion: https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1715614181474089?thread_ts=1715102959.351779&cid=C042KSRLYUA
+individuals <- individuals %>% filter(extid != '55077-02')
 
 # Write csvs
 if(!dir.exists('pfu_metadata')){
