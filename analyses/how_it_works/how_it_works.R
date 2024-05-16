@@ -543,8 +543,8 @@ for(i in 1:nrow(efficacy)){
   this_country <- this_efficacy$country
   this_date <- this_efficacy$todays_date
   this_cluster <- this_efficacy$cluster
-  starter <- this_date - 45
-  ender <- this_date - 15
+  starter <- this_date - 120
+  ender <- this_date - 10
   this_insectocidal_score <- insectocidal_score %>%
     ungroup %>%
     filter(country == this_country,
@@ -603,7 +603,7 @@ cluster_level <- efficacy %>%
   mutate(ttm_last_month = dplyr::lag(cases, 1)) %>%
   mutate(ttm_last_month = ifelse(is.na(ttm_last_month), 0, ttm_last_month)) %>%
   mutate(prevalence = cases / tries * 100)
-ggplot(data = cluster_level %>% filter(tries >= 10),
+ggplot(data = cluster_level %>% filter(tries >= 10, insectocidal_score > 0),
        aes(x = (insectocidal_score),
            y = (prevalence),
            color = country)) +
