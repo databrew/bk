@@ -368,11 +368,11 @@ save.image('temp.RData')
 ###################################################
 
 # # Filter out irrelevant dates
-# protection <- protection %>%
-#   filter(
-#     (country == 'KEN' & date >= '2023-10-03' & date <= '2024-02-28') |
-#       (country == 'MOZ' & date >= '2022-03-17' & date <= '2022-11-30')
-#   )
+protection <- protection %>%
+  filter(
+    (country == 'KEN' & date >= '2023-10-03' & date <= '2024-02-28') |
+      (country == 'MOZ' & date >= '2022-03-17' & date <= '2022-11-30')
+  )
 
 # Get the denominator (total number of people in each cluster)
 # This is an approximation due to migration, etc.
@@ -480,8 +480,9 @@ ggplot(data = cumulative_insectocidal_score,
        aes(x = visit,
            y = score)) +
   # geom_violin(alpha = 0.6, fill = 'yellow') +
+  # geom_line(aes(group = cluster)) +
   geom_boxplot(outliers = FALSE) +
-  geom_jitter(width = 0.05, height = 0, alpha = 0.5) +
+  geom_jitter(width = 0.05, height = 0, alpha = 0.5, fill = NA) +
   facet_wrap(~country, scales = 'free_x') +
   theme_bw()
 
@@ -489,6 +490,14 @@ ggplot(data = cumulative_insectocidal_score,
 right_hand <- cumulative_insectocidal_score %>%
   group_by(country, cluster) %>%
   summarise(protection = sum(score))
+
+ggplot(data = right_hand,
+       aes(x = protection)) +
+  geom_density(aes(fill = country), 
+               alpha = 0.7) +
+  theme_bw() +
+  theme(legend.position = 'bottom') +
+  scale_fill_manual(name = 'Country', values = c('red', 'blue'))
 
 # Now get the cumulative (sum) incidence for each cluster
 left_hand <- efficacy %>%
@@ -514,8 +523,16 @@ ggplot(data = model_data,
   labs(x = 'Cumulative protection (sum of each "peak" protection score)',
        y = 'Cumulative incidence',
        caption = 'One dot = one cluster')
-  
+fit <- lm(incidence ~ protection*intervention, data = model_data)
+summary(fit)
+ors <- data.frame(ors)
+names(ors)[2:3] <- c('lwr', 'upr')
+p_value <- summary(fit)$coefficients[2,4]
+ors
+p_value
 
+
+# PERSON LEVEL DATA
 # Get the peak insecticidal score for the person's cluster
 # during the 11-25 rearview window
 efficacy$insectocidal_score <- NA
