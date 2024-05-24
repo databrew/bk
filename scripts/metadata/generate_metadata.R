@@ -1692,6 +1692,69 @@ if(FALSE){
   write_csv(pd, '/tmp/absent_efficacy.csv')
 }
 
+# One-off request to get distance from cluster border to every child
+if(FALSE){
+  efficacy_locations <- efficacy %>%
+    group_by(extid) %>%
+    summarise(lng = dplyr::first(Longitude),
+              lat = dplyr::first(Latitude),
+              cluster = dplyr::first(cluster)) %>%
+    mutate(x = lng, y = lat)
+  # Project
+  p4s <- "+proj=utm +zone=37 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+  crs <- CRS(p4s)
+  llcrs <- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+  coordinates(efficacy_locations) <- ~lng+lat
+  proj4string(efficacy_locations) <- llcrs
+  efficacy_locations_projected <- spTransform(efficacy_locations, crs)
+  
+  out_list <- list()
+  for(i in 1:nrow(efficacy_locations_projected@data)){
+    this_row <- efficacy_locations_projected[i,]
+    this_cluster <- clusters_projected[as.numeric(clusters_projected@data$cluster_nu) == as.numeric(this_row@data$cluster),]
+    this_cluster <- data.frame(this_cluster@polygons[[1]]@Polygons[[1]]@coords)
+    coordinates(this_cluster) <- ~X1+X2
+    proj4string(this_cluster) <- p4s
+    # plot(this_cluster)
+    # points(this_row)
+    dd <- spDists(x = this_row, y = this_cluster)
+    out <- tibble(extid = this_row@data$extid,
+                  cluster = this_row@data$cluster,
+                  distance_to_border = min(dd))
+    out_list[[i]] <- out
+  }
+  distances <- bind_rows(out_list)
+  efficacy_locations_projected@data <- left_join(efficacy_locations_projected@data,
+                                                 distances)
+  
+  # # Get distance
+  # distances <- spDists(x = efficacy_locations_projected,
+  #         y = clusters_projected)
+  # cluster_index <- as.numeric(clusters_projected@data$cluster_nu)
+  # distances_to_border <- c()
+  # for(i in 1:nrow(distances)){
+  #   distances_to_border <- c(distances_to_border, distances[i, which(cluster_index == efficacy_locations@data$cluster[i])])
+  # }
+  # # distances_to_border <- apply(distances, 1, min)
+  # efficacy_locations$distance_to_border <- distances_to_border
+  # efficacy_locations_projected@data$distance_to_border <- distances_to_border
+  clustern <- 2
+  plot(clusters_projected[as.numeric(clusters_projected@data$cluster_nu) == clustern,])
+  text(efficacy_locations_projected[efficacy_locations_projected@data$cluster == clustern,], label = round(efficacy_locations_projected@data$distance_to_border[efficacy_locations_projected@data$cluster == clustern]))
+  library(ggplot2)
+  ggplot(data = efficacy_locations_projected@data %>% filter(cluster == 3),
+         aes(x = x,
+             y = y,
+             col = distance_to_border)) +
+    geom_point(size = 5) +
+    scale_color_gradient2(low = 'green', mid = 'yellow', high = 'red')
+  # Sanity test
+  plot(clusters_projected)
+  points(efficacy_locations_projected[efficacy_locations_projected@data$distance_to_border <= 100,], col = 'red', pch = '.')
+  clusters_projected_fortified <- fortify(clusters_projected, region = clusters_projected@data$cluster_nu)
+}
+
+
 # Get the starting roster
 starting_roster <- v0demography_repeat_individual %>%
   left_join(v0demography %>% dplyr::select(hhid, start_time, KEY), by = c('PARENT_KEY' = 'KEY')) %>%
@@ -2239,6 +2302,7 @@ if(FALSE){
 if(FALSE){
   # QC
   load('rmds/pfu_tables.RData')
+  readr::write_csv(individuals, '~/Desktop/pfu.csv')
   table(is.na(individuals$cluster))
   table(is.na(individuals$hhid))
   table(individuals$sex)
