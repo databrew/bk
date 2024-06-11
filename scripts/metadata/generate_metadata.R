@@ -332,6 +332,18 @@ if(start_fresh){
   load('data.RData')
 }
 
+# One-off MDA duration for Matthew
+if(FALSE){
+  mda_duration <-
+    safety_repeat_individual %>%
+    left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
+    group_by(cluster, visit) %>%
+    summarise(start_date = min(todays_date),
+              end_date = max(todays_date)) %>%
+    ungroup %>%
+    mutate(mda_duration = as.numeric(end_date - start_date)) 
+}
+
 # Make household ID 5 characters
 add_zero <- function (x, n) {
   if(length(x) > 0){
@@ -1738,7 +1750,7 @@ if(FALSE){
   # # distances_to_border <- apply(distances, 1, min)
   # efficacy_locations$distance_to_border <- distances_to_border
   # efficacy_locations_projected@data$distance_to_border <- distances_to_border
-  clustern <- 2
+  clustern <- 5
   plot(clusters_projected[as.numeric(clusters_projected@data$cluster_nu) == clustern,])
   text(efficacy_locations_projected[efficacy_locations_projected@data$cluster == clustern,], label = round(efficacy_locations_projected@data$distance_to_border[efficacy_locations_projected@data$cluster == clustern]))
   library(ggplot2)
@@ -1748,10 +1760,7 @@ if(FALSE){
              col = distance_to_border)) +
     geom_point(size = 5) +
     scale_color_gradient2(low = 'green', mid = 'yellow', high = 'red')
-  # Sanity test
-  plot(clusters_projected)
-  points(efficacy_locations_projected[efficacy_locations_projected@data$distance_to_border <= 100,], col = 'red', pch = '.')
-  clusters_projected_fortified <- fortify(clusters_projected, region = clusters_projected@data$cluster_nu)
+  write_csv(distances, 'distances_to_border.csv')
 }
 
 
