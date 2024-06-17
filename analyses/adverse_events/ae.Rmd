@@ -99,7 +99,289 @@ load('rmd_data.RData')
 ```
 
 
+
 # Aggregated information
+
+## Incidence rates
+
+The below table shows incident rates for severe adeverse events (`xsaes`) and adverse events (`xaes`).
+
+```{r}
+# Read in intervention information
+assignments <- read_csv('../randomization/outputs/assignments.csv')
+ia <- read_csv('../randomization/outputs/intervention_assignment.csv')
+
+# Read in Carlos categories
+carlos <- read_csv('data/20240613_carlos_aes_CCh_marked_as_1_non_AEs.csv')
+# Remove from analysis those events considered by Carlos to be non-AEs
+remove_these <- carlos %>% filter(!is.na(AE)) %>% mutate(remove = TRUE) %>% dplyr::select(-todays_date)
+ae <- ae %>% left_join(remove_these) %>%
+  filter(is.na(remove))
+
+# Read in SAEs from Laura (corrected by Carlos 2024-06-14)
+saes <- read_csv('data/20240614_SAE Line Listing for Joe corrected.csv') %>%
+# saes <- readxl::read_excel('data/20240613_SAE Line Listing for Joe.xlsx') %>%
+  # Get intervention
+  mutate(cluster_number = as.numeric(substr(extID, 1, 2))) %>%
+  left_join(assignments) %>%
+  dplyr::rename(arm = assignment) %>%
+  left_join(ia) %>%
+  mutate(symptom_category =
+           ifelse(!is.na(`Event Death`), 'Death',
+                  ifelse(!is.na(`Event Hospitalized`), 'Hospitalization', NA)))
+
+# Remove pregnancy related SAEs as per https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1717910963530969?thread_ts=1717753800.699009&cid=C042KSRLYUA
+# No longer necessary, Carlos removed them
+
+# Get total number of people treated
+denominator <- safety_repeat_individual %>%
+  left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
+  mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
+  filter(took_drug) %>%
+  group_by(intervention) %>%
+  summarise(people = length(unique(extid)))
+  
+
+
+# Rate (SAEs)
+numerator <- saes %>% group_by(intervention) %>% summarise(saes = n())
+# Rate (AEs)
+numerator2 <- ae %>% 
+    # Get intervention
+  mutate(cluster_number = as.numeric(substr(extid, 1, 2))) %>%
+  left_join(assignments) %>%
+  dplyr::rename(arm = assignment) %>%
+  left_join(ia) %>%
+  filter(!is.na(intervention)) %>%
+  group_by(intervention) %>%
+  summarise(aes = n())
+joined <- left_join(numerator, numerator2)
+joined <- left_join(joined, denominator)
+joined <- joined %>%
+  mutate(saes_rate = saes / people,
+         aes_rate = aes / people)
+# Get 95% confidence intervals
+library(binom)
+options(scipen = '999')
+ci_saes <- binom.confint(x = joined$saes, n = joined$people, methods = 'wilson') %>%
+  dplyr::select(upr_saes = upper, lwr_saes = lower)
+ci_aes <- binom.confint(x = joined$aes, n = joined$people, methods = 'wilson') %>%
+  dplyr::select(upr_aes = upper, lwr_aes = lower)
+joined <- bind_cols(joined, ci_saes, ci_aes)
+joined %>%
+  mutate(xsaes = paste0(round(saes_rate, digits = 4), ' (', round(lwr_saes, digits = 4), '-', round(upr_saes, digits = 4), ')')) %>%
+  mutate(xaes = paste0(round(aes_rate, digits = 4), ' (', round(lwr_aes, digits = 4), '-', round(upr_aes, digits = 4), ')')) %>%
+  dplyr::select(intervention, saes, aes, people, xsaes, xaes) %>%
+  knitr::kable()
+```
+
+## SAEs by sub-category
+
+```{r}
+sub_categories <- sort(unique(saes$symptom_category))
+out_list <- list()
+for(i in 1:length(sub_categories)){
+  this_sub_category <- sub_categories[i]
+  this_sae <- saes %>%
+    filter(symptom_category == this_sub_category)
+  numerator <- this_sae %>% 
+  group_by(intervention) %>%
+  summarise(aes = n()) 
+  joined <- left_join(numerator, denominator) %>%
+    mutate(rate = aes / people)
+  ci <- binom.confint(x = joined$aes, n = joined$people, methods = 'wilson') %>%
+  dplyr::select(upr = upper, lwr = lower)
+  joined <- bind_cols(joined, ci)
+  joined <- joined %>%
+    mutate(sub_category = this_sub_category)
+  out_list[[i]] <- joined
+}
+out <- bind_rows(out_list) %>% mutate(sub_category = factor(sub_category, levels = rev(sort(unique(sub_category)))))
+# Multiply by 1000
+out <- out %>%
+  mutate(rate = rate * 10000,
+         lwr = lwr * 10000,
+         upr = upr * 10000)
+ggplot(data = out,
+       aes(x = sub_category,
+           y = rate,
+           group = intervention,
+           fill = intervention)) +
+  geom_col(position = position_dodge(width = 0.9), color = 'black') +
+  geom_errorbar(aes(ymin = lwr, ymax = upr), position = position_dodge(width = 0.9),
+                alpha = 0.6) +
+  theme_bw() +
+  theme(legend.position = 'bottom') +
+  coord_flip() +
+  scale_fill_manual(name = '', values = c('darkgrey', 'red')) +
+  labs(x = 'Symptom category',
+       y = 'Rate (per 10,000 individuals)')
+```
+
+
+#### Rate ratios
+
+```{r}
+rr <- out %>%
+  group_by(sub_category) %>%
+  summarise(rr = rate[intervention == 'Treatment'] / rate[intervention == 'Control']) 
+limiter <- max(abs(range(rr$rr)))
+ggplot(data = rr,
+       aes(x = sub_category,
+           y = rr)) +
+  # geom_col(alpha = 0.5) +
+  geom_point(pch = '_', size = 10) +
+  geom_hline(yintercept = 1, alpha = 0.8, lty = 2) +
+  geom_text(aes(label = round(rr, digits = 4),
+                y = ifelse(rr <0, rr-0.1, rr + 0.1))) +
+  theme_bw() + 
+    ylim(1 + c(limiter * -2.1, limiter*2.1)) +
+  labs(x = '', y = 'Incidence rate ratio (Ivermectin / Albendazole)') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+  
+rr_sae <- rr
+```
+
+## AEs by sub-category
+
+```{r}
+sub_categories <- sort(unique(ae$symptom_category))
+out_list <- list()
+for(i in 1:length(sub_categories)){
+  this_sub_category <- sub_categories[i]
+  this_ae <- ae %>%
+    filter(symptom_category == this_sub_category)
+  numerator <- this_ae %>% 
+    # Get intervention
+  mutate(cluster_number = as.numeric(substr(extid, 1, 2))) %>%
+  left_join(assignments) %>%
+  dplyr::rename(arm = assignment) %>%
+  left_join(ia) %>%
+  filter(!is.na(intervention)) %>%
+  group_by(intervention) %>%
+  summarise(aes = n()) 
+  joined <- left_join(numerator, denominator) %>%
+    mutate(rate = aes / people)
+  ci <- binom.confint(x = joined$aes, n = joined$people, methods = 'wilson') %>%
+  dplyr::select(upr = upper, lwr = lower)
+  joined <- bind_cols(joined, ci)
+  joined <- joined %>%
+    mutate(sub_category = this_sub_category)
+  out_list[[i]] <- joined
+}
+out <- bind_rows(out_list) %>% mutate(sub_category = factor(sub_category, levels = rev(sort(unique(sub_category)))))
+out <- out %>%
+  mutate(rate = rate * 10000,
+         lwr = lwr * 10000,
+         upr = upr * 10000)
+ggplot(data = out,
+       aes(x = sub_category,
+           y = rate,
+           group = intervention,
+           fill = intervention)) +
+  geom_col(position = position_dodge(width = 0.9), color = 'black') +
+  geom_errorbar(aes(ymin = lwr, ymax = upr), position = position_dodge(width = 0.9),
+                alpha = 0.6) +
+  theme_bw() +
+  theme(legend.position = 'bottom') +
+  coord_flip() +
+  scale_fill_manual(name = '', values = c('darkgrey', 'red')) +
+  labs(x = 'Symptom category',
+       y = 'Rate (per 10,000 individuals)')
+```
+
+#### Rate ratios
+
+```{r}
+rr <- out %>%
+  group_by(sub_category) %>%
+  summarise(rr = rate[intervention == 'Treatment'] / rate[intervention == 'Control']) 
+limiter <- max(abs(range(rr$rr)))
+ggplot(data = rr,
+       aes(x = sub_category,
+           y = rr)) +
+  # geom_col(alpha = 0.5) +
+  geom_point(pch = '_', size = 10) +
+  geom_hline(yintercept = 1, alpha = 0.8, lty = 2) +
+  geom_text(aes(label = round(rr, digits = 4),
+                y = ifelse(rr <0, rr-0.1, rr + 0.1))) +
+  theme_bw() + 
+    ylim(1 + c(limiter * -1.1, limiter*1.1)) +
+  labs(x = '', y = 'Incidence rate ratio (Ivermectin / Albendazole)') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+  
+rr_ae <- rr
+```
+
+## Combined chart
+
+```{r}
+# saes overall
+numerator <- saes %>% 
+  group_by(intervention) %>%
+  summarise(aes = n()) 
+joined <- left_join(numerator, denominator) %>%
+    mutate(rate = aes / people) 
+ci <- binom.confint(x = joined$aes, n = joined$people, methods = 'wilson') %>%
+  dplyr::select(upr = upper, lwr = lower)
+  joined <- bind_cols(joined, ci)
+  joined <- joined %>%
+    mutate(sub_category = 'All SAEs')
+sae_overall <- joined
+rr_sae_overall <- sae_overall %>%
+    group_by(sub_category) %>%
+  summarise(rr = rate[intervention == 'Treatment'] / rate[intervention == 'Control']) 
+  
+# aes overall
+numerator <- ae %>% 
+ mutate(cluster_number = as.numeric(substr(extid, 1, 2))) %>%
+  left_join(assignments) %>%
+  dplyr::rename(arm = assignment) %>%
+  left_join(ia) %>%
+  filter(!is.na(intervention)) %>%
+  group_by(intervention) %>%
+  summarise(aes = n()) 
+joined <- left_join(numerator, denominator) %>%
+    mutate(rate = aes / people) 
+ci <- binom.confint(x = joined$aes, n = joined$people, methods = 'wilson') %>%
+  dplyr::select(upr = upper, lwr = lower)
+joined <- bind_cols(joined, ci)
+joined <- joined %>%
+    mutate(sub_category = 'All AEs')
+ae_overall <- joined
+rr_ae_overall <- ae_overall %>%
+  group_by(sub_category) %>%
+  summarise(rr = rate[intervention == 'Treatment'] / rate[intervention == 'Control']) 
+  
+
+# Combine them all together
+combined <-
+  bind_rows(
+    rr_sae_overall %>% mutate(grp = 'SAE'),
+    rr_sae %>% mutate(grp = 'SAE'),
+    rr_ae_overall %>% mutate(grp = 'AE'),
+    rr_ae  %>% mutate(grp = 'AE')
+  ) %>%
+  mutate(sub_category = factor(sub_category, levels = combined$sub_category))
+  
+limiter <- max(abs(range(combined$rr)))
+ggplot(data = combined,
+       aes(x = sub_category,
+           y = rr)) +
+  # geom_col(alpha = 0.5) +
+  geom_point(pch = '_', size = 10,
+             aes(color = grp)) +
+  geom_hline(yintercept = 1, alpha = 0.8, lty = 2) +
+  geom_text(aes(label = round(rr, digits = 4),
+                y = ifelse(rr <0, rr-0.2, rr + 0.2)), alpha = 0.5) +
+  theme_bw() + 
+    ylim(1 + c(limiter * -1.1, limiter*1.1)) +
+  labs(x = '', y = 'Incidence rate ratio (Ivermectin / Albendazole)') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  theme(legend.position = 'bottom') +
+  scale_color_manual(name = '', values = c('red', 'blue'))
+  
+```
 
 ## Total events reported by visit
 
@@ -119,9 +401,7 @@ The "V" variables refer to the visit at which the adverse event was reported.
 ```{r}
 library(knitr)
 library(kableExtra)
-# Read in intervention information
-assignments <- read_csv('../randomization/outputs/assignments.csv')
-ia <- read_csv('../randomization/outputs/intervention_assignment.csv')
+
 statuses <- left_join(assignments %>% 
                      dplyr::select(cluster = cluster_number,
                                    arm = assignment),
