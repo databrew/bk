@@ -216,6 +216,7 @@ ggplot(data = out,
   scale_fill_manual(name = '', values = c('darkgrey', 'red')) +
   labs(x = 'Symptom category',
        y = 'Rate (per 10,000 individuals)')
+saex <- out
 ```
 
 
@@ -235,7 +236,7 @@ ggplot(data = rr,
   geom_text(aes(label = round(rr, digits = 4),
                 y = ifelse(rr <0, rr-0.1, rr + 0.1))) +
   theme_bw() + 
-    ylim(1 + c(limiter * -2.1, limiter*2.1)) +
+    ylim(0, 1 + c(limiter*1.1)) +
   labs(x = '', y = 'Incidence rate ratio (Ivermectin / Albendazole)') +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
   
@@ -288,6 +289,7 @@ ggplot(data = out,
   scale_fill_manual(name = '', values = c('darkgrey', 'red')) +
   labs(x = 'Symptom category',
        y = 'Rate (per 10,000 individuals)')
+aex <- out
 ```
 
 #### Rate ratios
@@ -306,7 +308,7 @@ ggplot(data = rr,
   geom_text(aes(label = round(rr, digits = 4),
                 y = ifelse(rr <0, rr-0.1, rr + 0.1))) +
   theme_bw() + 
-    ylim(1 + c(limiter * -1.1, limiter*1.1)) +
+    ylim(0, 1 + c(limiter*1.1)) +
   labs(x = '', y = 'Incidence rate ratio (Ivermectin / Albendazole)') +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
   
@@ -362,20 +364,87 @@ combined <-
     rr_ae_overall %>% mutate(grp = 'AE'),
     rr_ae  %>% mutate(grp = 'AE')
   ) %>%
-  mutate(sub_category = factor(sub_category, levels = combined$sub_category))
+  mutate(sub_category = factor(sub_category, levels = sub_category)) %>%
+  mutate(grp = factor(grp, levels = rev(sort(unique(grp)))))
+
+# Get confidence intervals
+# overall AE confidence intervals
+# (reverse the order first so the comparison is compatible with the "combined" dataset)
+ae_overall <- ae_overall %>% arrange(desc(intervention))
+temp <- poisson.test(x = ae_overall$aes, T = ae_overall$people, r = 1)
+ci_ae_overall <- tibble(lwr = temp$conf.int[1],
+                        upr = temp$conf.int[2],
+                        rr = temp$estimate,
+                        p = temp$p.value,
+                        sub_category = 'All AEs')
+# AE sub-symptom confidence intervals
+out_list <- list()
+aex <- aex %>% arrange(desc(intervention))
+sub_categories <- sort(unique(aex$sub_category))
+for(i in 1:length(sub_categories)){
+  this_sub_category <- sub_categories[i]
+  this_data <- aex %>% filter(sub_category == this_sub_category)
+  cix <- poisson.test(x = this_data$aes, T = this_data$people, r = 1)
+  out <- tibble(lwr = cix$conf.int[1],
+                upr = cix$conf.int[2],
+                rr = cix$estimate,
+                p = cix$p.value,
+                sub_category = this_sub_category)
+  out_list[[i]] <- out
+}
+ci_ae <- bind_rows(out_list)
+# overall SAE confidence intervals
+sae_overall <- sae_overall %>% arrange(desc(intervention))
+temp <- poisson.test(x = sae_overall$aes, T = sae_overall$people, r = 1)
+ci_sae_overall <- tibble(lwr = temp$conf.int[1],
+                        upr = temp$conf.int[2],
+                        rr = temp$estimate,
+                        p = temp$p.value,
+                        sub_category = 'All SAEs')
+# SAE sub-symptom confidence intervals
+out_list <- list()
+saex <- saex %>% arrange(desc(intervention))
+sub_categories <- sort(unique(saex$sub_category))
+for(i in 1:length(sub_categories)){
+  this_sub_category <- sub_categories[i]
+  this_data <- saex %>% filter(sub_category == this_sub_category)
+  cix <- poisson.test(x = this_data$aes, T = this_data$people, r = 1)
+  out <- tibble(lwr = cix$conf.int[1],
+                upr = cix$conf.int[2],
+                rr = cix$estimate,
+                p = cix$p.value,
+                sub_category = this_sub_category)
+  out_list[[i]] <- out
+}
+ci_sae <- bind_rows(out_list)
+# Combine all confidence intervals into one
+ci_combined <- bind_rows(
+  ci_sae,
+  ci_ae,
+  ci_sae_overall,
+  ci_ae_overall
+) %>% dplyr::rename(rr2 = rr)
+# joined to the other combined data
+combined <- left_join(combined, ci_combined)
   
-limiter <- max(abs(range(combined$rr)))
+limiter <- max(abs(range(combined$upr)))
+# ordering
+combined$sub_category <- factor(combined$sub_category, levels = combined$sub_category)
 ggplot(data = combined,
        aes(x = sub_category,
            y = rr)) +
   # geom_col(alpha = 0.5) +
-  geom_point(pch = '_', size = 10,
+  geom_point(pch = '_', size = 20,
              aes(color = grp)) +
-  geom_hline(yintercept = 1, alpha = 0.8, lty = 2) +
-  geom_text(aes(label = round(rr, digits = 4),
-                y = ifelse(rr <0, rr-0.2, rr + 0.2)), alpha = 0.5) +
+  geom_errorbar(aes(ymin = lwr, 
+                    ymax = upr),
+                width = 0.3,
+                alpha = 0.4) +
+  geom_hline(yintercept = 1, alpha = 0.7, size = 1, lty = 1) +
+  geom_text(aes(label = round(rr, digits = 3),
+                y = ifelse(rr <1, rr-0.1, rr + 0.1)), alpha = 0.5) +
   theme_bw() + 
-    ylim(1 + c(limiter * -1.1, limiter*1.1)) +
+    ylim(0, c(limiter*1.01)) +
   labs(x = '', y = 'Incidence rate ratio (Ivermectin / Albendazole)') +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
   theme(legend.position = 'bottom') +
