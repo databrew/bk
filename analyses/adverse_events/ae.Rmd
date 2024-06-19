@@ -491,7 +491,7 @@ length(which(!is.na(saes$`Event Hospitalized`))),
 saes %>% filter(!is.na(`Event Hospitalized`), intervention == 'Treatment')  %>% nrow(),
 " in the ivermectin arm) and one ",
 length(which(!is.na(saes$`Event Disability`))),
-" (ivermectin arm). None were deemed drug-related by the medical monitors. The rate of SAE was ",
+" disability (ivermectin arm). None were deemed drug-related by the medical monitors. The rate of SAE was ",
 sae_overall %>% filter(intervention == 'Treatment') %>% mutate(r10000 = round(aes / people * 10000, digits = 2)) %>% mutate(r10000 = paste0(r10000, ' (95% CI of ', round(lwr * 10000, digits = 2), ' - ', round(upr * 10000, digits = 2), ')')) %>% pull(r10000),
 " by 10,000 treated individuals in the ivermectin arm, and ",
 sae_overall %>% filter(intervention == 'Control') %>% mutate(r10000 = round(aes / people * 10000, digits = 2)) %>% mutate(r10000 = paste0(r10000, ' (95% CI of ', round(lwr * 10000, digits = 2), ' - ', round(upr * 10000, digits = 2), ')')) %>% pull(r10000),
@@ -500,7 +500,22 @@ ci_sae_overall %>% mutate(output = paste0(round(rr, digits = 2), ' (95% CI of ',
 "."
 )
 cat(paste0(out))
+
+# Carlos CSV request https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1718786203357599?thread_ts=1718714760.756079&cid=C042KSRLYUA
+carlos_csv <- 
+  ae %>%
+  left_join(safety_repeat_individual %>% dplyr::select(KEY, age, sex), by = c('PARENT_KEY' = 'KEY')) %>%
+  # get intervention info
+   mutate(cluster_number = as.numeric(substr(extid, 1, 2))) %>%
+  left_join(assignments%>% mutate(cluster_number = as.numeric(cluster_number))) %>%
+  dplyr::rename(arm = assignment) %>%
+  left_join(ia) %>%
+  filter(!is.na(intervention)) %>%
+  dplyr::select(extid, sex, age, intervention, symptom, symptom_category)
+write_csv(carlos_csv, 'ae_carlos.csv')
 ```
+
+
 
 ## Total events reported by visit
 
