@@ -59,7 +59,7 @@ knitr::opts_chunk$set(
                cache = FALSE,
   fig.path = "figures/",
   fig.height = 7.5,
-  fig.width = 10,
+  fig.width = 9,
   out.width = "100%"
 )
 options(knitr.kable.NA = '')
@@ -438,7 +438,12 @@ combined <- left_join(combined, ci_combined)
   
 limiter <- max(abs(range(combined$upr)))
 # ordering
+# Rename per Carlos request
+# https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1718807586481569?thread_ts=1718714760.756079&cid=C042KSRLYUA
+combined <- combined %>%
+  mutate(sub_category = ifelse(sub_category == 'Malaria', 'Self-reported malaria', sub_category))
 combined$sub_category <- factor(combined$sub_category, levels = combined$sub_category)
+
 ggplot(data = combined,
        aes(x = sub_category,
            y = rr)) +
@@ -658,7 +663,7 @@ ggplot(data = pd,
   coord_flip() +
   theme(legend.position = 'bottom') +
   scale_fill_manual(name = 'Symptom',
-                    values = RColorBrewer::brewer.pal(n = length(unique(pd$symptom_category)), 'Set1'))
+                    values = colorRampPalette(RColorBrewer::brewer.pal(n = 9, 'Set1'))(length(unique(pd$symptom_category))))
 ggsave(filename = 'for_carlos/events_by_cluster_visit_symptom_category.png', height = 10, width = 10)
 
 ```
@@ -789,7 +794,7 @@ ggplot(data = pd,
   theme(legend.position = 'bottom',
         axis.text.y = element_text(size = 2)) +
   scale_fill_manual(name = 'Symptom',
-                    values = RColorBrewer::brewer.pal(n = length(unique(pd$symptom_category)), 'Set1'))
+                    values = RColorBrewer::colorRampPalette(RColorBrewer::brewer.pal(n = 9, 'Set1'))(length(unique(pd$symptom_category))))
 ggsave('for_carlos/events_by_visit_symptom_category_cl_id.png')
 
 pdx <- tidyr::spread(pd, key = visit, value = n)
