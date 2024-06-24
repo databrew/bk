@@ -48,7 +48,13 @@ header-includes:
 ```
 
 
-```{r, include = FALSE}
+```{r}
+library(knitr)
+```
+
+
+
+```{r}
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = NA, 
@@ -63,15 +69,10 @@ knitr::opts_chunk$set(
   out.width = "100%"
 )
 options(knitr.kable.NA = '')
-library(knitr)
-library(kableExtra)
-```
-
-
-
-```{r}
 library(dplyr)
 library(knitr)
+library(kableExtra)
+
 options(digits=8)
 
 library(kableExtra)
@@ -101,7 +102,10 @@ load('rmd_data.RData')
 # https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1718715804095149?thread_ts=1718714760.756079&cid=C042KSRLYUA
 ae <- ae %>%
   mutate(symptom_category = ifelse(symptom_category %in% c('Diarrhea', 'Nausea/vomiting'),
-                                   'Gastrointestinal', symptom_category))
+                                   'Gastrointestinal', 
+                                  # the below = instruction from Carlos June 24 2024 (phone call)
+                                   ifelse(symptom_category %in% c('Malaria', 'Fatigue'),
+                                          'Systemtic', symptom_category)))
 ```
 
 
@@ -116,6 +120,9 @@ The below table shows incident rates for severe adeverse events (`xsaes`) and ad
 # Read in intervention information
 assignments <- read_csv('../randomization/outputs/assignments.csv')
 ia <- read_csv('../randomization/outputs/intervention_assignment.csv')
+
+# Read in carlos manual spreadsheet modifications
+carlos_manual <- read_csv('data/20240619 ae_listing_carlos_clean.csv')
 
 # Read in Carlos categories
 carlos <- read_csv('data/20240613_carlos_aes_CCh_marked_as_1_non_AEs.csv')
@@ -140,15 +147,22 @@ saes <- read_csv('data/20240614_SAE Line Listing for Joe corrected.csv') %>%
 # Remove pregnancy related SAEs as per https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1717910963530969?thread_ts=1717753800.699009&cid=C042KSRLYUA
 # No longer necessary, Carlos removed them
 
-# Get total number of people treated
+# # Get total number of people treated
+# denominator <- safety_repeat_individual %>%
+#   left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
+#   mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
+#   filter(took_drug) %>%
+#   group_by(intervention) %>%
+#   summarise(people = length(unique(extid)))
+  
+# Get total number of TREATMENTS
 denominator <- safety_repeat_individual %>%
   left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
   mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
   filter(took_drug) %>%
   group_by(intervention) %>%
-  summarise(people = length(unique(extid)))
+  summarise(people = n()) # calling this "people" isntead of "treatments" to keep code consistent later on
   
-
 
 # Rate (SAEs)
 numerator <- saes %>% group_by(intervention) %>% summarise(saes = n())
@@ -428,10 +442,10 @@ for(i in 1:length(sub_categories)){
 ci_sae <- bind_rows(out_list)
 # Combine all confidence intervals into one
 ci_combined <- bind_rows(
-  ci_sae,
-  ci_ae,
   ci_sae_overall,
-  ci_ae_overall
+  ci_sae,
+  ci_ae_overall,
+  ci_ae %>% mutate(sub_category = as.character(sub_category)) %>% arrange(sub_category)
 ) %>% dplyr::rename(rr2 = rr)
 # joined to the other combined data
 combined <- left_join(combined, ci_combined)
@@ -442,13 +456,13 @@ limiter <- max(abs(range(combined$upr)))
 # https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1718807586481569?thread_ts=1718714760.756079&cid=C042KSRLYUA
 combined <- combined %>%
   mutate(sub_category = ifelse(sub_category == 'Malaria', 'Self-reported malaria', sub_category))
-combined$sub_category <- factor(combined$sub_category, levels = combined$sub_category)
+combined$sub_category <- factor(combined$sub_category, levels = rev(ci_combined$sub_category))
 
 ggplot(data = combined,
        aes(x = sub_category,
            y = rr)) +
   # geom_col(alpha = 0.5) +
-  geom_point(pch = '_', size = 20,
+  geom_point(size = 2,
              aes(color = grp)) +
   geom_errorbar(aes(ymin = lwr, 
                     ymax = upr),
@@ -456,13 +470,18 @@ ggplot(data = combined,
                 alpha = 0.4) +
   geom_hline(yintercept = 1, alpha = 0.7, size = 1, lty = 1) +
   geom_text(aes(label = round(rr, digits = 3),
-                y = ifelse(rr <1, rr-0.1, rr + 0.1)), alpha = 0.5) +
+                # y = ifelse(rr <1, rr-0.3, rr + 0.3)),
+                y = rr),
+            y = 0,
+            alpha = 0.5,
+            nudge_x = 0.2) +
   theme_bw() + 
     ylim(0, c(limiter*1.01)) +
-  labs(x = '', y = 'Incidence rate ratio ivermectin/albendazole per 100 treated') +
+  labs(x = '', y = 'Incidence rate ratio ivermectin/albendazole') +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
   theme(legend.position = 'bottom') +
-  scale_color_manual(name = '', values = c('red', 'blue'))
+  scale_color_manual(name = '', values = c('red', 'blue')) +
+  coord_flip()
   
 ```
 
@@ -518,6 +537,19 @@ carlos_csv <-
   filter(!is.na(intervention)) %>%
   dplyr::select(extid, sex, age, intervention, symptom, symptom_category)
 write_csv(carlos_csv, 'ae_carlos.csv')
+```
+
+```{r}
+# Compare the spreadsheet Joe gave to Carlos
+# vs the changes carlos made
+original <- read_csv('ae_carlos.csv')
+modified <- read_csv('data/20240619 ae_listing_carlos_clean.csv') %>%
+  dplyr::select(modified_symptom = symptom,
+                modified_symptom_category = symptom_category) 
+om <- bind_cols(original, modified) %>%
+  mutate(different_symptom = symptom != modified_symptom,
+         different_symptom_category = symptom_category != modified_symptom_category)
+write_csv(om, 'original_vs_modified.csv')
 ```
 
 
