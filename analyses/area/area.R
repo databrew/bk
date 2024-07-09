@@ -82,6 +82,8 @@ if(start_fresh){
 # Load in spatial data
 load('../../data_public/spatial/clusters.RData')
 load('../../data_public/spatial/new_clusters.RData')
+load('../../data_public/spatial/new_cores.RData')
+
 # clusters_fortified <- fortify(clusters, id = 'cluster_nu')
 # load('../../data_public/spatial/pongwe_kikoneni_ramisi.RData')
 # pongwe_kikoneni_ramisi_fortified <- fortify(pongwe_kikoneni_ramisi, id = 'NAME_3')
@@ -103,6 +105,7 @@ v0demography_spatial_projected <- spTransform(v0demography_spatial, crs)
 # clusters_projected_buffered <- rgeos::gBuffer(clusters_projected, byid = TRUE, width = 50)
 
 new_clusters_projected <- spTransform(new_clusters, crs)
+new_cores_projected <- spTransform(new_cores, crs)
 
 # areas <- rgeos::gArea(new_clusters_projected, byid = TRUE)  /1000
 areas <- geosphere::areaPolygon(new_clusters)
@@ -111,3 +114,28 @@ out <- new_clusters_projected@data %>%
 
 write_csv(out, 'areas.csv')
 
+
+# Calculate the distance in meters from the edge of each cluster core (ie, ignore the buffer) to the edge of the nearest cluster's core (generating one value - which should be >400 meters - for each cluster). Thereafter, calculate the average of all the values. 
+library(sp)
+out_list <- list()
+for(i in 1:nrow(new_cores_projected)){
+  this_shp <- new_cores_projected[i,]
+  coords <- this_shp@polygons[[1]]@Polygons[[1]]@coords
+  out <- SpatialPointsDataFrame(coords, data = tibble(cluster_nu = rep(this_shp@data %>% pull(cluster_nu), nrow(coords))))
+  out_list[[i]] <- out
+}
+done <- do.call('rbind', out_list)
+proj4string(done) <- proj4string(new_cores_projected)
+distance_list <- list()
+cluster_nus <- sort(unique(done$cluster_nu))
+for(i in 1:length(cluster_nus)){
+  this_cluster_nu <- cluster_nus[i]
+  these_points <- done[done@data$cluster_nu == this_cluster_nu,]
+  other_points <- done[done@data$cluster_nu != this_cluster_nu,]
+  distances <- spDists(these_points, other_points)
+  distances <- apply(distances, 1, min)
+  distance_list[[i]] <- tibble(cluster_nu = this_cluster_nu,
+                               meters_to_nearest_other_core = min(distances))
+}
+distances <- bind_rows(distance_list)
+mean(distances$meters_to_nearest_other_core)
