@@ -82,7 +82,8 @@ if(start_fresh){
 # Load in spatial data
 load('../../data_public/spatial/clusters.RData')
 load('../../data_public/spatial/new_clusters.RData')
-load('../../data_public/spatial/new_cores.RData')
+load('../../data_public/spatial/cores.RData') # careful, new cores seems to be overly wide
+new_cores <- cores[cores@data$cluster_number %in% as.numeric(new_clusters@data$cluster_nu),]
 
 # clusters_fortified <- fortify(clusters, id = 'cluster_nu')
 # load('../../data_public/spatial/pongwe_kikoneni_ramisi.RData')
@@ -121,21 +122,24 @@ out_list <- list()
 for(i in 1:nrow(new_cores_projected)){
   this_shp <- new_cores_projected[i,]
   coords <- this_shp@polygons[[1]]@Polygons[[1]]@coords
-  out <- SpatialPointsDataFrame(coords, data = tibble(cluster_nu = rep(this_shp@data %>% pull(cluster_nu), nrow(coords))))
+  out <- SpatialPointsDataFrame(coords, data = tibble(cluster_number = rep(this_shp@data %>% pull(cluster_number), nrow(coords))))
   out_list[[i]] <- out
 }
 done <- do.call('rbind', out_list)
 proj4string(done) <- proj4string(new_cores_projected)
 distance_list <- list()
-cluster_nus <- sort(unique(done$cluster_nu))
-for(i in 1:length(cluster_nus)){
-  this_cluster_nu <- cluster_nus[i]
-  these_points <- done[done@data$cluster_nu == this_cluster_nu,]
-  other_points <- done[done@data$cluster_nu != this_cluster_nu,]
-  distances <- spDists(these_points, other_points)
-  distances <- apply(distances, 1, min)
-  distance_list[[i]] <- tibble(cluster_nu = this_cluster_nu,
+cluster_numbers <- sort(unique(done$cluster_number))
+for(i in 1:length(cluster_numbers)){
+  this_cluster_number <- cluster_numbers[i]
+  these_points <- done[done@data$cluster_number == this_cluster_number,]
+  other_points <- done[done@data$cluster_number != this_cluster_number,]
+  distances <- rgeos::gDistance(these_points, other_points)
+  # add 5 due to internal buffering (ie, this line in recon_clustering.R: this_poly <- gBuffer(this_poly, width = 5))
+  distances <- distances + 5
+  # distances <- apply(distances, 1, min)
+  distance_list[[i]] <- tibble(cluster_number = this_cluster_number,
                                meters_to_nearest_other_core = min(distances))
 }
 distances <- bind_rows(distance_list)
 mean(distances$meters_to_nearest_other_core)
+range(distances$meters_to_nearest_other_core)
