@@ -332,6 +332,8 @@ if(start_fresh){
   load('data.RData')
 }
 
+
+
 # One-off MDA duration for Matthew
 if(FALSE){
   mda_duration <-
@@ -342,6 +344,7 @@ if(FALSE){
               end_date = max(todays_date)) %>%
     ungroup %>%
     mutate(mda_duration = as.numeric(end_date - start_date)) 
+  write_csv(mda_duration, 'mda_duration.csv')
 }
 
 # Make household ID 5 characters
@@ -678,6 +681,7 @@ if('ia.RData' %in% dir()){
 #################################################################################################
 pryr::mem_used()
 gc()
+
 
 
 
@@ -1707,9 +1711,10 @@ if(FALSE){
 # One-off request to get distance from cluster border to every child
 if(FALSE){
   efficacy_locations <- efficacy %>%
+    filter(!(visit == 'V7' & extid == '03020-03')) %>%
     group_by(extid) %>%
-    summarise(lng = dplyr::first(Longitude),
-              lat = dplyr::first(Latitude),
+    summarise(lng = median(Longitude),
+              lat = median(Latitude),
               cluster = dplyr::first(cluster)) %>%
     mutate(x = lng, y = lat)
   # Project
@@ -1761,6 +1766,12 @@ if(FALSE){
     geom_point(size = 5) +
     scale_color_gradient2(low = 'green', mid = 'yellow', high = 'red')
   write_csv(distances, 'distances_to_border.csv')
+  
+  ggplot(data = efficacy_locations_projected@data,
+         aes(x = efficacy_locations_projected@data$distance_to_border)) +
+    geom_histogram( color = 'white') +
+    labs(x = 'Meters',
+         y = 'Count')
 }
 
 
