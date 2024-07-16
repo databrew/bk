@@ -105,7 +105,7 @@ ae <- ae %>%
                                    'Gastrointestinal', 
                                   # the below = instruction from Carlos June 24 2024 (phone call)
                                    ifelse(symptom_category %in% c('Malaria', 'Fatigue'),
-                                          'Systemtic', symptom_category)))
+                                          'Systemic', symptom_category)))
 ```
 
 
@@ -123,6 +123,36 @@ ia <- read_csv('../randomization/outputs/intervention_assignment.csv')
 
 # Read in carlos manual spreadsheet modifications
 carlos_manual <- read_csv('data/20240619 ae_listing_carlos_clean.csv')
+
+# Add number of pills
+if(FALSE){
+  na_to_zero <- function(x){ifelse(is.na(x), 0, x)}
+  right <- safety_repeat_individual %>%
+  left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
+  bind_rows(safetynew_repeat_individual %>%
+              left_join(safetynew, by = c('PARENT_KEY' = 'KEY'))) %>%
+  mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
+  filter(took_drug) %>%
+    mutate(num_ivermectin_tablets_taken = na_to_zero(num_ivermectin_tablets_taken),
+           num_ivermectin_tablets_taken_2 = na_to_zero(num_ivermectin_tablets_taken_2),
+           num_albendzole_pills = na_to_zero(num_albendzole_pills),
+           num_albendzole_pills_2 = na_to_zero(num_albendzole_pills_2)) %>%
+    group_by(visit, extid) %>%
+    summarise(ivermectin_pills = num_ivermectin_tablets_taken + num_ivermectin_tablets_taken_2,
+              albendzole_pills = num_albendzole_pills + num_albendzole_pills_2) 
+  ivm <- right %>% dplyr::select(visit, extid, ivermectin_pills) %>%
+    tidyr::spread(key = visit, value = ivermectin_pills)
+  names(ivm)[2:4] <- paste0(names(ivm[2:4]), '_ivermectin')
+  alb <- right %>% dplyr::select(visit, extid, albendzole_pills) %>%
+    tidyr::spread(key = visit, value = albendzole_pills)
+  names(alb)[2:4] <- paste0(names(alb[2:4]), '_albendazole')
+  carlos_manual <- left_join(carlos_manual,
+                             ivm) %>%
+    left_join(alb)
+  write_csv(carlos_manual, 'data/20240619 ae_listing_carlos_clean_with_pills.csv')
+  
+}
+  
 
 # Read in Carlos categories
 carlos <- read_csv('data/20240613_carlos_aes_CCh_marked_as_1_non_AEs.csv')
@@ -158,10 +188,132 @@ saes <- read_csv('data/20240614_SAE Line Listing for Joe corrected.csv') %>%
 # Get total number of TREATMENTS
 denominator <- safety_repeat_individual %>%
   left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
+  bind_rows(safetynew_repeat_individual %>%
+              left_join(safetynew, by = c('PARENT_KEY' = 'KEY'))) %>%
   mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
   filter(took_drug) %>%
   group_by(intervention) %>%
   summarise(people = n()) # calling this "people" isntead of "treatments" to keep code consistent later on
+
+# Get AE frequency, adjusted for population size, by number of pills taken
+if(FALSE){
+  
+  na_to_zero <- function(x){ifelse(is.na(x), 0, x)}
+  right <- safety_repeat_individual %>%
+  left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
+  bind_rows(safetynew_repeat_individual %>%
+              left_join(safetynew, by = c('PARENT_KEY' = 'KEY'))) %>%
+  mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
+  filter(took_drug) %>%
+    mutate(num_ivermectin_tablets_taken = na_to_zero(num_ivermectin_tablets_taken),
+           num_ivermectin_tablets_taken_2 = na_to_zero(num_ivermectin_tablets_taken_2),
+           num_albendzole_pills = na_to_zero(num_albendzole_pills),
+           num_albendzole_pills_2 = na_to_zero(num_albendzole_pills_2)) %>%
+    group_by(visit, extid) %>%
+    summarise(ivermectin_pills = num_ivermectin_tablets_taken + num_ivermectin_tablets_taken_2,
+              albendzole_pills = num_albendzole_pills + num_albendzole_pills_2) 
+  ivm <- right %>% dplyr::select(visit, extid, ivermectin_pills) %>%
+    tidyr::spread(key = visit, value = ivermectin_pills)
+  names(ivm)[2:4] <- paste0(names(ivm[2:4]), '_ivermectin')
+  alb <- right %>% dplyr::select(visit, extid, albendzole_pills) %>%
+    tidyr::spread(key = visit, value = albendzole_pills)
+  names(alb)[2:4] <- paste0(names(alb[2:4]), '_albendazole')
+  ivm_alb <- full_join(ivm, alb)
+  zero_to_na <- function(x){ifelse(x == 0, NA, x)}
+  for(j in 2:ncol(ivm_alb)){
+    ivm_alb[,j] <- as.numeric(zero_to_na(unlist(ivm_alb[,j])))
+  }
+  ivm_alb$ivermectin_pills <- apply(ivm_alb[,2:4], 1, function(x){mean(x, na.rm = T)})
+  ivm_alb$albendazole_pills <- apply(ivm_alb[,5:7], 1, function(x){mean(x, na.rm = T)})
+  ivm_alb <- ivm_alb %>%
+    mutate(pill_group = ifelse(ivermectin_pills >=11, '>=11',
+                               ifelse(ivermectin_pills >= 8, '8-10',
+                                      ifelse(ivermectin_pills >= 7, '6-7',
+                                             ifelse(ivermectin_pills >= 4, '4-5',
+                                                    ifelse(ivermectin_pills >= 2, '2-3', NA))))))
+  
+  denom_pills <- safety_repeat_individual %>%
+  left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
+  bind_rows(safetynew_repeat_individual %>%
+              left_join(safetynew, by = c('PARENT_KEY' = 'KEY'))) %>%
+  mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
+  filter(took_drug) %>%
+  left_join(ivm_alb) %>%
+  group_by(intervention, pill_group) %>%
+  summarise(treatments = n()) %>%
+    filter(intervention == 'Treatment')
+  
+  # now get chart
+  pd <- ae %>% 
+    # keep only those with ivermectin
+    filter(extid %in% (safety_repeat_individual %>% filter(intervention == 'Treatment') %>% pull(extid))) %>%
+    left_join(ivm_alb) %>%
+    filter(!is.na(pill_group)) %>%
+    group_by(symptom_category, pill_group) %>%
+    tally %>%
+    ungroup 
+  pd <- left_join(pd, denom_pills)
+  # standardize per 1000 treatments
+  pd <- pd %>%
+    mutate(p = n / treatments * 1000) %>%
+    mutate(pill_group = factor(pill_group,
+                               levels = (rev(c("2-3", 
+                                          "4-5",  
+                                          "6-7",  
+                                          "8-10",
+                                          ">=11")))))
+  cols <- colorRampPalette(c('yellow', 'lightgreen', 'darkblue'))(5)
+  left <- expand.grid(symptom_category = sort(unique(pd$symptom_category)),
+                      pill_group = sort(unique(pd$pill_group)))
+  pd <- left_join(left, pd) %>%
+    mutate(p = ifelse(is.na(p), 0, p))
+  ggplot(data =pd,
+         aes(x = symptom_category,
+             y = p,
+             fill = forcats::fct_rev(pill_group))) +
+    geom_col(position = position_dodge(width = 0.8),
+             color = 'black', size = 0.3) +
+    scale_fill_manual(name = 'IVM dosage group',
+                      values = cols) +
+    labs(x = 'Symptom category',
+         y = 'AEs per 1,000 treatments') +
+    coord_flip() +
+    theme_bw() +
+    theme(legend.position = 'bottom')
+  
+}
+
+
+# Compare to Carlos/Eldo hard-coded denominators
+if(FALSE){
+  # Creating a data frame for participant distribution
+  library(tidyr)
+participant_distribution <- data.frame(
+  age_group = rep(c("<15", "15-65", ">65"), each = 2),
+  sex = rep(c("Male", "Female"), 3),
+  Treatment = c(5131, 5089, 7077, 7615, 486, 626),
+  Control = c(5994, 5715, 8488, 8508, 562, 676)
+)%>%
+  pivot_longer(cols = c(Treatment, Control), 
+               names_to = "intervention", 
+               values_to = "participant_count")
+joe <- safety_repeat_individual %>%
+  ungroup %>%
+  left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
+   bind_rows(safetynew_repeat_individual %>%
+              left_join(safetynew, by = c('PARENT_KEY' = 'KEY'))) %>%
+  mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
+  filter(took_drug) %>%
+  # filter(sex %in% c('Male', 'Female')) %>%
+  mutate(sex = Hmisc::capitalize(sex)) %>%
+  mutate(age_group = ifelse(age < 15, '<15',
+                            ifelse(age <= 65, '15-65',
+                                   '>65'))) %>%
+  group_by(age_group, sex, intervention) %>%
+  summarise(participant_count_joe = n()) %>%
+  ungroup
+eldo_vs_joe <- left_join(participant_distribution, joe)
+}
   
 
 # Rate (SAEs)
@@ -472,16 +624,25 @@ ggplot(data = combined,
   geom_text(aes(label = round(rr, digits = 3),
                 # y = ifelse(rr <1, rr-0.3, rr + 0.3)),
                 y = rr),
-            y = 0,
             alpha = 0.5,
-            nudge_x = 0.2) +
+            size = 4,
+            nudge_x = 0.3) +
   theme_bw() + 
     ylim(0, c(limiter*1.01)) +
   labs(x = '', y = 'Incidence rate ratio ivermectin/albendazole') +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  theme(axis.text.x = element_text(angle = 0, hjust = 1, vjust = 0.5, size = 14)) +
+  theme(axis.text.y = element_text(size = 14)) +
   theme(legend.position = 'bottom') +
   scale_color_manual(name = '', values = c('red', 'blue')) +
-  coord_flip()
+  coord_flip() +
+  theme(axis.line = element_line(colour = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    legend.text = element_text(size = 14)) 
+
+# Get the right side of the chart
   
 ```
 
@@ -585,6 +746,8 @@ pdx <- ae %>%
 # get percentage of affected subjects by arm and symptom
 denominator <- safety_repeat_individual %>% dplyr::select(-intervention) %>%
   left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
+       bind_rows(safetynew_repeat_individual %>%
+              left_join(safetynew, by = c('PARENT_KEY' = 'KEY'))) %>%
   left_join(statuses) %>%
   group_by(arm) %>%
   summarise(denom = length(unique(extid)))
@@ -826,7 +989,7 @@ ggplot(data = pd,
   theme(legend.position = 'bottom',
         axis.text.y = element_text(size = 2)) +
   scale_fill_manual(name = 'Symptom',
-                    values = RColorBrewer::colorRampPalette(RColorBrewer::brewer.pal(n = 9, 'Set1'))(length(unique(pd$symptom_category))))
+                    values = colorRampPalette(RColorBrewer::brewer.pal(n = 9, 'Set1'))(length(unique(pd$symptom_category))))
 ggsave('for_carlos/events_by_visit_symptom_category_cl_id.png')
 
 pdx <- tidyr::spread(pd, key = visit, value = n)
@@ -850,9 +1013,52 @@ pdx %>%
 `r nrow(ae)` adverse events have been registered from `r length(unique(ae$extid))` individuals. The below chart shows the number of adverse events per individual.
 
 ```{r}
-left <- safety_repeat_individual %>% distinct(extid)
+left <- safety_repeat_individual %>% 
+   left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
+  bind_rows(safetynew_repeat_individual %>%
+              left_join(safetynew, by = c('PARENT_KEY' = 'KEY'))) %>%
+  mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
+  filter(took_drug) %>%
+  dplyr::distinct(extid)
 right <- ae %>% group_by(extid) %>% tally
 joined <- left_join(left, right) %>% mutate(n = ifelse(is.na(n), 0, n))
+# csv for carlos
+if(FALSE){
+  more_than_one <- ae %>%
+    group_by(extid) %>%
+    mutate(n = n()) %>%
+    ungroup %>% 
+    filter(n >= 2) %>%
+    arrange(extid)  %>%
+    left_join(individuals %>% dplyr::select(extid, sex = gender, age, arm) %>%
+                dplyr::distinct(extid, .keep_all = TRUE) %>%
+                left_join(ia))
+  # Get number of tablets by visit
+  na_to_zero <- function(x){ifelse(is.na(x), 0, x)}
+  right <- safety_repeat_individual %>%
+  left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
+  bind_rows(safetynew_repeat_individual %>%
+              left_join(safetynew, by = c('PARENT_KEY' = 'KEY'))) %>%
+  mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
+  filter(took_drug) %>%
+    mutate(num_ivermectin_tablets_taken = na_to_zero(num_ivermectin_tablets_taken),
+           num_ivermectin_tablets_taken_2 = na_to_zero(num_ivermectin_tablets_taken_2),
+           num_albendzole_pills = na_to_zero(num_albendzole_pills),
+           num_albendzole_pills_2 = na_to_zero(num_albendzole_pills_2)) %>%
+    group_by(visit, extid) %>%
+    summarise(ivermectin_pills = num_ivermectin_tablets_taken + num_ivermectin_tablets_taken_2,
+              albendzole_pills = num_albendzole_pills + num_albendzole_pills_2) 
+  ivm <- right %>% dplyr::select(visit, extid, ivermectin_pills) %>%
+    tidyr::spread(key = visit, value = ivermectin_pills)
+  names(ivm)[2:4] <- paste0(names(ivm[2:4]), '_ivermectin')
+  alb <- right %>% dplyr::select(visit, extid, albendzole_pills) %>%
+    tidyr::spread(key = visit, value = albendzole_pills)
+  names(alb)[2:4] <- paste0(names(alb[2:4]), '_albendazole')
+  more_than_one <- left_join(more_than_one, ivm) %>%
+    left_join(alb)
+  write_csv(more_than_one, '~/Desktop/more_than_one.csv')
+}
+
 pd <- joined %>%
   group_by(n) %>%
   summarise(individuals = n())
@@ -896,6 +1102,74 @@ pd %>%
                     font_size = 8) 
 ```
 
+```{r}
+multiple_aes <- ae %>%
+  group_by(extid) %>% tally %>% filter(n > 1)
+
+# Sex, age, etc. of individuals with multiple AEs
+pd <- safety_repeat_individual %>%
+  left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
+  bind_rows(safetynew_repeat_individual %>%
+              left_join(safetynew, by = c('PARENT_KEY' = 'KEY'))) %>%
+  mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
+  filter(took_drug) %>%
+  dplyr::distinct(extid, .keep_all = TRUE) %>%
+  mutate(number_of_aes = ifelse(extid %in% multiple_aes$extid, '>1 AEs',
+                                ifelse(extid %in% ae$extid, '1 AE',
+                                       'No AEs'))) %>%
+  dplyr::distinct(extid, number_of_aes, intervention,
+                  sex, age, wid, cluster)
+
+pdx <- pd %>%
+  group_by(intervention, number_of_aes) %>%
+  tally
+ggplot(data = pdx,
+       aes(x = intervention, y = n, fill = number_of_aes)) +
+  geom_col(position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = n), position = position_dodge(width = 0.9)) +
+  labs(title = 'Number of individuals by AE-number and intervention') +
+  theme(legend.position = 'bottom')
+
+
+pdx <- pd %>%
+  group_by(sex = toupper(sex), number_of_aes) %>%
+  tally
+ggplot(data = pdx,
+       aes(x = sex, y = n, fill = number_of_aes)) +
+  geom_col(position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = n), position = position_dodge(width = 0.9)) +
+  labs(title = 'Number of individuals by AE-number and sex') +
+  theme(legend.position = 'bottom')
+
+pdx <- pd %>%
+  group_by(age_group = ifelse(age <= 15, '<=15',
+                              ifelse(age<=49, '<=49',
+                                     ifelse(age<=65, '<=65',
+                                            '<=999'))), number_of_aes) %>%
+  tally
+ggplot(data = pdx,
+       aes(x = age_group, y = n, fill = number_of_aes)) +
+  geom_col(position = position_dodge(width = 0.9)) +
+  geom_text(aes(label = n), position = position_dodge(width = 0.9)) +
+  labs(title = 'Number of individuals by AE-number and age_group') +
+  theme(legend.position = 'bottom')
+
+pdx <- pd %>%
+  group_by(wid = factor(wid), number_of_aes) %>%
+  tally %>%
+  filter(number_of_aes %in% '>1 AEs') %>%
+  arrange(desc(n)) %>%
+  ungroup %>%
+  mutate(wid = factor(wid, levels = rev(wid)))
+ggplot(data = pdx,
+       aes(x = wid, y = n, fill = number_of_aes)) +
+  geom_col(position = position_dodge(width = 0.9), color = 'black') +
+  geom_text(aes(label = n), position = position_dodge(width = 0.9), size = 2) +
+  theme(axis.text.y = element_text(size = 3)) +
+  labs(title = 'Number of individuals with >1 AE by Worker ID') +
+  theme(legend.position = 'bottom') +
+  coord_flip()
+```
 
 ## Adverse event symptom categories
 
