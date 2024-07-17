@@ -29,11 +29,19 @@ kenya1_fortified <- fortify(kenya1, id = 'NAME_1')
 kwale <- kenya1[kenya1@data$NAME_1 == 'Kwale',]
 kwale_fortified <- fortify(kwale, id = 'NAME_1')
 
+# pongwe kikoneni
+pw <- kenya3[kenya3@data$NAME_3 == 'Pongwe/Kikoneni',]
+ramisi <- kenya3[kenya3@data$NAME_3 == 'Ramisi',]
+pw_fortified <- fortify(pw, id = 'NAME_3')
+ramisi_fortified <- fortify(ramisi, id = 'NAME_3')
+
 # Clusters
 load('../../data_public/spatial/clusters.RData')
 old_clusters <- clusters
 # New (reduced) clusters
 load('../../data_public/spatial/new_clusters.RData')
+new_clusters_foritifed <- fortify(new_clusters, id = 'cluster_nu')
+old_clusters_fortified <- fortify(old_clusters, id = 'cluster_number')
 
 # Plot Africa + Kenya
 ggplot() +
@@ -60,6 +68,70 @@ ggplot() +
                    group = group),
                fill = 'grey', color = 'black', size = 0.5) +
   geom_polygon(data = kwale_fortified,
+               aes(x = long,
+                   y = lat,
+                   group = group),
+               fill = 'darkred', alpha = 0.7, color = 'black')
+
+
+# Clusters in kwale
+ggplot() +
+  theme_map() +
+  geom_polygon(data = pw_fortified,
+               aes(x = long,
+                   y = lat,
+                   group = group),
+               fill = 'grey', color = 'black', size = 0.5) +
+  geom_polygon(data = ramisi_fortified,
+               aes(x = long,
+                   y = lat,
+                   group = group),
+               fill = 'grey', color = 'black', size = 0.5) +
+  geom_polygon(data = new_clusters_foritifed,
+               aes(x = long,
+                   y = lat,
+                   group = group),
+               fill = 'darkred', alpha = 0.7, color = 'black')
+
+
+# New vs old in kwale
+ggplot() +
+  theme_map() +
+  geom_polygon(data = pw_fortified,
+               aes(x = long,
+                   y = lat,
+                   group = group),
+               fill = 'grey', color = 'black', size = 0.5) +
+  geom_polygon(data = ramisi_fortified,
+               aes(x = long,
+                   y = lat,
+                   group = group),
+               fill = 'grey', color = 'black', size = 0.5) +
+  geom_polygon(data = new_clusters_foritifed,
+               aes(x = long,
+                   y = lat,
+                   group = group),
+               fill = 'darkred', alpha = 0.7, color = 'black')
+
+# New vs old in kwale
+ggplot() +
+  theme_map() +
+  geom_polygon(data = pw_fortified,
+               aes(x = long,
+                   y = lat,
+                   group = group),
+               fill = 'grey', color = 'black', size = 0.5) +
+  geom_polygon(data = ramisi_fortified,
+               aes(x = long,
+                   y = lat,
+                   group = group),
+               fill = 'grey', color = 'black', size = 0.5) +
+  geom_polygon(data = old_clusters_fortified,
+               aes(x = long,
+                   y = lat,
+                   group = group),
+               fill = 'white', alpha = 1, color = 'black') +
+  geom_polygon(data = new_clusters_foritifed,
                aes(x = long,
                    y = lat,
                    group = group),
