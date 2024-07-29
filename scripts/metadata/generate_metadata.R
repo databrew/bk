@@ -2659,7 +2659,7 @@ icf_individuals <- left_join(icf_individuals, right)
 # icf_1, icf_2,  icf_3, icf_4, icf_5, icf_6 ....icf_24
 right <- sepk_icf_verification %>%
   filter(study_select == 'safety') %>%
-  dplyr::select(extid, icf_1:icf_24) %>%
+  dplyr::select(extid, starts_with('icf_')) %>%
   mutate(safety_errors = '')
 icf_columns <- paste0('icf_', 1:24)
 if(nrow(right) > 0){
@@ -2689,7 +2689,7 @@ icf_individuals <- left_join(icf_individuals, right)
 # icf_1, icf_2,  icf_3, icf_4, icf_5, icf_6 ....icf_24
 right <- sepk_icf_verification %>%
   filter(study_select == 'efficacy') %>%
-  dplyr::select(extid, icf_1:icf_24) %>%
+  dplyr::select(extid, starts_with('icf_')) %>%
   mutate(efficacy_errors = '')
 if(nrow(right) > 0){
   icf_columns <- paste0('icf_', 1:24)
@@ -2717,7 +2717,7 @@ icf_individuals <- left_join(icf_individuals, right)
 # icf_1, icf_2,  icf_3, icf_4, icf_5, icf_6 ....icf_24
 right <- sepk_icf_verification %>%
   filter(study_select == 'pk') %>%
-  dplyr::select(extid, icf_1:icf_24) %>%
+  dplyr::select(extid, starts_with('icf_')) %>%
   mutate(pk_errors = '')
 if(nrow(right) > 0){
   icf_columns <- paste0('icf_', 1:24)
