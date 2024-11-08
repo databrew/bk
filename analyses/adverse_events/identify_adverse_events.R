@@ -6,6 +6,11 @@ library(cloudbrewr)
 library(lubridate)
 library(readr)
 
+# Redefine read_csv to handle the guess_max limitation
+read_the_csv <- function(file){
+  readr::read_csv(file, guess_max = Inf)
+}
+
 # Define production
 folder <- 'kwale'
 # folder <- 'test_of_test'
@@ -71,14 +76,14 @@ if(start_fresh){
   middle_path <- glue::glue('{folder}/{raw_or_clean}-form/')
 
   # Safety
-  safety <- read_csv(paste0(middle_path, 'safety/safety.csv'))
-  safety_repeat_drug <- read_csv(paste0(middle_path, 'safety/safety-repeat_drug.csv'))
-  safety_repeat_individual <- read_csv(paste0(middle_path, 'safety/safety-repeat_individual.csv'))
-  safety_repeat_ae_symptom <- read_csv(paste0(middle_path, 'safety/safety-repeat_ae_symptom.csv'))
+  safety <- read_the_csv(paste0(middle_path, 'safety/safety.csv'))
+  safety_repeat_drug <- read_the_csv(paste0(middle_path, 'safety/safety-repeat_drug.csv'))
+  safety_repeat_individual <- read_the_csv(paste0(middle_path, 'safety/safety-repeat_individual.csv'))
+  safety_repeat_ae_symptom <- read_the_csv(paste0(middle_path, 'safety/safety-repeat_ae_symptom.csv'))
   
   # Safety new
-  safetynew <- read_csv(paste0(middle_path, 'safetynew/safetynew.csv'))
-  safetynew_repeat_individual <- read_csv(paste0(middle_path, 'safetynew/safetynew-repeat_individual.csv'))
+  safetynew <- read_the_csv(paste0(middle_path, 'safetynew/safetynew.csv'))
+  safetynew_repeat_individual <- read_the_csv(paste0(middle_path, 'safetynew/safetynew-repeat_individual.csv'))
   
   save(safety, 
        safety_repeat_drug,
@@ -349,7 +354,7 @@ individual_visits <- bind_rows(
   arrange(desc(start_time))
 
 # Get intervention status based on cluster
-assignments <- read_csv('../../analyses/randomization/outputs/assignments.csv') %>%
+assignments <- read_the_csv('../../analyses/randomization/outputs/assignments.csv') %>%
   mutate(cluster_number = add_zero(cluster_number, 2))
 individual_visits <- 
   left_join(individual_visits %>%
@@ -412,3 +417,33 @@ save(visit_level, safety,
      safetynew,
      safetynew_repeat_individual,
      file = 'rmd_data.RData')
+
+# Eldo inspection
+if(FALSE){
+  # https://bohemiakenya.slack.com/archives/C042KSRLYUA/p1719661199983749?thread_ts=1719569727.419949&cid=C042KSRLYUA
+  joe  <- safety_repeat_individual %>%
+    ungroup %>%
+    left_join(safety, by = c('PARENT_KEY' = 'KEY')) %>%
+    bind_rows(safetynew_repeat_individual %>%
+                left_join(safetynew, by = c('PARENT_KEY' = 'KEY'))) %>%
+    mutate(took_drug =  participant_take_drug == 'yes' | participant_take_drug_2 == 'yes') %>%
+    filter(took_drug) %>%
+    # filter(sex %in% c('Male', 'Female')) %>%
+    mutate(sex = Hmisc::capitalize(sex)) %>%
+    mutate(age_group = ifelse(age < 15, '<15',
+                              ifelse(age <= 65, '15-65',
+                                     '>65')))
+  eldo <- read_the_csv('~/Downloads/participants_treated_kenya.csv')
+  eldo <- eldo %>%
+    mutate(sex = Hmisc::capitalize(sex)) 
+  eldo$`...1` <- NULL
+  diff <- eldo %>% filter(!extid %in% joe$extid)
+  joe <- joe[,names(joe) %in% names(eldo)]
+  aj <- anti_join(joe, eldo)
+  write_csv(aj, '~/Desktop/joe_vs_eldo.csv')
+  joe_vs_eldo <- aj
+  aj <- anti_join(eldo, joe)
+  write_csv(aj, '~/Desktop/eldo_vs_joe.csv')
+  eldo_vs_joe <- aj
+  eldo_vs_joe <- eldo_vs_joe[,names(joe_vs_eldo)]
+}

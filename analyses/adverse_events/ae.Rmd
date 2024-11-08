@@ -271,7 +271,7 @@ if(FALSE){
          aes(x = symptom_category,
              y = p,
              fill = forcats::fct_rev(pill_group))) +
-    geom_col(position = position_dodge(width = 0.8),
+    geom_col(position = position_dodge(width = 0.9),
              color = 'black', size = 0.3) +
     scale_fill_manual(name = 'IVM dosage group',
                       values = cols) +
